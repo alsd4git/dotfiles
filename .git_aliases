@@ -13,8 +13,7 @@ alias lg="git log origin/\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')..\$(git 
 alias lgr="git log origin/release..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
 alias ch="git cherry -v release"
 
-clear && echo -e "Aliases List:\n" && alias  | GREP_COLOR='01;32' egrep --color=always 'alias|' | GREP_COLOR='01;32' egrep --color=always 'git|' | sed 's/\=/ \t/g' && echo -e "\n"
-#clear && echo -e "Lista Alias:\n" && alias  | GREP_COLOR='01;32' egrep --color=always 'alias|' | GREP_COLOR='01;32' egrep --color=always 'git|' | sed 's/\=/ \t/g' && echo -e "\n"
+nice_print_aliases
 
 # alias grey-grep="GREP_COLOR='1;30' grep --color=always"
 # alias red-grep="GREP_COLOR='1;31' grep --color=always"
