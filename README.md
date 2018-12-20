@@ -7,7 +7,7 @@ and (atm) manually add these lines to your .bashrc / .profile to load them (```s
 
 step by step:
 ```sh
-git clone http://github.com/alsd4git/dotfiles
+git clone https://github.com/alsd4git/dotfiles
 cd dotfiles
 chmod a+x setup.sh && sh setup.sh
 ```
