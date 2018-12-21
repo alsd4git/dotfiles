@@ -9,6 +9,7 @@ alias gcb="git checkout -b" # + branch name
 alias gf="git fetch"
 alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gl="git pull --rebase origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
+alias gr="git rebase -Xignore-all-space" # + branch name
 alias gs="git status"
 alias lg="git log origin/\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
 alias lgr="git log origin/release..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
