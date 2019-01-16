@@ -1,25 +1,23 @@
 # dotfiles
 my dotfiles across some pcs and my server
 
-this will be personal, and messy, feel free to use, but i'm not so experienced in linux, i'm not responsible if something breaks
-to use these files you need to copy them to your home / use ```chmod a+x setup.sh && sh setup.sh```
-and (atm) manually add these lines to your .bashrc / .profile to load them (```setup.sh``` will assume you have / will use a .bashrc)
+This will be personal, and messy, feel free to use, but i'm not so experienced in linux, i'm not responsible if something breaks
+to use these files you need to copy them to your home or use ```setup.sh```, if you have no bashrc i will create one, but if you already have one you must (first time only) manually add lines below here to make your bashrc source my aliases
 
 step by step:
 ```sh
 git clone https://github.com/alsd4git/dotfiles
 cd dotfiles
-chmod a+x setup.sh && sh setup.sh
+chmod +x setup.sh && sh setup.sh
 ```
 
+if ```~/.bashrc``` is not present it will look like this: 
+(also, these are the lines to add if you already have an existing .bashrc in your home dir)
 ```sh
-if [ -f ~/.bash_aliases ]; then
-    . ~/.bash_aliases
-fi
-
-if [ -f ~/.bash_functions ]; then
-    . ~/.bash_functions
-fi
+. ~/.bash_functions
+. ~/.bash_aliases
+. ~/.git_aliases
+nice_print_aliases
 ```
 
 (also, optional, i like to have a screenfetch on my shell when i open, so setup.sh will also add this line)
