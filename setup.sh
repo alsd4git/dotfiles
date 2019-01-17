@@ -33,8 +33,7 @@ if [ -f ~/.bashrc ]; then
     add_to_bashrc_if_not_present  ". ~/.bash_aliases"
     add_to_bashrc_if_not_present  ". ~/.git_aliases"
     add_to_bashrc_if_not_present  "nice_print_aliases"
-    add_to_bashrc_if_not_present  "screenfetch 2>/dev/null && echo -e '\n'"
-    echo -e "\n"
+    add_to_bashrc_if_not_present  "screenfetch 2>/dev/null"
 else
     # whole new file, need to add bash_aliases loading
     echo ".bashrc not found, i will create one in your profile directory and add alias sourcing to it"
@@ -43,7 +42,7 @@ else
     echo ". ~/.bash_aliases"   >> ~/.bashrc
     echo ". ~/.git_aliases"    >> ~/.bashrc
     echo "nice_print_aliases"  >> ~/.bashrc
-    echo "screenfetch 2>/dev/null && echo -e '\n'">>~/.bashrc
+    echo "screenfetch 2>/dev/null" >> ~/.bashrc
 fi
 echo "i will now copy new files, backing up the old ones (only for changed/updated files)"
 copy_with_backup .bash_aliases
