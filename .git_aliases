@@ -1,23 +1,24 @@
 #remember that if more than one alias has the same name, the one that appear later is the one that will be used
 
+alias ch="git cherry -v release"
 alias gac="git add . && git commit -m"  # + commit message
 alias gb="git branch" # + branch name
 alias gc="git checkout" # + branch name
 alias gca="git commit --amend --no-edit"
+alias gcb="git checkout -b" # + branch name
 alias gcd='git commit --amend --no-edit --date "$(date)"' #amend resetting date to 'now'
 alias gcl="git clone" # + repo url
-alias gcb="git checkout -b" # + branch name
+alias gd="git diff --stat" #diff stats between work directory and HEAD
 alias gf="git fetch"
-alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gl="git pull --rebase origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gla="git log -1 --stat" #see details of last commit
 alias glo="git log --oneline"
+alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gr="git rebase -Xignore-all-space" # + branch name
 alias gs="git status"
 alias gu="git reset --soft HEAD~1" #undo last commit without losing work
 alias lg="git log origin/\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
 alias lgr="git log origin/release..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
-alias ch="git cherry -v release"
 
 # alias grey-grep="GREP_COLOR='1;30' grep --color=always"
 # alias red-grep="GREP_COLOR='1;31' grep --color=always"
