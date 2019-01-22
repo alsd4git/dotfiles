@@ -2,6 +2,7 @@
 
 export LS_OPTIONS='--color=auto'
 alias ..='cd ..'
+alias a='alias'
 alias c='clear'
 alias cd..='cd ..'
 alias cre="c && nice_print_aliases"
