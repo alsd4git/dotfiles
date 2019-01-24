@@ -13,6 +13,7 @@ alias gf="git fetch"
 alias gl="git pull --rebase origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gla="git log -1 --stat" #see details of last commit
 alias glo="git log --oneline"
+alias gln="git log --graph --decorate --pretty=oneline --abbrev-commit"
 alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gr="git rebase -Xignore-all-space" # + branch name
 alias gs="git status"
