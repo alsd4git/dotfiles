@@ -12,9 +12,11 @@ alias edt='nano ~/.bashrc'
 alias h='history'
 alias l='ls $LS_OPTIONS -lAhv --group-directories-first' #-v is used for sort in natural form
 alias mount='mount |column -t' #Make mount command output pretty and human readable format
+alias myip='curl -s http://ipecho.net/plain; echo' #the echo part is not really needed, plain curl should print to STDOUT anyway, -s stand for silent
 alias n='nano -l'
 alias nano='nano -l'
 alias noh='cat /dev/null > ~/.bash_history'
+alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias update='sudo apt-get update && sudo apt-get upgrade'
 alias wget='wget -c' #resume wget by default
 
