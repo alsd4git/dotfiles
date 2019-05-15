@@ -32,7 +32,7 @@ if [ -f ~/.bashrc ]; then
     add_to_bashrc_if_not_present  ". ~/.bash_aliases"
     add_to_bashrc_if_not_present  ". ~/.bash_functions"
     add_to_bashrc_if_not_present  ". ~/.git_aliases"
-    add_to_bashrc_if_not_present  ". ~/.node_aliases"
+    add_to_bashrc_if_not_present  ". ~/.yarn_aliases"
     add_to_bashrc_if_not_present  "nice_print_aliases"
     add_to_bashrc_if_not_present  "screenfetch 2>/dev/null"
 else
@@ -42,7 +42,7 @@ else
     echo ". ~/.bash_aliases"   >> ~/.bashrc
     echo ". ~/.bash_functions" >> ~/.bashrc
     echo ". ~/.git_aliases"    >> ~/.bashrc
-    echo ". ~/.node_aliases"   >> ~/.bashrc
+    echo ". ~/.yarn_aliases"   >> ~/.bashrc
     echo "nice_print_aliases"  >> ~/.bashrc
     echo "screenfetch 2>/dev/null" >> ~/.bashrc
 fi
@@ -51,5 +51,5 @@ copy_with_backup .bash_aliases
 copy_with_backup .bash_functions
 copy_with_backup .git_aliases
 copy_with_backup .nanorc
-copy_with_backup .node_aliases
+copy_with_backup .yarn_aliases
 echo "you can type 'rm  ~/old_*.bak' to get rid of all old backups"
