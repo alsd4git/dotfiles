@@ -11,12 +11,12 @@ alias gcl="git clone" # + repo url
 alias gd="git diff" #diff between work directory and HEAD
 alias gds="git diff --stat" #diff stats between work directory and HEAD
 alias gf="git fetch"
-alias gl="git pull --rebase --autostash origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
+alias gl="git pull --rebase --autostash -Xignore-all-space origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gla="git log -1 --stat" #see details of last commit
 alias gln="git log --graph --decorate --pretty=oneline --abbrev-commit"
 alias glo="git log --oneline"
 alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
-alias gr="git rebase -Xignore-all-space" # + branch name
+alias gr="git rebase -Xignore-all-space --autostash" # + branch name
 alias gs="git status"
 alias gsu="git branch --set-upstream-to=origin/\$(git symbolic-ref --short HEAD)"
 alias gu="git reset --soft HEAD~1" #undo last commit without losing work
