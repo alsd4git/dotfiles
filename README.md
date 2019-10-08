@@ -14,13 +14,16 @@ chmod +x setup.sh && sh setup.sh
 if ```~/.bashrc``` is not present it will look like this: 
 (also, these are the lines to add if you already have an existing .bashrc in your home dir)
 ```sh
-. ~/.bash_functions
 . ~/.bash_aliases
+. ~/.bash_functions
 . ~/.git_aliases
+. ~/.history_settings
+. ~/.nanorc
+. ~/.yarn_aliases
 nice_print_aliases
 ```
 
-(also, optional, i like to have a screenfetch on my shell when i open, so setup.sh will also add this line)
+(also, optional, i like to have a screenfetch when i open my shell, so setup.sh will also add this line)
 
 ```sh
 screenfetch 2>/dev/null && echo -e "\n"
