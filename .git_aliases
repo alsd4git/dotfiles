@@ -15,7 +15,7 @@ alias gl="git pull --rebase --autostash -Xignore-all-space origin \$(git branch 
 alias gla="git log -1 --stat" #see details of last commit
 alias gln="git log --graph --decorate --pretty=oneline --abbrev-commit"
 alias glo="git log --oneline"
-alias glop="git log --pretty=format:'%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %s %C(green)(%cr) %C(cyan)<%an>%Creset' --abbrev-commit --date=short" #thanks to 'https://www.edureka.co/blog/git-format-commit-history/' and 'https://ma.ttias.be/pretty-git-log-in-one-line/'
+alias glop="git log --pretty=format:'%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %s %C(green)%ar %C(cyan)<%an>%Creset' --abbrev-commit --date=short" #thanks to 'https://www.edureka.co/blog/git-format-commit-history/' and 'https://ma.ttias.be/pretty-git-log-in-one-line/'
 alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
 alias gr="git rebase -Xignore-all-space --autostash" # + branch name
 alias gs="git status"
