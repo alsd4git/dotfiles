@@ -5,5 +5,5 @@ export HISTCONTROL=ignoreboth
 export HISTSIZE=10000
 export HISTTIMEFORMAT="%d/%m/%y %T " 
 export PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'n'}history -a; history -c; history -r" #this is used to sync history between mutiple open terminals, thanks to 'https://lpetr.org/2016/05/04/preserve-bash-history/'
-export shopt -s histappend 
+shopt -s histappend
 unset HISTFILESIZE #this remove the file size limit
