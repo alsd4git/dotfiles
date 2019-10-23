@@ -32,6 +32,7 @@ if [ -f ~/.bashrc ]; then
     add_to_bashrc_if_not_present  ". ~/.bash_aliases"
     add_to_bashrc_if_not_present  ". ~/.bash_functions"
     add_to_bashrc_if_not_present  ". ~/.git_aliases"
+	add_to_bashrc_if_not_present  ". ~/.git_functions"
     add_to_bashrc_if_not_present  ". ~/.history_settings"
     add_to_bashrc_if_not_present  ". ~/.yarn_aliases"
     add_to_bashrc_if_not_present  "nice_print_aliases"
@@ -43,6 +44,7 @@ else
     echo ". ~/.bash_aliases"       >> ~/.bashrc
     echo ". ~/.bash_functions"     >> ~/.bashrc
     echo ". ~/.git_aliases"        >> ~/.bashrc
+	echo ". ~/.git_functions"      >> ~/.bashrc
     echo ". ~/.history_settings"   >> ~/.bashrc
     echo ". ~/.yarn_aliases"       >> ~/.bashrc
     echo "nice_print_aliases"      >> ~/.bashrc
@@ -52,6 +54,7 @@ echo "i will now copy new files, backing up the old ones (only for changed/updat
 copy_with_backup .bash_aliases
 copy_with_backup .bash_functions
 copy_with_backup .git_aliases
+copy_with_backup .git_functions
 copy_with_backup .history_settings
 copy_with_backup .nanorc
 copy_with_backup .yarn_aliases

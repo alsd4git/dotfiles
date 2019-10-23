@@ -14,7 +14,7 @@ function nice_print_aliases(){
     #with sed to replace all occurences you have to add a g before last single quote
     alias | GREP_COLOR='01;32' grep -E --color=always 'alias |git' | sed 's/\=/ \t/'
 }
-export -f nice_print_aliases
+export -f nice_print_aliases #may not need this export, to check
 
 function nanobk() {
     echo "You are making a copy of $1 before you open it. Press enter to continue."

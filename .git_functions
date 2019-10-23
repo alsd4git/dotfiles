@@ -1,0 +1,19 @@
+function fuzzy_branch_selector(){
+    if [ -x "$(command -v fzf)" ]; then #this line is used to check whether or not the program is installed
+        #we have fzf, we can proceed
+        #echo "all ok"
+		git checkout $(git branch -a | grep 'remotes' | grep -v 'HEAD ->' | sed 's/remotes\/origin\///g' | fzf --reverse --preview 'git log --graph --abbrev-commit --decorate --color=always --first-parent  {1}')
+    else
+        echo "fzf not found, please download it from 'https://github.com/junegunn/fzf'"
+    fi
+}
+
+function fuzzy_log_viewer(){
+    if [ -x "$(command -v fzf)" ]; then #this line is used to check whether or not the program is installed
+        #we have fzf, we can proceed
+        #echo "all ok"
+		git log --pretty=format:"%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %s %C(green)%ar %C(cyan)<%an>%Creset" --abbrev-commit --color=always --date=short "$@" | fzf  --reverse --exact --no-sort --ansi --preview 'git show -p --stat --color=always {1}'
+    else
+        echo "fzf not found, please download it from 'https://github.com/junegunn/fzf'"
+    fi
+}
