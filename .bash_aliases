@@ -17,7 +17,7 @@ alias n='nano -l'
 alias nano='nano -l'
 alias noh='cat /dev/null > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
-alias update='sudo apt-get update && sudo apt-get upgrade'
+alias update='sudo apt-get update && sudo apt-get upgrade -y'
 alias wget='wget -c' #resume wget by default
 
 #more useful bash aliases here: https://www.cyberciti.biz/tips/bash-aliases-mac-centos-linux-unix.html
