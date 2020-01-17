@@ -12,8 +12,9 @@ function fuzzy_log_viewer(){
     if [ -x "$(command -v fzf)" ]; then #this line is used to check whether or not the program is installed
         #we have fzf, we can proceed
         #echo "all ok"
-		git log --pretty=format:"%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %s %C(green)%ar %C(cyan)<%aN>%Creset" --abbrev-commit --color=always --date=short "$@" | fzf  --reverse --exact --no-sort --ansi --preview 'git show -p --stat --color=always {1}'
-    else
+		#git log --pretty=format:"%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %s %C(green)%ar %C(cyan)<%aN>%Creset" --abbrev-commit --color=always --date=short "$@" | fzf  --reverse --exact --no-sort --ansi --preview 'git show -p --stat --color=always {1}'
+		git log --pretty=format:"%C(yellow)%h%Creset - %C(green)%ad%Creset -%C(red)%d%Creset %<(75,trunc)%s %C(green)%ar %C(cyan)<%aN>%Creset" --abbrev-commit --color=always --date=short "$@" | fzf  --reverse --exact --no-sort --ansi --preview 'git show -p --stat --color=always {1}'
+	else
         echo "fzf not found, please download it from 'https://github.com/junegunn/fzf'"
     fi
 }
