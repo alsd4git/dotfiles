@@ -23,7 +23,7 @@ alias update='sudo apt-get update && sudo apt-get upgrade -y'
 alias wget='wget -c' #resume wget by default
 
 #dockers
-alias up_dockers='docker images | grep -v REPOSITORY | awk '{print $1}' | xargs -L1 docker pull'
+alias up_dockers='docker images | grep -v REPOSITORY | awk '\''{print $1}'\'' | xargs -L1 docker pull'
 alias up_portainer='docker pull portainer/portainer-ce:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
 
 #more useful bash aliases here: https://www.cyberciti.biz/tips/bash-aliases-mac-centos-linux-unix.html
