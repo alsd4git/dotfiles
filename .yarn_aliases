@@ -1,5 +1,0 @@
-#remember that if more than one alias has the same name, the one that appear later is the one that will be used
-
-alias yi='yarn install'
-alias yo='yarn outdated'
-alias yu='yarn update'
