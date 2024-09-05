@@ -17,9 +17,10 @@ if ```~/.bashrc``` is not present it will look like this:
 . ~/.bash_aliases
 . ~/.bash_functions
 . ~/.git_aliases
+. ~/.git_functions
 . ~/.history_settings
+. ~/.omp_init
 . ~/.nanorc
-. ~/.yarn_aliases
 nice_print_aliases
 ```
 

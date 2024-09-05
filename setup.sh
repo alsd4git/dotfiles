@@ -34,6 +34,7 @@ if [ -f ~/.bashrc ]; then
     add_to_bashrc_if_not_present  ". ~/.git_aliases"
 	add_to_bashrc_if_not_present  ". ~/.git_functions"
     add_to_bashrc_if_not_present  ". ~/.history_settings"
+    add_to_bashrc_if_not_present  ". ~/.omp_init"
     add_to_bashrc_if_not_present  "nice_print_aliases"
     add_to_bashrc_if_not_present  "screenfetch 2>/dev/null"
 else
@@ -45,6 +46,7 @@ else
     echo ". ~/.git_aliases"        >> ~/.bashrc
 	echo ". ~/.git_functions"      >> ~/.bashrc
     echo ". ~/.history_settings"   >> ~/.bashrc
+    echo ". ~/.omp_init"            >> ~/.bashrc
     echo "nice_print_aliases"      >> ~/.bashrc
     echo "screenfetch 2>/dev/null" >> ~/.bashrc
 fi
@@ -54,5 +56,6 @@ copy_with_backup .bash_functions
 copy_with_backup .git_aliases
 copy_with_backup .git_functions
 copy_with_backup .history_settings
+copy_with_backup .omp_init
 copy_with_backup .nanorc
 echo "you can type 'rm  ~/old_*.bak' to get rid of all old backups"
