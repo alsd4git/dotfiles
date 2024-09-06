@@ -1,6 +1,5 @@
-if [ -d "~/bin" ]; then
-  export PATH="~/bin:$PATH"
-fi
+export PATH="~/bin:$PATH"
+#looks like bash does not care if the directory exist or not
 
 if command -v oh-my-posh >/dev/null 2>&1; then
   eval "$(oh-my-posh init bash --config ~/.cache/oh-my-posh/themes/tokyo.omp.json)"
