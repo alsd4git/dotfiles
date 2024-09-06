@@ -1,10 +1,11 @@
 #remember that if more than one alias has the same name, the one that appear later is the one that will be used
 
-# Check if oh-my-posh is available and set the flag
-if command -v exa >/dev/null 2>&1; then
-  USE_EXA=true
+# Check if eza is available and set the flag
+if command -v eza >/dev/null 2>&1; then
+  USE_EZA=true
 else
-  USE_EXA=false
+  USE_EZA=false
+  #you can find it here: https://github.com/eza-community/eza/blob/main/INSTALL.md
 fi
 
 alias a='alias'
@@ -16,14 +17,20 @@ alias df='df -h' # Prints disk usage in human readable form
 alias edt='nano ~/.bashrc'
 alias h='history'
 
-#if you don't want to use exa disable the check at the start of the file or just set the USE_EXA to false in the shell
-if [ "$USE_EXA" = true ]; then
-    alias l='exa --long --all --group-directories-first --blocks --header --links --sort=name --icons --group --git'
+#if you don't want to use eza disable the check at the start of the file or just set the USE_EZA to false in the shell
+if [ "$USE_EZA" = true ]; then
+    alias l='eza  --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+    alias lt='eza  --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
 else
     alias l='ls --color=auto -lAhv --group-directories-first' #-v is used for sort in natural form
+    alias lt='ls --color=auto -lAhv --group-directories-first' #lt does nothing different here, i have no fast way to simulate that
 fi
 
-alias lx='exa --long --all --group-directories-first --blocks --header --links --sort=name --icons --group --git'
+#these make sense only if someone comment or turn off the "USE_EZA"
+alias lx='eza  --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+alias lxt='eza  --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+
+#the old "l" alias, before introducing eza
 alias ll='ls --color=auto -lAhv --group-directories-first'
 
 alias mount='mount |column -t' #Make mount command output pretty and human readable format
