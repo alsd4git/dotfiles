@@ -1,0 +1,34 @@
+## Basic Nano Configuration
+
+# Set tab size to 4 spaces (adjust according to your coding style)
+set tabsize 4
+
+# Convert typed tabs into spaces – useful for consistent indentation in code
+set tabstospaces
+
+# Do not wrap long lines; you can remove or comment this if you prefer wrapping
+set nowrap
+
+# Automatically indent new lines based on the previous line's indentation
+set autoindent
+
+# Create backup files (adds a ~ to the filename) to help prevent accidental data loss
+set backup
+
+# Always show the cursor position, file name, and other status info in the status bar
+set constantshow
+
+# Display line numbers on the left-hand side for easier navigation
+set linenumbers
+
+# Enable mouse support for scrolling and cursor positioning
+set mouse
+
+# Smooth scrolling instead of jumpy movements when moving around in files
+set smooth
+
+# Include syntax highlighting definitions
+# Try common Linux path
+include "/usr/share/nano/*.nanorc"
+# Try macOS Homebrew path
+include "/opt/homebrew/share/nano/*.nanorc"

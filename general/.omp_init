@@ -1,0 +1,17 @@
+# Ensure user's bin is in PATH
+export PATH="$HOME/bin:$PATH"
+
+# Determine current shell
+CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}')
+
+# Determine theme location across platforms
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  THEME_PATH="$(brew --prefix oh-my-posh)/themes/tokyo.omp.json"
+else
+  THEME_PATH="$HOME/.cache/oh-my-posh/themes/tokyo.omp.json"
+fi
+
+# Load oh-my-posh if available
+if command -v oh-my-posh >/dev/null 2>&1; then
+  eval "$(oh-my-posh init $CURRENT_SHELL --config $THEME_PATH)"
+fi

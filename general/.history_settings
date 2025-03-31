@@ -1,0 +1,35 @@
+# ========================
+# General History Settings
+# ========================
+
+export HISTSIZE=1000000                          # Max number of commands to keep in memory (Zsh & Bash)
+export HISTTIMEFORMAT="%d/%m/%y %T "             # Timestamp format for history entries (Bash only)
+export HISTFILE="$HOME/.shell_history"           # Fallback history file if shell-specific isn't set
+
+# =====================
+# Detect Current Shell
+# =====================
+CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}')  # Get the current running shell
+
+# =====================
+# Bash-specific settings
+# =====================
+if [[ "$CURRENT_SHELL" == "bash" ]]; then
+    export HISTCONTROL=ignoreboth               # Don't save duplicates or commands starting with a space
+    export PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}history -a; history -c; history -r"  # Sync history across multiple terminals
+    shopt -s histappend                         # Append to history file instead of overwriting
+    unset HISTFILESIZE                          # Remove file size limit on history
+    export HISTFILE="$HOME/.bash_history"       # Bash history file path
+
+# =====================
+# Zsh-specific settings
+# =====================
+elif [[ "$CURRENT_SHELL" == "zsh" ]]; then
+    export HISTFILE="$HOME/.zsh_history"        # Zsh history file path
+    export SAVEHIST=1000000                     # Max number of commands to save to file
+    setopt INC_APPEND_HISTORY                   # Write history entry immediately after command execution
+    setopt SHARE_HISTORY                        # Share history between all terminal sessions
+    setopt HIST_IGNORE_ALL_DUPS                 # Keep only the most recent duplicate command
+    setopt HIST_REDUCE_BLANKS                   # Strip unnecessary whitespace
+    setopt HIST_VERIFY                          # Show and confirm command before executing from history
+fi

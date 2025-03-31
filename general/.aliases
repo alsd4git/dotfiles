@@ -1,0 +1,76 @@
+# ===== Alias Configuration =====
+
+# Remember: if more than one alias has the same name, the last one takes precedence.
+
+# Detect if 'eza' is available and set a flag
+if command -v eza >/dev/null 2>&1; then
+  export USE_EZA=true
+else
+  export USE_EZA=false
+  # You can find it here: https://github.com/eza-community/eza/blob/main/INSTALL.md
+fi
+
+# ===== General Aliases =====
+alias a='alias'
+alias aa='nice_print_aliases'
+alias c='clear'
+# alias cre="c && nice_print_aliases"
+alias d='du -sh'
+alias df='df -h'
+alias edt='nano ~/.bashrc'
+alias h='history'
+
+# Use 'eza' if available
+if [ "$USE_EZA" = true ]; then
+  alias l='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+  alias lt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+else
+  alias l='ls --color=auto -lAhv --group-directories-first'
+  alias lt='ls --color=auto -lAhv --group-directories-first'
+fi
+
+# Always available eza-based aliases (if eza is installed)
+alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+alias lxt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+
+# Classic ls alias
+alias ll='ls --color=auto -lAhv --group-directories-first'
+
+# OS-aware mount output
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  alias mount='diskutil list'
+else
+  alias mount='mount | column -t'
+fi
+
+# Networking and system info
+alias myip='curl -s http://ipecho.net/plain; echo'
+
+# Safer nano usage
+if command -v nano >/dev/null 2>&1; then
+  alias n='nano -l'
+  alias nano='nano -l'
+fi
+
+alias noh='cat /dev/null > ~/.bash_history'
+alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
+alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"
+alias update='sudo apt-get update && sudo apt-get upgrade -y'
+alias wget='wget -c'
+
+# ===== Docker Aliases =====
+alias up_dockers='docker images | grep -v REPOSITORY | awk '\''{print $1}'\'' | xargs -L1 docker pull'
+alias up_portainer_ce='docker pull portainer/portainer-ce:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
+alias up_portainer_be='docker pull portainer/portainer-ee:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest --http-enabled'
+
+# ===== Swift Aliases =====
+alias sb='swift build'
+alias sub='swift package update && swift build'
+alias sf='swift-format Sources/ Tests/ --recursive --in-place'
+
+# ===== Private Aliases Loader =====
+if [ -f ~/.private_aliases ]; then
+  . ~/.private_aliases
+else
+  touch ~/.private_aliases
+fi
