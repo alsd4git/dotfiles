@@ -1,31 +1,73 @@
 # dotfiles
-my dotfiles across some pcs and my server
 
-This will be personal, and messy, feel free to use, but i'm not so experienced in linux, i'm not responsible if something breaks
-to use these files you need to copy them to your home or use ```setup.sh```, if you have no bashrc i will create one, but if you already have one you must (first time only) manually add lines below here to make your bashrc source my aliases
+My dotfiles used across multiple machines and environments (mainly Debian, macOS).
 
-step by step:
+---
+
+## ✨ Features
+
+- 🧼 Clean separation between Bash, Zsh, Git, Nano, and general-purpose shell setup
+- ✅ Compatible with both Bash and Zsh
+- 🛠️ Optional install of tools like `fzf`, `eza`, `zoxide`, `bat`, `oh-my-posh`
+- 🪄 History sync, prompt setup, and Git helpers included
+- 🧪 `--dry-run` and `--copy` modes for safe testing or legacy-style installation
+
+---
+
+## 📁 Directory Structure
+
 ```sh
-git clone https://github.com/alsd4git/dotfiles
-cd dotfiles
-chmod +x setup.sh && sh setup.sh
+.
+├── general/       # Shared shell config (aliases, functions, history, prompt)
+├── git/           # Git aliases and helpers
+├── nano/          # Nano config
+├── install.sh     # New modular setup script (recommended)
+├── old_setup.sh   # Legacy copy-with-backup installer
+└── README.md
 ```
 
-if ```~/.bashrc``` is not present it will look like this: 
-(also, these are the lines to add if you already have an existing .bashrc in your home dir)
-```sh
-. ~/.bash_aliases
-. ~/.bash_functions
-. ~/.git_aliases
-. ~/.git_functions
-. ~/.history_settings
-. ~/.omp_init
-. ~/.nanorc
-nice_print_aliases
+> All managed dotfiles are linked into `~/.dotfiles`, and symlinked into your `$HOME` directory by `install.sh`.
+
+---
+
+## 🚀 Setup Instructions
+
+Clone the repo and run the installer:
+
+```bash
+git clone https://github.com/alsd4git/dotfiles ~/.dotfiles
+cd ~/.dotfiles
+chmod +x install.sh
+./install.sh
 ```
 
-(also, optional, i like to have a screenfetch when i open my shell, so setup.sh will also add this line)
+You can also run in:
 
-```sh
-screenfetch 2>/dev/null && echo -e "\n"
+- 🧪 Dry-run mode: `./install.sh --dry-run`
+- 📄 Copy mode (like old setup): `./install.sh --copy`
+
+---
+
+## 🧠 What `install.sh` Does
+
+- Symlinks dotfiles from `~/.dotfiles/` into your `$HOME`
+- Backs up any pre-existing config files
+- Ensures `.bashrc` or `.zshrc` sources the right config parts
+- Optionally installs:
+  - `fzf`
+  - `eza`
+  - `zoxide`
+  - `bat`
+  - `oh-my-posh`
+
+---
+
+## 💬 Notes
+
+- The legacy `old_setup.sh` uses copy-based installation and is still available.
+- Shared logic (like aliases, functions, prompt config, history) is centralized in the `general/` folder.
+- If you're using Zsh, make sure it's your default shell:
+  
+```bash
+chsh -s $(which zsh)
 ```

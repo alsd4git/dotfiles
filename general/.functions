@@ -1,0 +1,36 @@
+# ===== File and Media Utilities =====
+function ren_pics() {
+    # Rename all images in current folder using folder name and EXIF date
+    cur_dir=$(basename "$PWD")
+    exiv2 -r"$cur_dir"' - %Y-%m-%d %H.%M.%S' -F rename *
+}
+
+# ===== Alias Helpers =====
+function nice_print_aliases() {
+    # Print a localized header depending on LANG
+    if [ "$(locale | grep LANG | cut -d= -f2 | cut -d_ -f1)" = "it" ]; then
+        echo -e "Lista Alias:\n"
+    else
+        echo -e "Aliases List:\n"
+    fi
+
+    # Print current aliases, highlighting 'alias' and 'git', formatting the '='
+    alias | GREP_COLOR='01;32' grep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
+}
+# export -f nice_print_aliases  # Usually unnecessary unless using in subshells
+
+# ===== Nano Backup Wrappers =====
+function nanobk() {
+    echo "You are making a copy of \"$1\" before you open it. Press enter to continue."
+    read nul
+    cp "$1" "$1.bak"
+    nano "$1"
+}
+
+function nbk() {
+    nanobk "$1"
+}
+
+# ===== Notes and Future Enhancements =====
+# A useful cheatsheet online: https://devhints.io/bash
+# Use 'export' if you want functions to be available in subshells

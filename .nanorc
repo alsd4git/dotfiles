@@ -1,5 +1,0 @@
-set tabsize 4 #used to set tab size in spaces
-set tabstospaces #used to convert tabs to spaces
-set nowrap
-
-#nano -ET4 foo.txt to have these options when using command line
