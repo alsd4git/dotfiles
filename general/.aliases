@@ -10,6 +10,8 @@ else
   # You can find it here: https://github.com/eza-community/eza/blob/main/INSTALL.md
 fi
 
+#export NANORC="$HOME/.nanorc" #may be needed for some systems
+
 # ===== General Aliases =====
 alias a='alias'
 alias aa='nice_print_aliases'
@@ -48,10 +50,11 @@ alias myip='curl -s http://ipecho.net/plain; echo'
 
 # Safer nano usage
 if command -v nano >/dev/null 2>&1; then
-  alias n='nano -l'
-  alias nano='nano -l'
+  alias n='nano'
+  alias nano='nano'
 fi
 
+alias brewup='brew update && brew upgrade && brew cleanup'
 alias noh='cat /dev/null > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"

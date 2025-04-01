@@ -2,7 +2,7 @@
 export PATH="$HOME/bin:$PATH"
 
 # Determine current shell
-CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}')
+CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}' | sed 's/^-*//')
 
 # Determine theme location across platforms
 if [[ "$OSTYPE" == "darwin"* ]]; then

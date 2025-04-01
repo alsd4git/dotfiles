@@ -1,0 +1,38 @@
+# ==== OS/system files ====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+Icon?
+
+# ==== Certs & keys ====
+*.pem
+*.crt
+*.key
+*.csr
+*.p12
+*.pfx
+
+# ==== Logs & dumps ====
+*.log
+*.bak
+*.swp
+*.swo
+*.tmp
+*.old
+*.orig
+
+# ==== Shell-related ====
+*.history
+bash-fc-*
+zsh-fc-*
+
+# ==== Python/node/rust/dev tools ====
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+node_modules/
+dist/
+build/
+target/
