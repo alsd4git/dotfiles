@@ -23,12 +23,3 @@ set linenumbers
 
 # Enable mouse support for scrolling and cursor positioning
 set mouse
-
-# Smooth scrolling instead of jumpy movements when moving around in files
-set smooth
-
-# Include syntax highlighting definitions
-# Try common Linux path
-include "/usr/share/nano/*.nanorc"
-# Try macOS Homebrew path
-include "/opt/homebrew/share/nano/*.nanorc"

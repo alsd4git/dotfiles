@@ -53,12 +53,15 @@ You can also run in:
 - Symlinks dotfiles from `~/.dotfiles/` into your `$HOME`
 - Backs up any pre-existing config files
 - Ensures `.bashrc` or `.zshrc` sources the right config parts
+- Sets up a global Git ignore file at `~/.config/git/ignore`
 - Optionally installs:
   - `fzf`
   - `eza`
   - `zoxide`
   - `bat`
   - `oh-my-posh`
+  - `exiv2`
+  - `fastfetch` (used if present; fallback to `screenfetch`)
 
 ---
 
@@ -71,3 +74,5 @@ You can also run in:
 ```bash
 chsh -s $(which zsh)
 ```
+
+- Git global ignore file (`git/git-global-ignore`) is installed to `~/.config/git/ignore` and registered via Git config.
