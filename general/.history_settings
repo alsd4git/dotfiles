@@ -9,7 +9,7 @@ export HISTFILE="$HOME/.shell_history"           # Fallback history file if shel
 # =====================
 # Detect Current Shell
 # =====================
-CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}')  # Get the current running shell
+CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}' | sed 's/^-*//')  # Get the current running shell
 
 # =====================
 # Bash-specific settings
