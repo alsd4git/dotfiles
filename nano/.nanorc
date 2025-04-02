@@ -7,13 +7,13 @@ set tabsize 4
 set tabstospaces
 
 # Do not wrap long lines; you can remove or comment this if you prefer wrapping
-set nowrap
+#set nowrap
 
 # Automatically indent new lines based on the previous line's indentation
 set autoindent
 
 # Create backup files (adds a ~ to the filename) to help prevent accidental data loss
-set backup
+#set backup
 
 # Always show the cursor position, file name, and other status info in the status bar
 set constantshow
