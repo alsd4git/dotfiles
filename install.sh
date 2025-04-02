@@ -1,23 +1,70 @@
 #!/usr/bin/env bash
 
 set -e
+FORCE_MODE=false
+MINIMAL_MODE=false
 DRY_RUN=false
 COPY_MODE=false
+CLEAN_BACKUPS=false
+SHOW_HELP=false
+INSTALL_ALL=false
+SKIP_GIT_CONFIG=false
 for arg in "$@"; do
     case "$arg" in
-    --dry-run)
+    -dr | --dry-run)
         DRY_RUN=true
         echo "🧪 Running in dry-run mode. No files will be changed."
         ;;
-    --copy)
+    -c | --copy)
         COPY_MODE=true
         echo "📄 Running in copy mode with backup."
+        ;;
+    -cb |--clean-backups)
+        CLEAN_BACKUPS=true
+        ;;
+    -f | --force)
+        FORCE_MODE=true
+        ;;
+    -m | --minimal)
+        MINIMAL_MODE=true
+        ;;
+    -h | --help)
+        SHOW_HELP=true
+        ;;
+    -a | --all)
+        INSTALL_ALL=true
         ;;
     *)
         echo "❓ Unknown argument: $arg"
         ;;
     esac
 done
+
+if $SHOW_HELP; then
+    echo "Usage: ./install.sh [options]"
+    echo ""
+    echo "Options:"
+    echo "  -dr, --dry-run         Run in dry mode (no files modified)"
+    echo "  -c,  --copy            Copy files instead of symlinking"
+    echo "  -f,  --force           Skip prompts and force all actions"
+    echo "  -m,  --minimal         Install only core dotfiles (no extras or tools)"
+    echo "  -cb, --clean-backups   Remove existing .bak.* files in \$HOME"
+    echo "  -a,  --all             Automatically install all optional tools"
+    echo "  -h,  --help            Show this help message"
+    exit 0
+fi
+
+if $FORCE_MODE; then
+    INSTALL_ALL=true
+    CLEAN_BACKUPS=true
+    REPLY_ALL="y"
+fi
+
+if $MINIMAL_MODE; then
+    INSTALL_ALL=false
+    SKIP_GIT_CONFIG=true
+    SKIP_FETCH=true
+fi
 
 ### === Detect Environment ===
 OS="$(uname -s)"
@@ -27,7 +74,7 @@ printf "\n🔍 Detected OS: %s\n" "$OS"
 printf "🔍 Detected Shell: %s\n" "$SHELL_NAME"
 
 add_to_rc_if_not_present() {
-    local rc_file="${1/#\~/$HOME}"  # expand ~ to $HOME
+    local rc_file="${1/#\~/$HOME}" # expand ~ to $HOME
     local line_to_add="$2"
     if grep -Fq "$line_to_add" "$rc_file"; then
         echo "📄 $line_to_add found in $rc_file, no need to add"
@@ -74,7 +121,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         echo "🧪 Would $action $dest → $src"
     elif $COPY_MODE; then
         if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-            mv "$dest" "$dest.backup.$(date +%s)"
+            mv "$dest" "$dest.bak.$(date +%s)"
             echo "📦 Backed up $dest"
         fi
         cp "$src" "$dest"
@@ -82,7 +129,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
     else
         if [ -e "$dest" ]; then
             if [ ! -L "$dest" ] || [ "$(readlink "$dest")" != "$src" ]; then
-                mv "$dest" "$dest.backup.$(date +%s)"
+                mv "$dest" "$dest.bak.$(date +%s)"
                 echo "📦 Backed up existing $dest"
             fi
         fi
@@ -92,21 +139,30 @@ for i in "${!SYMLINK_KEYS[@]}"; do
 done
 
 # Set up Git global ignore config
-GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
-if [ -f "$GIT_IGNORE_GLOBAL" ]; then
-    echo "🔧 Configuring Git global ignore path..."
-    git config --global core.excludesfile "$GIT_IGNORE_GLOBAL"
+if ! $SKIP_GIT_CONFIG; then
+    GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
+    if [ -f "$GIT_IGNORE_GLOBAL" ]; then
+        echo "🔧 Configuring Git global ignore path..."
+        git config --global core.excludesfile "$GIT_IGNORE_GLOBAL"
+    fi
 fi
 
 # Set up Git recommended defaults
-echo "🔧 Configuring global Git behavior..."
-git config --global pull.rebase true
-git config --global rebase.autostash true
-git config --global core.editor "nano"
+if ! $SKIP_GIT_CONFIG; then
+    echo "🔧 Configuring global Git behavior..."
+    git config --global pull.rebase true
+    git config --global rebase.autostash true
+    git config --global core.editor "nano"
+fi
 
 ### === Optional Tools Install ===
-if ! $DRY_RUN; then
-    read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano)? [y/N]: ' do_install
+if ! $MINIMAL_MODE && ! $DRY_RUN; then
+    if $INSTALL_ALL; then
+        do_install="y"
+    else
+        read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano)? [y/N]: ' do_install
+    fi
+
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
         echo -e "\n📦 Installing tools..."
 
@@ -116,7 +172,7 @@ if ! $DRY_RUN; then
                 echo "🍺 Homebrew not found. Installing..."
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
-            
+
             # Install standard tools only if missing
             for pkg in fzf eza bat zoxide exiv2 fastfetch nano; do
                 if ! brew list --formula | grep -q "^$pkg$"; then
@@ -205,18 +261,22 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
 
-            if ! grep -Fq "nice_print_aliases" "$HOME/.zshrc"; then
+            if $FORCE_MODE; then
+                reply="y"
+            else
                 read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-                if [[ "$reply" =~ ^[Yy]$ ]]; then
-                    add_to_rc_if_not_present "~/.zshrc" "nice_print_aliases"
-                fi
+            fi
+            if [[ "$reply" =~ ^[Yy]$ ]]; then
+                add_to_rc_if_not_present "~/.zshrc" "nice_print_aliases"
             fi
 
-            if ! grep -Fq "$FETCH_CMD" "$HOME/.zshrc"; then
+            if $FORCE_MODE; then
+                reply="y"
+            else
                 read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
-                if [[ "$reply" =~ ^[Yy]$ ]]; then
-                    add_to_rc_if_not_present "~/.zshrc" "$FETCH_CMD"
-                fi
+            fi
+            if [[ "$reply" =~ ^[Yy]$ ]]; then
+                add_to_rc_if_not_present "~/.zshrc" "$FETCH_CMD"
             fi
         fi
     else
@@ -229,12 +289,20 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
         echo "[[ -f ~/.history_settings ]] && source ~/.history_settings" >>~/.zshrc
         echo "[[ -f ~/.omp_init ]] && source ~/.omp_init" >>~/.zshrc
 
-        read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
+        if $FORCE_MODE; then
+            reply="y"
+        else
+            read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
+        fi
         if [[ "$reply" =~ ^[Yy]$ ]]; then
             add_to_rc_if_not_present "~/.zshrc" "nice_print_aliases"
         fi
 
-        read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        if $FORCE_MODE; then
+            reply="y"
+        else
+            read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        fi
         if [[ "$reply" =~ ^[Yy]$ ]]; then
             add_to_rc_if_not_present "~/.zshrc" "$FETCH_CMD"
         fi
@@ -252,18 +320,22 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
 
-            if ! grep -Fq "nice_print_aliases" "$HOME/.bashrc"; then
+            if $FORCE_MODE; then
+                reply="y"
+            else
                 read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-                if [[ "$reply" =~ ^[Yy]$ ]]; then
-                    add_to_rc_if_not_present "~/.bashrc" "nice_print_aliases"
-                fi
+            fi
+            if [[ "$reply" =~ ^[Yy]$ ]]; then
+                add_to_rc_if_not_present "~/.bashrc" "nice_print_aliases"
             fi
 
-            if ! grep -Fq "$FETCH_CMD" "$HOME/.bashrc"; then
+            if $FORCE_MODE; then
+                reply="y"
+            else
                 read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
-                if [[ "$reply" =~ ^[Yy]$ ]]; then
-                    add_to_rc_if_not_present "~/.bashrc" "$FETCH_CMD"
-                fi
+            fi
+            if [[ "$reply" =~ ^[Yy]$ ]]; then
+                add_to_rc_if_not_present "~/.bashrc" "$FETCH_CMD"
             fi
         fi
     else
@@ -276,14 +348,50 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
         echo '[[ -f ~/.history_settings ]] && source ~/.history_settings' >>~/.bashrc
         echo '[[ -f ~/.omp_init ]] && source ~/.omp_init' >>~/.bashrc
 
-        read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
+        if $FORCE_MODE; then
+            reply="y"
+        else
+            read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
+        fi
         if [[ "$reply" =~ ^[Yy]$ ]]; then
             add_to_rc_if_not_present "~/.bashrc" "nice_print_aliases"
         fi
 
-        read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        if $FORCE_MODE; then
+            reply="y"
+        else
+            read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        fi
         if [[ "$reply" =~ ^[Yy]$ ]]; then
             add_to_rc_if_not_present "~/.bashrc" "$FETCH_CMD"
+        fi
+    fi
+fi
+
+if $CLEAN_BACKUPS; then
+    echo -e "\n🧹 Looking for backup files to remove in $HOME..."
+    BACKUPS=()
+    while IFS= read -r file; do
+        BACKUPS+=("$file")
+    done < <(find "$HOME" -maxdepth 1 -name "*.bak.*")
+
+    if [ ${#BACKUPS[@]} -eq 0 ]; then
+        echo "✅ No backup files found."
+    else
+        echo "🗒️  Found the following backup files:"
+        for file in "${BACKUPS[@]}"; do
+            echo " - $file"
+        done
+        echo
+        read -p "🛑 Do you want to delete all these files? [y/N]: " confirm
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            for file in "${BACKUPS[@]}"; do
+                echo "🗑️  Removing $file"
+                rm -f "$file"
+            done
+            echo "✅ Done cleaning up backups."
+        else
+            echo "❌ Skipped backup cleanup."
         fi
     fi
 fi
