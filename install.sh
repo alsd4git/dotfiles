@@ -534,6 +534,8 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
             # Ensure ~/.local/bin is on PATH for user-installed tools (uv, swiftly, etc.)
             add_to_rc_if_not_present "~/.zshrc" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
+            # Ensure swiftly env (adds swiftly bin to PATH) is sourced if present
+            add_to_rc_if_not_present "~/.zshrc" '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
 
             if ! ${SKIP_FETCH:-false}; then
               if $FORCE_MODE; then
@@ -577,6 +579,7 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
         echo "[[ -f ~/.history_settings ]] && source ~/.history_settings" >>~/.zshrc
         echo "[[ -f ~/.omp_init ]] && source ~/.omp_init" >>~/.zshrc
         echo '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"' >>~/.zshrc
+        echo '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"' >>~/.zshrc
 
         if ! ${SKIP_FETCH:-false}; then
           if $FORCE_MODE; then
@@ -622,6 +625,8 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
             # Ensure ~/.local/bin is on PATH for user-installed tools (uv, swiftly, etc.)
             add_to_rc_if_not_present "~/.bashrc" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
+            # Ensure swiftly env (adds swiftly bin to PATH) is sourced if present
+            add_to_rc_if_not_present "~/.bashrc" '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
 
             if ! ${SKIP_FETCH:-false}; then
               if $FORCE_MODE; then
@@ -664,6 +669,7 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
         echo '[[ -f ~/.history_settings ]] && source ~/.history_settings' >>~/.bashrc
         echo '[[ -f ~/.omp_init ]] && source ~/.omp_init' >>~/.bashrc
         echo '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"' >>~/.bashrc
+        echo '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"' >>~/.bashrc
 
         if ! ${SKIP_FETCH:-false}; then
           if $FORCE_MODE; then
