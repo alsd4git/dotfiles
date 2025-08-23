@@ -368,7 +368,12 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             fi
 
             # swiftly (Swift toolchain manager)
-            if ! command -v swiftly >/dev/null 2>&1; then
+            # Try to source existing env so detection works even if not on PATH yet
+            swiftly_home="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}"
+            swiftly_env="$swiftly_home/env.sh"
+            swiftly_bin="$swiftly_home/bin/swiftly"
+            if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
+            if ! command -v swiftly >/dev/null 2>&1 && [ ! -x "$swiftly_bin" ]; then
                 echo "📥 Installing swiftly (Swift toolchain manager)..."
                 # Ensure GnuPG is available for signature verification required by swiftly
                 if ! command -v gpg >/dev/null 2>&1; then
@@ -386,7 +391,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     tar zxf "swiftly-${arch}.tar.gz"
                     ./swiftly init --quiet-shell-followup --skip-install
                 ) && {
-                    env_file="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+                    env_file="$swiftly_env"
                     if [ -f "$env_file" ]; then . "$env_file"; fi
                     hash -r || true
                     echo "✅ swiftly installed"
@@ -403,7 +408,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
 
             # Ensure current session can find freshly installed user binaries
             if [ -x "$HOME/.local/bin/uv" ]; then export PATH="$HOME/.local/bin:$PATH"; fi
-            if [ -f "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh" ]; then . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"; fi
+            if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
 
             # Optional: install latest Python via uv
             if command -v uv >/dev/null 2>&1; then
