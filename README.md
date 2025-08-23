@@ -110,7 +110,10 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
 * **Configures Startup Commands (Optional):** Asks if you want `nice_print_aliases` and `fastfetch` (or `screenfetch` as a fallback) to run when a new shell starts. These run only in interactive shells.
 * **fzf & zoxide Initialization:** If installed, `zoxide` is initialized for your shell; `fzf` keybindings/completions are sourced when available.
-* **Optional Node Tooling:** Offers to install or update `nvm` (Node Version Manager) to the latest released tag. If installed, your shell will source `~/.nvm/nvm.sh` automatically, and you can optionally install the latest LTS Node and set it as default.
+* **Optional Node Tooling:** Offers to install or update `nvm` (Node Version Manager) to the latest released tag. If installed, your shell will source `~/.nvm/nvm.sh` automatically.
+  * If no Node is active via `nvm`, you can install the latest LTS and set it as default.
+  * If a Node version is already active via `nvm`, the installer offers to switch to the latest LTS and set it as default, with a warning that global npm packages are per-version and won’t move automatically. To migrate them later, run: `nvm reinstall-packages <previous_version>`.
+  * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
 
 ---
 
