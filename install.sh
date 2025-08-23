@@ -302,7 +302,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
         Linux)
             echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
             sudo apt update
-            sudo apt install -y fzf bat zoxide curl unzip ripgrep fd-find nano exiv2 || true
+            sudo apt install -y fzf bat zoxide curl unzip ripgrep fd-find nano exiv2 gnupg || true
 
             # eza
             if ! command -v eza >/dev/null; then
@@ -354,6 +354,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             # swiftly (Swift toolchain manager)
             if ! command -v swiftly >/dev/null 2>&1; then
                 echo "📥 Installing swiftly (Swift toolchain manager)..."
+                # Ensure GnuPG is available for signature verification required by swiftly
+                if ! command -v gpg >/dev/null 2>&1; then
+                    echo "   ↪ Installing gnupg (required by swiftly)..."
+                    sudo apt install -y gnupg || true
+                fi
                 arch="$(uname -m)"
                 url="https://download.swift.org/swiftly/linux/swiftly-${arch}.tar.gz"
                 tmpdir="$(mktemp -d)"
@@ -370,6 +375,9 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     hash -r || true
                     echo "✅ swiftly installed"
                 } || {
+                    if ! command -v gpg >/dev/null 2>&1; then
+                        echo "⚠️  swiftly failed and 'gpg' is missing. Install it with: sudo apt install -y gnupg"
+                    fi
                     echo "⚠️  swiftly installation failed. See https://www.swift.org/install/linux/ for manual steps."
                 }
                 rm -rf "$tmpdir"
