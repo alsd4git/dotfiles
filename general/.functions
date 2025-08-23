@@ -2,7 +2,12 @@
 function ren_pics() {
     # Rename all images in current folder using folder name and EXIF date
     cur_dir=$(basename "$PWD")
-    exiv2 -r"$cur_dir"' - %Y-%m-%d %H.%M.%S' -F rename *
+    if ! command -v exiv2 >/dev/null 2>&1; then
+        echo "exiv2 not found. Please install exiv2 to use ren_pics."
+        return 1
+    fi
+    shopt -s nullglob 2>/dev/null || true
+    exiv2 -r"$cur_dir"' - %Y-%m-%d %H.%M.%S' -F rename *.jpg *.jpeg *.JPG *.JPEG *.png *.PNG *.heic *.HEIC 2>/dev/null || true
 }
 
 # ===== Alias Helpers =====
@@ -15,7 +20,16 @@ function nice_print_aliases() {
     fi
 
     # Print current aliases, highlighting 'alias' and 'git', formatting the '='
-    alias | GREP_COLOR='01;32' grep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
+    # Prefer GNU grep if available for color; otherwise print without color for portability
+    if command -v ggrep >/dev/null 2>&1; then
+        alias | GREP_COLOR='01;32' ggrep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
+    else
+        if grep --version 2>/dev/null | head -n1 | grep -qi gnu; then
+            alias | GREP_COLOR='01;32' grep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
+        else
+            alias | grep -E 'alias |git' | sed 's/\=/ \t/g'
+        fi
+    fi
 }
 # export -f nice_print_aliases  # Usually unnecessary unless using in subshells
 

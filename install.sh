@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 FORCE_MODE=false
 MINIMAL_MODE=false
 DRY_RUN=false
@@ -9,6 +10,7 @@ CLEAN_BACKUPS=false
 SHOW_HELP=false
 INSTALL_ALL=false
 SKIP_GIT_CONFIG=false
+UNINSTALL_MODE=false
 for arg in "$@"; do
     case "$arg" in
     -dr | --dry-run)
@@ -34,6 +36,9 @@ for arg in "$@"; do
     -a | --all)
         INSTALL_ALL=true
         ;;
+    --uninstall)
+        UNINSTALL_MODE=true
+        ;;
     *)
         echo "❓ Unknown argument: $arg"
         ;;
@@ -50,6 +55,7 @@ if $SHOW_HELP; then
     echo "  -m,  --minimal         Install only core dotfiles (no extras or tools)"
     echo "  -cb, --clean-backups   Remove existing .bak.* files in \$HOME"
     echo "  -a,  --all             Automatically install all optional tools"
+    echo "      --uninstall        Remove links and revert shell rc additions"
     echo "  -h,  --help            Show this help message"
     exit 0
 fi
@@ -76,12 +82,33 @@ printf "🔍 Detected Shell: %s\n" "$SHELL_NAME"
 add_to_rc_if_not_present() {
     local rc_file="${1/#\~/$HOME}" # expand ~ to $HOME
     local line_to_add="$2"
-    if grep -Fq "$line_to_add" "$rc_file"; then
+    if [ -f "$rc_file" ] && grep -Fq "$line_to_add" "$rc_file"; then
         echo "📄 $line_to_add found in $rc_file, no need to add"
     else
         echo "📝 adding $line_to_add to $rc_file"
         echo "$line_to_add" >>"$rc_file"
     fi
+}
+
+remove_from_rc_if_present() {
+    local rc_file="${1/#\~/$HOME}"
+    local line_to_remove="$2"
+    if [ -f "$rc_file" ] && grep -Fq "$line_to_remove" "$rc_file"; then
+        echo "🧽 removing line from $rc_file: $line_to_remove"
+        # Create a temp file safely
+        tmp_file="${rc_file}.tmp.$$"
+        grep -Fv "$line_to_remove" "$rc_file" >"$tmp_file" || true
+        mv "$tmp_file" "$rc_file"
+    fi
+}
+
+# Get the latest nvm tag from GitHub (falls back silently on failure)
+latest_nvm_tag() {
+    git ls-remote --tags https://github.com/nvm-sh/nvm.git 2>/dev/null \
+      | awk -F/ '/refs\/tags\/v[0-9]/{print $3}' \
+      | sed 's/\^{}//' \
+      | sort -V \
+      | tail -n1
 }
 
 ### === Define dotfiles ===
@@ -124,7 +151,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
             mv "$dest" "$dest.bak.$(date +%s)"
             echo "📦 Backed up $dest"
         fi
-        cp "$src" "$dest"
+        cp -a "$src" "$dest"
         echo "📄 Copied $src → $dest"
     else
         if [ -e "$dest" ]; then
@@ -153,6 +180,46 @@ if ! $SKIP_GIT_CONFIG; then
     git config --global pull.rebase true
     git config --global rebase.autostash true
     git config --global core.editor "nano"
+    git config --global init.defaultBranch main
+    git config --global push.autoSetupRemote true
+    git config --global fetch.prune true
+    git config --global diff.colorMoved zebra
+fi
+
+### === Optional Tools Install ===
+if $UNINSTALL_MODE && ! $DRY_RUN; then
+    echo -e "\n🧹 Uninstalling dotfiles symlinks and shell rc additions..."
+    # Remove symlinks we manage if they point to our repo
+    for i in "${!SYMLINK_KEYS[@]}"; do
+        dest="${SYMLINK_KEYS[$i]}"
+        src="${SYMLINK_VALUES[$i]}"
+        if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+            echo "🗑️  Removing symlink $dest"
+            rm -f "$dest"
+        fi
+    done
+    # Remove startup additions (guarded lines)
+    for rc in ~/.zshrc ~/.bashrc; do
+        remove_from_rc_if_present "$rc" "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
+        remove_from_rc_if_present "$rc" "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
+        remove_from_rc_if_present "$rc" "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
+        remove_from_rc_if_present "$rc" "[[ -f ~/.git_functions ]] && source ~/.git_functions"
+        remove_from_rc_if_present "$rc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
+        remove_from_rc_if_present "$rc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && nice_print_aliases"
+        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && fastfetch 2>/dev/null"
+        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && screenfetch 2>/dev/null"
+        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && eval \"\$(zoxide init zsh)\""
+        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && eval \"\$(zoxide init bash)\""
+        remove_from_rc_if_present "$rc" "source /usr/share/fzf/key-bindings.bash"
+        remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.bash"
+        remove_from_rc_if_present "$rc" "source /usr/share/fzf/key-bindings.zsh"
+        remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.zsh"
+        # nvm
+        remove_from_rc_if_present "$rc" 'export NVM_DIR="$HOME/.nvm"'
+        remove_from_rc_if_present "$rc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+        remove_from_rc_if_present "$rc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+    done
 fi
 
 ### === Optional Tools Install ===
@@ -160,7 +227,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
     if $INSTALL_ALL; then
         do_install="y"
     else
-        read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano)? [y/N]: ' do_install
+        read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep)? [y/N]: ' do_install
     fi
 
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
@@ -171,11 +238,21 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             if ! command -v brew >/dev/null; then
                 echo "🍺 Homebrew not found. Installing..."
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                # Initialize Homebrew in current session and future shells
+                if [ -x /opt/homebrew/bin/brew ]; then
+                    eval "$(/opt/homebrew/bin/brew shellenv)"
+                    add_to_rc_if_not_present "~/.zprofile" 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+                    add_to_rc_if_not_present "~/.bash_profile" 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+                elif [ -x /usr/local/bin/brew ]; then
+                    eval "$(/usr/local/bin/brew shellenv)"
+                    add_to_rc_if_not_present "~/.zprofile" 'eval "$(/usr/local/bin/brew shellenv)"'
+                    add_to_rc_if_not_present "~/.bash_profile" 'eval "$(/usr/local/bin/brew shellenv)"'
+                fi
             fi
 
             # Install standard tools only if missing
-            for pkg in fzf eza bat zoxide exiv2 fastfetch nano; do
-                if ! brew list --formula | grep -q "^$pkg$"; then
+            for pkg in fzf eza bat zoxide exiv2 fastfetch nano fd ripgrep; do
+                if ! brew list "$pkg" >/dev/null 2>&1; then
                     echo "📦 Installing $pkg..."
                     brew install "$pkg"
                 else
@@ -183,35 +260,53 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 fi
             done
 
-            # Install oh-my-posh from tap only if missing
-            if ! brew list --formula | grep -q "^oh-my-posh$"; then
+            # Install oh-my-posh only if not present (works whether installed via formula or cask)
+            if command -v oh-my-posh >/dev/null 2>&1; then
+                echo "✅ oh-my-posh already installed"
+            else
                 echo "📦 Installing oh-my-posh from tap..."
                 brew install jandedobbeleer/oh-my-posh/oh-my-posh
-            else
-                echo "✅ oh-my-posh already installed"
+            fi
+            # fzf keybindings/completions (Homebrew layout)
+            if $INSTALL_ALL || $FORCE_MODE; then configure_fzf="y"; else read -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
+            if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
+                echo "⚙️  Configuring fzf keybindings/completions..."
+                "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc || true
+                zsh_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
+                zsh_comp="$(brew --prefix)/opt/fzf/shell/completion.zsh"
+                bash_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+                bash_comp="$(brew --prefix)/opt/fzf/shell/completion.bash"
+                if [[ "$SHELL_NAME" == "zsh" ]]; then
+                    if [ -f "$zsh_bind" ]; then add_to_rc_if_not_present "~/.zshrc" "source $zsh_bind"; fi
+                    if [ -f "$zsh_comp" ]; then add_to_rc_if_not_present "~/.zshrc" "source $zsh_comp"; fi
+                else
+                    if [ -f "$bash_bind" ]; then add_to_rc_if_not_present "~/.bashrc" "source $bash_bind"; fi
+                    if [ -f "$bash_comp" ]; then add_to_rc_if_not_present "~/.bashrc" "source $bash_comp"; fi
+                fi
             fi
             ;;
         Linux)
+            echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
             sudo apt update
-            sudo apt install -y fzf bat zoxide curl unzip
+            sudo apt install -y fzf bat zoxide curl unzip ripgrep fd-find nano exiv2 || true
 
             # eza
             if ! command -v eza >/dev/null; then
-                echo "📥 Installing eza manually..."
-                curl -LO https://github.com/eza-community/eza/releases/latest/download/eza_amd64.deb
-                sudo dpkg -i eza_amd64.deb && rm eza_amd64.deb
+                echo "📥 Installing eza (apt or manual)..."
+                if ! sudo apt install -y eza; then
+                    arch=$(dpkg --print-architecture 2>/dev/null || echo amd64)
+                    echo "   apt eza unavailable; attempting manual .deb for $arch"
+                    curl -LO "https://github.com/eza-community/eza/releases/latest/download/eza_${arch}.deb"
+                    sudo dpkg -i "eza_${arch}.deb" || true
+                    rm -f "eza_${arch}.deb"
+                fi
             fi
 
             # oh-my-posh
             if ! command -v oh-my-posh >/dev/null; then
                 echo "📥 Installing oh-my-posh..."
+                echo "   Note: piping install scripts is potentially unsafe. Review https://ohmyposh.dev before proceeding."
                 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
-            fi
-
-            # exiv2
-            if ! command -v exiv2 >/dev/null; then
-                echo "📥 Installing exiv2..."
-                sudo apt install -y exiv2
             fi
 
             # fastfetch
@@ -222,11 +317,63 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     echo "   https://github.com/fastfetch-cli/fastfetch"
                 }
             fi
+
+            # handle batcat/bat and fdfind/fd shims
+            if command -v batcat >/dev/null && ! command -v bat >/dev/null; then
+                sudo ln -sf "$(command -v batcat)" /usr/local/bin/bat
+                echo "🔗 Created shim: bat -> batcat"
+            fi
+            if command -v fdfind >/dev/null && ! command -v fd >/dev/null; then
+                sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+                echo "🔗 Created shim: fd -> fdfind"
+            fi
             ;;
         *)
             echo "❌ Unsupported OS. Install dependencies manually."
             ;;
         esac
+    fi
+fi
+
+### === Optional NVM Install ===
+if ! $MINIMAL_MODE && ! $DRY_RUN; then
+    if $FORCE_MODE; then want_nvm="y"; else read -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
+    if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
+        NVM_TAG=$(latest_nvm_tag || true)
+        if [ -z "${NVM_TAG:-}" ]; then NVM_TAG="v0.39.7"; fi
+
+        if [ -d "$HOME/.nvm/.git" ]; then
+            echo "🔄 Updating existing nvm to $NVM_TAG..."
+            git -C "$HOME/.nvm" fetch --tags origin || true
+            git -C "$HOME/.nvm" checkout "$NVM_TAG" || true
+        else
+            echo "📦 Installing nvm ($NVM_TAG)..."
+            # Use official installer pinned to the resolved tag
+            curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" | bash
+        fi
+
+        # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
+        if [[ "$SHELL_NAME" == "zsh" ]]; then
+            add_to_rc_if_not_present "~/.zshrc" 'export NVM_DIR="$HOME/.nvm"'
+            add_to_rc_if_not_present "~/.zshrc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+            add_to_rc_if_not_present "~/.zshrc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+        else
+            add_to_rc_if_not_present "~/.bashrc" 'export NVM_DIR="$HOME/.nvm"'
+            add_to_rc_if_not_present "~/.bashrc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+            add_to_rc_if_not_present "~/.bashrc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+        fi
+
+        # Initialize nvm in current session if possible
+        export NVM_DIR="$HOME/.nvm"
+        if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh"; fi
+        if [ -s "$NVM_DIR/bash_completion" ]; then . "$NVM_DIR/bash_completion"; fi
+
+        if $FORCE_MODE || $INSTALL_ALL; then install_node="y"; else read -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
+        if [[ "$install_node" =~ ^[Yy]$ ]]; then
+            nvm install --lts && nvm alias default 'lts/*'
+            # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
+            if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+        fi
     fi
 fi
 
@@ -261,22 +408,36 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
 
-            if $FORCE_MODE; then
+            if ! ${SKIP_FETCH:-false}; then
+              if $FORCE_MODE; then
                 reply="y"
-            else
-                read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-            fi
-            if [[ "$reply" =~ ^[Yy]$ ]]; then
-                add_to_rc_if_not_present "~/.zshrc" "nice_print_aliases"
+              else
+                read -p "🧠 Run nice_print_aliases at shell startup? [y/N]: " reply
+              fi
+              if [[ "$reply" =~ ^[Yy]$ ]]; then
+                  add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && nice_print_aliases"
+              fi
+
+              if $FORCE_MODE; then
+                  reply="y"
+              else
+                  read -p "🖼️  Run $FETCH_CMD at shell startup? [y/N]: " reply
+              fi
+              if [[ "$reply" =~ ^[Yy]$ ]]; then
+                  add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && $FETCH_CMD"
+              fi
             fi
 
-            if $FORCE_MODE; then
-                reply="y"
-            else
-                read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+            # zoxide init
+            if command -v zoxide >/dev/null 2>&1; then
+                add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && eval \"\$(zoxide init zsh)\""
             fi
-            if [[ "$reply" =~ ^[Yy]$ ]]; then
-                add_to_rc_if_not_present "~/.zshrc" "$FETCH_CMD"
+            # fzf keybindings/completions (Linux layout)
+            if [ -f /usr/share/fzf/key-bindings.zsh ]; then
+                add_to_rc_if_not_present "~/.zshrc" "source /usr/share/fzf/key-bindings.zsh"
+            fi
+            if [ -f /usr/share/fzf/completion.zsh ]; then
+                add_to_rc_if_not_present "~/.zshrc" "source /usr/share/fzf/completion.zsh"
             fi
         fi
     else
@@ -289,22 +450,34 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
         echo "[[ -f ~/.history_settings ]] && source ~/.history_settings" >>~/.zshrc
         echo "[[ -f ~/.omp_init ]] && source ~/.omp_init" >>~/.zshrc
 
-        if $FORCE_MODE; then
-            reply="y"
-        else
-            read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-        fi
-        if [[ "$reply" =~ ^[Yy]$ ]]; then
-            add_to_rc_if_not_present "~/.zshrc" "nice_print_aliases"
+        if ! ${SKIP_FETCH:-false}; then
+          if $FORCE_MODE; then
+              reply="y"
+          else
+              read -p "🧠 Run nice_print_aliases at shell startup? [y/N]: " reply
+          fi
+          if [[ "$reply" =~ ^[Yy]$ ]]; then
+              add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && nice_print_aliases"
+          fi
+
+          if $FORCE_MODE; then
+              reply="y"
+          else
+              read -p "🖼️  Run $FETCH_CMD at shell startup? [y/N]: " reply
+          fi
+          if [[ "$reply" =~ ^[Yy]$ ]]; then
+              add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && $FETCH_CMD"
+          fi
         fi
 
-        if $FORCE_MODE; then
-            reply="y"
-        else
-            read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        if command -v zoxide >/dev/null 2>&1; then
+            add_to_rc_if_not_present "~/.zshrc" "[[ \$- == *i* ]] && eval \"\$(zoxide init zsh)\""
         fi
-        if [[ "$reply" =~ ^[Yy]$ ]]; then
-            add_to_rc_if_not_present "~/.zshrc" "$FETCH_CMD"
+        if [ -f /usr/share/fzf/key-bindings.zsh ]; then
+            add_to_rc_if_not_present "~/.zshrc" "source /usr/share/fzf/key-bindings.zsh"
+        fi
+        if [ -f /usr/share/fzf/completion.zsh ]; then
+            add_to_rc_if_not_present "~/.zshrc" "source /usr/share/fzf/completion.zsh"
         fi
     fi
 fi
@@ -320,22 +493,35 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
 
-            if $FORCE_MODE; then
-                reply="y"
-            else
-                read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-            fi
-            if [[ "$reply" =~ ^[Yy]$ ]]; then
-                add_to_rc_if_not_present "~/.bashrc" "nice_print_aliases"
+            if ! ${SKIP_FETCH:-false}; then
+              if $FORCE_MODE; then
+                  reply="y"
+              else
+                  read -p "🧠 Run nice_print_aliases at shell startup? [y/N]: " reply
+              fi
+              if [[ "$reply" =~ ^[Yy]$ ]]; then
+                  add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && nice_print_aliases"
+              fi
+
+              if $FORCE_MODE; then
+                  reply="y"
+              else
+                  read -p "🖼️  Run $FETCH_CMD at shell startup? [y/N]: " reply
+              fi
+              if [[ "$reply" =~ ^[Yy]$ ]]; then
+                  add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && $FETCH_CMD"
+              fi
             fi
 
-            if $FORCE_MODE; then
-                reply="y"
-            else
-                read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+            if command -v zoxide >/dev/null 2>&1; then
+                add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && eval \"\$(zoxide init bash)\""
             fi
-            if [[ "$reply" =~ ^[Yy]$ ]]; then
-                add_to_rc_if_not_present "~/.bashrc" "$FETCH_CMD"
+            # fzf keybindings/completions
+            if [ -f /usr/share/fzf/key-bindings.bash ]; then
+                add_to_rc_if_not_present "~/.bashrc" "source /usr/share/fzf/key-bindings.bash"
+            fi
+            if [ -f /usr/share/fzf/completion.bash ]; then
+                add_to_rc_if_not_present "~/.bashrc" "source /usr/share/fzf/completion.bash"
             fi
         fi
     else
@@ -348,22 +534,34 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
         echo '[[ -f ~/.history_settings ]] && source ~/.history_settings' >>~/.bashrc
         echo '[[ -f ~/.omp_init ]] && source ~/.omp_init' >>~/.bashrc
 
-        if $FORCE_MODE; then
-            reply="y"
-        else
-            read -p "🧠 Do you want to run nice_print_aliases on shell startup? [y/N]: " reply
-        fi
-        if [[ "$reply" =~ ^[Yy]$ ]]; then
-            add_to_rc_if_not_present "~/.bashrc" "nice_print_aliases"
+        if ! ${SKIP_FETCH:-false}; then
+          if $FORCE_MODE; then
+              reply="y"
+          else
+              read -p "🧠 Run nice_print_aliases at shell startup? [y/N]: " reply
+          fi
+          if [[ "$reply" =~ ^[Yy]$ ]]; then
+              add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && nice_print_aliases"
+          fi
+
+          if $FORCE_MODE; then
+              reply="y"
+          else
+              read -p "🖼️  Run $FETCH_CMD at shell startup? [y/N]: " reply
+          fi
+          if [[ "$reply" =~ ^[Yy]$ ]]; then
+          add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && $FETCH_CMD"
+          fi
         fi
 
-        if $FORCE_MODE; then
-            reply="y"
-        else
-            read -p "🖼️  Do you want to run $FETCH_CMD on shell startup? [y/N]: " reply
+        if command -v zoxide >/dev/null 2>&1; then
+            add_to_rc_if_not_present "~/.bashrc" "[[ \$- == *i* ]] && eval \"\$(zoxide init bash)\""
         fi
-        if [[ "$reply" =~ ^[Yy]$ ]]; then
-            add_to_rc_if_not_present "~/.bashrc" "$FETCH_CMD"
+        if [ -f /usr/share/fzf/key-bindings.bash ]; then
+            add_to_rc_if_not_present "~/.bashrc" "source /usr/share/fzf/key-bindings.bash"
+        fi
+        if [ -f /usr/share/fzf/completion.bash ]; then
+            add_to_rc_if_not_present "~/.bashrc" "source /usr/share/fzf/completion.bash"
         fi
     fi
 fi
@@ -371,9 +569,10 @@ fi
 if $CLEAN_BACKUPS; then
     echo -e "\n🧹 Looking for backup files to remove in $HOME..."
     BACKUPS=()
-    while IFS= read -r file; do
+    for file in "$HOME"/*.bak.*; do
+        [ -e "$file" ] || continue
         BACKUPS+=("$file")
-    done < <(find "$HOME" -maxdepth 1 -name "*.bak.*")
+    done
 
     if [ ${#BACKUPS[@]} -eq 0 ]; then
         echo "✅ No backup files found."
