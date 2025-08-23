@@ -368,11 +368,38 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
         if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh"; fi
         if [ -s "$NVM_DIR/bash_completion" ]; then . "$NVM_DIR/bash_completion"; fi
 
-        if $FORCE_MODE || $INSTALL_ALL; then install_node="y"; else read -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
-        if [[ "$install_node" =~ ^[Yy]$ ]]; then
-            nvm install --lts && nvm alias default 'lts/*'
-            # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
-            if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+        # Determine current and latest LTS versions (best-effort)
+        current_node="$(nvm version current 2>/dev/null || echo none)"
+        remote_lts="$(nvm version-remote --lts 2>/dev/null || echo '')"
+
+        if [[ "$current_node" != "none" && "$current_node" != "system" ]]; then
+            # User already has a Node version active via nvm → offer to switch
+            if $FORCE_MODE || $INSTALL_ALL; then
+                switch_to_lts="y"
+            else
+                read -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'\
+$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'\
+$'   Heads-up: global npm packages are per-Node-version and will not move automatically.\n'\
+$'   You can later migrate with: nvm reinstall-packages '"$current_node"$'\n'\
+$'   Proceed? [y/N]: ' switch_to_lts
+            fi
+            if [[ "$switch_to_lts" =~ ^[Yy]$ ]]; then
+                prev_node="$current_node"
+                nvm install --lts || true
+                nvm alias default 'lts/*' || true
+                nvm use --lts || true
+                # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
+                if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+                echo "ℹ️  Tip: to copy your global packages, run: nvm reinstall-packages $prev_node"
+            fi
+        else
+            # No active Node via nvm → offer to install latest LTS and set default
+            if $FORCE_MODE || $INSTALL_ALL; then install_node="y"; else read -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
+            if [[ "$install_node" =~ ^[Yy]$ ]]; then
+                nvm install --lts && nvm alias default 'lts/*'
+                # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
+                if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+            fi
         fi
     fi
 fi
