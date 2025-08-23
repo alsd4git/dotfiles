@@ -139,8 +139,8 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 
 ## ⚠️ Supported Platforms
 
-- macOS (via Homebrew)
-- Debian/Ubuntu (via apt)
+* macOS (via Homebrew)
+* Debian/Ubuntu (via apt)
 
 Other Linux distributions are not covered by the installer. You can adapt the scripts or install tools manually on those platforms.
 
@@ -148,33 +148,33 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 
 ## 🧭 Cheatsheet
 
-- Shell basics:
-  - `aa`: Pretty-print aliases (`nice_print_aliases`).
-  - `l`/`lt`/`ll`: Directory listings (use `eza` if installed, otherwise `ls`).
-  - `mntlist`: Show mounted volumes (portable, does not shadow `mount`).
-  - `myip`: Show public IP.
-  - `rld` / `rldz`: Reload `~/.bashrc` / `~/.zshrc`.
-  - `brewup`: Update, upgrade and clean Homebrew (macOS).
+* Shell basics:
+  * `aa`: Pretty-print aliases (`nice_print_aliases`).
+  * `l`/`lt`/`ll`: Directory listings (use `eza` if installed, otherwise `ls`).
+  * `mntlist`: Show mounted volumes (portable, does not shadow `mount`).
+  * `myip`: Show public IP.
+  * `rld` / `rldz`: Reload `~/.bashrc` / `~/.zshrc`.
+  * `brewup`: Update, upgrade and clean Homebrew (macOS).
 
-- Packages and repos:
-  - `npmupg`: Update all globally installed npm packages (respecting semver ranges).
-  - `rpx`: Run RepoMix and output `<folder>-repomix.md`, ignoring `*.html`.
+* Packages and repos:
+  * `npmupg`: Update all globally installed npm packages (respecting semver ranges).
+  * `rpx`: Run RepoMix and output `<folder>-repomix.md`, ignoring `*.html`.
 
-- Docker helpers:
-  - `up_dockers`: Pull latest tags for all local image repositories.
-  - `up_dockers_wt`: One-shot updates via Watchtower (`--run-once --cleanup`).
-  - `up_portainer_ce` / `up_portainer_be`: Recreate Portainer CE/BE containers with volumes/ports.
+* Docker helpers:
+  * `up_dockers`: Pull latest tags for all local image repositories.
+  * `up_dockers_wt`: One-shot updates via Watchtower (`--run-once --cleanup`).
+  * `up_portainer_ce` / `up_portainer_be`: Recreate Portainer CE/BE containers with volumes/ports.
 
-- Git aliases (highlights):
-  - `gl` / `gp`: Pull (rebase+autostash) / push current branch.
-  - `gsu`: Set upstream to `origin/<current-branch>`.
-  - `gla` / `glaf`: Show last commit summary / full diff.
-  - `gd` / `gds`: Diff vs. HEAD / diff stats.
-  - `gcb` / `gca` / `gcd`: New branch / amend / amend with now timestamp.
-  - `lg`: Commits on local branch not on `origin/<branch>`.
-  - `lgr`: Commits on current branch not in `origin/release`.
+* Git aliases (highlights):
+  * `gl` / `gp`: Pull (rebase+autostash) / push current branch.
+  * `gsu`: Set upstream to `origin/<current-branch>`.
+  * `gla` / `glaf`: Show last commit summary / full diff.
+  * `gd` / `gds`: Diff vs. HEAD / diff stats.
+  * `gcb` / `gca` / `gcd`: New branch / amend / amend with now timestamp.
+  * `lg`: Commits on local branch not on `origin/<branch>`.
+  * `lgr`: Commits on current branch not in `origin/release`.
 
-- Git fzf functions:
-  - `fuzzy_branch_selector`: Select a branch (includes remotes); uses `git switch` with tracking.
-  - `fuzzy_log_viewer`: Fuzzy-find commits with preview (`git show`).
-  - `git_see_authors`: Shortlog authors summary.
+* Git fzf functions:
+  * `fuzzy_branch_selector`: Select a branch (includes remotes); uses `git switch` with tracking.
+  * `fuzzy_log_viewer`: Fuzzy-find commits with preview (`git show`).
+  * `git_see_authors`: Shortlog authors summary.
