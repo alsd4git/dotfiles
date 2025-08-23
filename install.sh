@@ -227,7 +227,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
     if $INSTALL_ALL; then
         do_install="y"
     else
-        read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep)? [y/N]: ' do_install
+        read -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, uv, swiftly)? [y/N]: ' do_install
     fi
 
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
@@ -251,7 +251,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             fi
 
             # Install standard tools only if missing
-            for pkg in fzf eza bat zoxide exiv2 fastfetch nano fd ripgrep; do
+            for pkg in fzf eza bat zoxide exiv2 fastfetch nano fd ripgrep uv; do
                 if ! brew list "$pkg" >/dev/null 2>&1; then
                     echo "📦 Installing $pkg..."
                     brew install "$pkg"
@@ -282,6 +282,20 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 else
                     if [ -f "$bash_bind" ]; then add_to_rc_if_not_present "~/.bashrc" "source $bash_bind"; fi
                     if [ -f "$bash_comp" ]; then add_to_rc_if_not_present "~/.bashrc" "source $bash_comp"; fi
+                fi
+            fi
+
+            # swiftly (Swift toolchain manager)
+            if command -v swiftly >/dev/null 2>&1; then
+                echo "✅ swiftly already installed"
+            else
+                echo "📦 Installing swiftly (Swift toolchain manager)..."
+                if brew install swiftly; then
+                    :
+                else
+                    echo "⚠️  Homebrew install for swiftly failed. Falling back to official installer."
+                    echo "   Note: piping install scripts is potentially unsafe. Review https://swiftlang.github.io/swiftly/ before proceeding."
+                    curl -fsSL https://swiftlang.github.io/swiftly/install.sh | bash
                 fi
             fi
             ;;
@@ -326,6 +340,24 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             if command -v fdfind >/dev/null && ! command -v fd >/dev/null; then
                 sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
                 echo "🔗 Created shim: fd -> fdfind"
+            fi
+
+            # uv (Python tool)
+            if ! command -v uv >/dev/null 2>&1; then
+                echo "📥 Installing uv (Python tooling)..."
+                echo "   Note: piping install scripts is potentially unsafe. Review https://astral.sh/uv before proceeding."
+                curl -LsSf https://astral.sh/uv/install.sh | sh
+            else
+                echo "✅ uv already installed"
+            fi
+
+            # swiftly (Swift toolchain manager)
+            if ! command -v swiftly >/dev/null 2>&1; then
+                echo "📥 Installing swiftly (Swift toolchain manager)..."
+                echo "   Note: piping install scripts is potentially unsafe. Review https://swiftlang.github.io/swiftly/ before proceeding."
+                curl -fsSL https://swiftlang.github.io/swiftly/install.sh | bash
+            else
+                echo "✅ swiftly already installed"
             fi
             ;;
         *)
@@ -434,6 +466,8 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.git_functions ]] && source ~/.git_functions"
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.zshrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+            # Ensure ~/.local/bin is on PATH for user-installed tools (uv, swiftly, etc.)
+            add_to_rc_if_not_present "~/.zshrc" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
 
             if ! ${SKIP_FETCH:-false}; then
               if $FORCE_MODE; then
@@ -476,6 +510,7 @@ if [[ "$SHELL_NAME" == "zsh" ]]; then
         echo "[[ -f ~/.git_functions ]] && source ~/.git_functions" >>~/.zshrc
         echo "[[ -f ~/.history_settings ]] && source ~/.history_settings" >>~/.zshrc
         echo "[[ -f ~/.omp_init ]] && source ~/.omp_init" >>~/.zshrc
+        echo '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"' >>~/.zshrc
 
         if ! ${SKIP_FETCH:-false}; then
           if $FORCE_MODE; then
@@ -519,6 +554,8 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.git_functions ]] && source ~/.git_functions"
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
             add_to_rc_if_not_present "~/.bashrc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+            # Ensure ~/.local/bin is on PATH for user-installed tools (uv, swiftly, etc.)
+            add_to_rc_if_not_present "~/.bashrc" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
 
             if ! ${SKIP_FETCH:-false}; then
               if $FORCE_MODE; then
@@ -560,6 +597,7 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
         echo '[[ -f ~/.git_functions ]] && source ~/.git_functions' >>~/.bashrc
         echo '[[ -f ~/.history_settings ]] && source ~/.history_settings' >>~/.bashrc
         echo '[[ -f ~/.omp_init ]] && source ~/.omp_init' >>~/.bashrc
+        echo '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"' >>~/.bashrc
 
         if ! ${SKIP_FETCH:-false}; then
           if $FORCE_MODE; then
