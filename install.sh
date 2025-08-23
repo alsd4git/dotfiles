@@ -298,6 +298,22 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     curl -fsSL https://swiftlang.github.io/swiftly/install.sh | bash
                 fi
             fi
+
+            # Optional: install latest Python via uv
+            if command -v uv >/dev/null 2>&1; then
+                if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
+                if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
+                    uv python install --latest || true
+                fi
+            fi
+
+            # Optional: install latest stable Swift toolchain via swiftly
+            if command -v swiftly >/dev/null 2>&1; then
+                if $INSTALL_ALL || $FORCE_MODE; then sw_install_tc="y"; else read -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
+                    swiftly install stable || true
+                fi
+            fi
             ;;
         Linux)
             echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
@@ -383,6 +399,26 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 rm -rf "$tmpdir"
             else
                 echo "✅ swiftly already installed"
+            fi
+
+            # Ensure current session can find freshly installed user binaries
+            if [ -x "$HOME/.local/bin/uv" ]; then export PATH="$HOME/.local/bin:$PATH"; fi
+            if [ -f "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh" ]; then . "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"; fi
+
+            # Optional: install latest Python via uv
+            if command -v uv >/dev/null 2>&1; then
+                if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
+                if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
+                    uv python install --latest || true
+                fi
+            fi
+
+            # Optional: install latest stable Swift toolchain via swiftly
+            if command -v swiftly >/dev/null 2>&1; then
+                if $INSTALL_ALL || $FORCE_MODE; then sw_install_tc="y"; else read -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
+                    swiftly install stable || true
+                fi
             fi
             ;;
         *)
