@@ -28,6 +28,8 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * `exiv2` (Needed for `ren_pics` function)
   * `fastfetch` (System info display - preferred)
   * `nano` (Ensures a consistent editor is available)
+  * `uv` (Python tooling manager; installed but does not pin a Python version)
+  * `swiftly` (Swift toolchain manager; installed but does not install a Swift toolchain)
 * 🪄 **Enhanced Shell Experience:**
   * Sensible command history settings with cross-session sharing.
   * `oh-my-posh` integration for an informative prompt (interactive shells only).
@@ -107,6 +109,8 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up the shell env automatically (adds `eval "$($(brew_path)/brew shellenv)"` to `~/.zprofile` and `~/.bash_profile`).
   * On Ubuntu/Debian, the `bat` binary may be named `batcat`, and `fd` as `fdfind`. The installer creates shims (`/usr/local/bin/bat` and `/usr/local/bin/fd`) for a consistent experience.
+  * For Python/Swift tooling, only the managers are installed (`uv`, `swiftly`); no specific Python or Swift toolchain versions are installed by this script.
+  * Ensures `~/.local/bin` is on `PATH` (if the directory exists) so user-installed tools like `uv` and `swiftly` are available.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
 * **Configures Startup Commands (Optional):** Asks if you want `nice_print_aliases` and `fastfetch` (or `screenfetch` as a fallback) to run when a new shell starts. These run only in interactive shells.
 * **fzf & zoxide Initialization:** If installed, `zoxide` is initialized for your shell; `fzf` keybindings/completions are sourced when available.
