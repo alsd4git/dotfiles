@@ -120,6 +120,8 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * If no Node is active via `nvm`, you can install the latest LTS and set it as default.
   * If a Node version is already active via `nvm`, the installer offers to switch to the latest LTS and set it as default, with a warning that global npm packages are per-version and won’t move automatically. To migrate them later, run: `nvm reinstall-packages <previous_version>`.
   * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
+* **Optional Python Tooling:** Installs `uv` (Python tool and package manager). Optionally offers to install the latest CPython release managed by `uv` (does not change your system `python`).
+* **Optional Swift Tooling:** Installs `swiftly` (Swift toolchain manager). Optionally offers to install the latest stable Swift toolchain via `swiftly`.
 
 ---
 
