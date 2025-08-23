@@ -1,8 +1,15 @@
 function fuzzy_branch_selector(){
-    if [ -x "$(command -v fzf)" ]; then #this line is used to check whether or not the program is installed
-        #we have fzf, we can proceed
-        #echo "all ok"
-		git checkout $(git branch -a | grep 'remotes' | grep -v 'HEAD ->' | sed 's/remotes\/origin\///g' | fzf --reverse --preview 'git log --graph --abbrev-commit --decorate --color=always --first-parent  {1}')
+    if command -v fzf >/dev/null 2>&1; then
+        local sel
+        sel=$(git branch -a | grep 'remotes' | grep -v 'HEAD ->' | sed 's#remotes/origin/##g' | fzf --reverse --preview 'git log --graph --abbrev-commit --decorate --color=always --first-parent  {1}' ) || return 1
+        if [ -n "$sel" ]; then
+            # Try to switch, tracking remote if needed
+            if git rev-parse --verify "$sel" >/dev/null 2>&1; then
+                git switch "$sel"
+            else
+                git switch --track "origin/$sel"
+            fi
+        fi
     else
         echo "fzf not found, please download it from 'https://github.com/junegunn/fzf'"
     fi

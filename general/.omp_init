@@ -6,12 +6,17 @@ CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}' | sed 's/^-*//')
 
 # Determine theme location across platforms
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  THEME_PATH="$(brew --prefix oh-my-posh)/themes/tokyo.omp.json"
+  THEME_PATH="$(brew --prefix oh-my-posh 2>/dev/null)/themes/tokyo.omp.json"
 else
   THEME_PATH="$HOME/.cache/oh-my-posh/themes/tokyo.omp.json"
 fi
 
-# Load oh-my-posh if available
-if command -v oh-my-posh >/dev/null 2>&1; then
-  eval "$(oh-my-posh init $CURRENT_SHELL --config $THEME_PATH)"
+# Load oh-my-posh if available (interactive shells only). Fallback to no config if theme not found.
+if [[ $- == *i* ]] && command -v oh-my-posh >/dev/null 2>&1; then
+  if [ -f "$THEME_PATH" ]; then
+    eval "$(oh-my-posh init $CURRENT_SHELL --config "$THEME_PATH")"
+  else
+    # use default init without external theme
+    eval "$(oh-my-posh init $CURRENT_SHELL)"
+  fi
 fi

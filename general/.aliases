@@ -19,34 +19,45 @@ alias c='clear'
 # alias cre="c && nice_print_aliases"
 alias d='du -sh'
 alias df='df -h'
-alias edt='nano ~/.bashrc'
 alias h='history'
 
-# Use 'eza' if available
+OS_NAME=$(uname -s)
+# Use 'eza' if available, otherwise choose portable ls flags
 if [ "$USE_EZA" = true ]; then
   alias l='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
   alias lt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
 else
-  alias l='ls --color=auto -lAhv --group-directories-first'
-  alias lt='ls --color=auto -lAhv --group-directories-first'
+  if [ "$OS_NAME" = "Darwin" ]; then
+    alias l='ls -lAhG'
+    alias lt='ls -lAhG'
+  else
+    alias l='ls --color=auto -lAh --group-directories-first'
+    alias lt='ls --color=auto -lAh --group-directories-first'
+  fi
 fi
 
-# Always available eza-based aliases (if eza is installed)
-alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
-alias lxt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+# Always available eza-based aliases (only if eza is installed)
+if [ "$USE_EZA" = true ]; then
+  alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+  alias lxt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+fi
 
 # Classic ls alias
-alias ll='ls --color=auto -lAhv --group-directories-first'
-
-# OS-aware mount output
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  alias mount='diskutil list'
+if [ "$OS_NAME" = "Darwin" ]; then
+  alias ll='ls -lAhG'
 else
-  alias mount='mount | column -t'
+  alias ll='ls --color=auto -lAh --group-directories-first'
+fi
+
+# OS-aware mount output (do not shadow mount)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  alias mntlist='diskutil list'
+else
+  alias mntlist='mount | column -t'
 fi
 
 # Networking and system info
-alias myip='curl -s http://ipecho.net/plain; echo'
+alias myip='curl -s https://ifconfig.me; echo'
 
 # Safer nano usage
 if command -v nano >/dev/null 2>&1; then
@@ -54,21 +65,28 @@ if command -v nano >/dev/null 2>&1; then
   alias nano='nano'
 fi
 
+# Homebrew: update formulae, upgrade installed packages, and cleanup old versions
 alias brewup='brew update && brew upgrade && brew cleanup'
-alias noh='cat /dev/null > ~/.bash_history'
+alias noh='[[ ${SHELL##*/} == zsh ]] && : > ~/.zsh_history || : > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"
 alias update='sudo apt-get update && sudo apt-get upgrade -y'
 alias wget='wget -c'
 
 # ===== Docker Aliases =====
+# Pull latest tags for all repositories of local images (repo list via `docker images`)
 alias up_dockers='docker images | grep -v REPOSITORY | awk '\''{print $1}'\'' | xargs -L1 docker pull'
+# Recreate Portainer Community Edition with mapped ports and persistent volume
 alias up_portainer_ce='docker pull portainer/portainer-ce:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
+# Recreate Portainer Business Edition with mapped ports and persistent volume
 alias up_portainer_be='docker pull portainer/portainer-ee:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest --http-enabled'
+# One-shot container updates for all running containers using Watchtower, cleaning old images
+alias up_dockers_wt='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once --cleanup'
 
 # ===== Swift Aliases =====
 alias sb='swift build'
 alias sub='swift package update && swift build'
+alias scub='swift package clean && swift package update && swift build'
 alias sf='swift-format Sources/ Tests/ --recursive --in-place'
 
 # ===== Private Aliases Loader =====
@@ -77,3 +95,14 @@ if [ -f ~/.private_aliases ]; then
 else
   touch ~/.private_aliases
 fi
+
+# ===== Editor convenience =====
+alias edt='[[ ${SHELL##*/} == zsh ]] && nano ~/.zshrc || nano ~/.bashrc'
+
+# ===== RepoMix =====
+# Generate a markdown report named after the current folder, ignoring HTML files
+alias rpx='repomix -o "$(basename "$PWD")-repomix.md" --style markdown --ignore "*.html"'
+
+# ===== Package Management =====
+# npm: update all globally installed packages to the latest versions allowed by semver ranges
+alias npmupg='npm -g update'

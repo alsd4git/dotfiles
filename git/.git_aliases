@@ -1,29 +1,54 @@
 #remember that if more than one alias has the same name, the one that appear later is the one that will be used
 
+# Show commits on current branch not in 'release'
 alias ch="git cherry -v release"
+# Stage all changes and commit with a message (usage: gac "message")
 alias gac="git add . && git commit -m"  # + commit message
+# List branches (usage: gb)
 alias gb="git branch" # + branch name
+# Checkout branch or path (consider `git switch` for branches)
 alias gc="git checkout" # + branch name
+# Amend last commit without changing message
 alias gca="git commit --amend --no-edit"
+# Create and checkout a new branch
 alias gcb="git checkout -b" # + branch name
+# Amend last commit but reset commit date to now
 alias gcd='git commit --amend --no-edit --date "$(date -R)"' #amend resetting date to 'now'
+# Clone a repository (usage: gcl <url>)
 alias gcl="git clone" # + repo url
+# Diff working tree vs. HEAD
 alias gd="git diff" #diff between work directory and HEAD
+# Diff summary (file-level stats)
 alias gds="git diff --stat" #diff stats between work directory and HEAD
+# Fetch from remotes
 alias gf="git fetch"
-alias gl="git pull --rebase --autostash -Xignore-all-space origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
+# Pull current branch from origin with rebase, autostash, and whitespace-ignoring merge strategy
+alias gl="git pull --rebase --autostash -Xignore-all-space origin \$(git rev-parse --abbrev-ref HEAD)" # + current branch
+# Last commit with file change stats
 alias gla="git log -1 --stat" #see details of last commit
+# Last commit full diff + stats, with color
 alias glaf="git show -p --stat --color=always -1" #see details of last commit + modified code for that commit
+# Compact graph of history (one line per commit)
 alias gln="git log --graph --decorate --pretty=oneline --abbrev-commit"
+# One-line log (short SHA + subject)
 alias glo="git log --oneline"
+# Pretty one-line log with colors, truncation, dates, refs and author
 alias glop="git log --pretty=format:'%C(yellow)%h%Creset - %C(green)%ad%Creset - %<(140,trunc)%s %<(45,trunc) %C(red)%d %C(green)%<(14,trunc)%ar %C(cyan)<%aN>' --abbrev-commit --date=short" #thanks to 'https://www.edureka.co/blog/git-format-commit-history/' and 'https://ma.ttias.be/pretty-git-log-in-one-line/'
-alias gp="git push origin \$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')" # + remote & branch names
+# Push current branch to origin
+alias gp="git push origin \$(git rev-parse --abbrev-ref HEAD)" # + current branch
+# Rebase with whitespace-ignoring strategy; autostash local changes
 alias gr="git rebase -Xignore-all-space --autostash" # + branch name
+# Status summary
 alias gs="git status"
-alias gsu="git branch --set-upstream-to=origin/\$(git symbolic-ref --short HEAD)"
+# Set upstream of current branch to origin/<current-branch>
+alias gsu="git branch --set-upstream-to=origin/\$(git rev-parse --abbrev-ref HEAD)"
+# Undo last commit but keep changes staged
 alias gu="git reset --soft HEAD~1" #undo last commit without losing work
-alias lg="git log origin/\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
-alias lgr="git log origin/release..\$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')"
+# Show commits on local branch not yet on origin/<branch>
+alias lg="git log origin/\$(git rev-parse --abbrev-ref HEAD)..\$(git rev-parse --abbrev-ref HEAD)"
+# Show commits on current branch that are not in origin/release
+# Show commits on current branch that are not in origin/release
+alias lgr="git log origin/release..\$(git rev-parse --abbrev-ref HEAD)"
 
 # alias grey-grep="GREP_COLOR='1;30' grep --color=always"
 # alias red-grep="GREP_COLOR='1;31' grep --color=always"
