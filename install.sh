@@ -354,8 +354,25 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             # swiftly (Swift toolchain manager)
             if ! command -v swiftly >/dev/null 2>&1; then
                 echo "📥 Installing swiftly (Swift toolchain manager)..."
-                echo "   Note: piping install scripts is potentially unsafe. Review https://swiftlang.github.io/swiftly/ before proceeding."
-                curl -fsSL https://swiftlang.github.io/swiftly/install.sh | bash
+                arch="$(uname -m)"
+                url="https://download.swift.org/swiftly/linux/swiftly-${arch}.tar.gz"
+                tmpdir="$(mktemp -d)"
+                (
+                    set -e
+                    cd "$tmpdir"
+                    echo "   ↪ Downloading $url"
+                    curl -fLO "$url"
+                    tar zxf "swiftly-${arch}.tar.gz"
+                    ./swiftly init --quiet-shell-followup
+                ) && {
+                    env_file="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+                    if [ -f "$env_file" ]; then . "$env_file"; fi
+                    hash -r || true
+                    echo "✅ swiftly installed"
+                } || {
+                    echo "⚠️  swiftly installation failed. See https://www.swift.org/install/linux/ for manual steps."
+                }
+                rm -rf "$tmpdir"
             else
                 echo "✅ swiftly already installed"
             fi
