@@ -368,7 +368,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     echo "   ↪ Downloading $url"
                     curl -fLO "$url"
                     tar zxf "swiftly-${arch}.tar.gz"
-                    ./swiftly init --quiet-shell-followup
+                    ./swiftly init --quiet-shell-followup --skip-install
                 ) && {
                     env_file="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
                     if [ -f "$env_file" ]; then . "$env_file"; fi
