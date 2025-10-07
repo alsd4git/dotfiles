@@ -116,6 +116,11 @@ latest_nvm_tag() {
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOTFILES_HOME="$BASEDIR"
 
+if ! $DRY_RUN; then
+    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local/share/swiftly"
+fi
+
 # Create SYMLINKS map in a way compatible with both Bash and Zsh
 SYMLINK_KEYS=(
     "$HOME/.shell_aliases"
