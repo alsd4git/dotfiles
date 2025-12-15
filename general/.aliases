@@ -66,7 +66,7 @@ if command -v nano >/dev/null 2>&1; then
 fi
 
 # Homebrew: update formulae, upgrade installed packages, and cleanup old versions
-alias brewup='brew update && brew upgrade && brew cleanup'
+alias brewup='brew update ; brew upgrade ; brew cleanup'
 alias noh='[[ ${SHELL##*/} == zsh ]] && : > ~/.zsh_history || : > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"
@@ -77,11 +77,11 @@ alias wget='wget -c'
 # Pull latest tags for all repositories of local images (repo list via `docker images`)
 alias up_dockers='docker images | grep -v REPOSITORY | awk '\''{print $1}'\'' | xargs -L1 docker pull'
 # Recreate Portainer Community Edition with mapped ports and persistent volume
-alias up_portainer_ce='docker pull portainer/portainer-ce:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
+alias up_portainer_ce='docker pull portainer/portainer-ce:latest ; docker stop portainer ; docker rm portainer ; docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
 # Recreate Portainer Business Edition with mapped ports and persistent volume
-alias up_portainer_be='docker pull portainer/portainer-ee:latest && docker stop portainer && docker rm portainer && docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest --http-enabled'
+alias up_portainer_be='docker pull portainer/portainer-ee:latest ; docker stop portainer ; docker rm portainer ; docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest --http-enabled'
 # One-shot container updates for all running containers using Watchtower, cleaning old images
-alias up_dockers_wt='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once --cleanup'
+alias up_dockers_wt='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock nickfedor/watchtower --run-once --cleanup'
 
 # ===== Swift Aliases =====
 alias sb='swift build'

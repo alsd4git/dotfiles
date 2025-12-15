@@ -255,8 +255,8 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 fi
             fi
 
-            # Install standard tools only if missing
-            for pkg in fzf eza bat zoxide exiv2 fastfetch nano fd ripgrep uv; do
+            # Install standard tools only if missing (alphabetical)
+            for pkg in bat eza exiv2 fastfetch fd fzf gh git-delta jq nano ripgrep uv zoxide; do
                 if ! brew list "$pkg" >/dev/null 2>&1; then
                     echo "📦 Installing $pkg..."
                     brew install "$pkg"
@@ -323,7 +323,38 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
         Linux)
             echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
             sudo apt update
-            sudo apt install -y fzf bat zoxide curl unzip ripgrep fd-find nano exiv2 gnupg || true
+            # Base packages (alphabetical)
+            sudo apt install -y \
+                bat \
+                curl \
+                exiv2 \
+                fd-find \
+                fzf \
+                git-delta \
+                gnupg \
+                jq \
+                nano \
+                ripgrep \
+                unzip \
+                zoxide || true
+
+            # gh (GitHub CLI) via official apt repository
+            if ! command -v gh >/dev/null 2>&1; then
+                echo "📥 Installing GitHub CLI (gh)..."
+                if [ ! -f /usr/share/keyrings/githubcli-archive-keyring.gpg ]; then
+                    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+                      | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+                      && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg || true
+                fi
+                if ! grep -qs "cli.github.com/packages" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+                    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+                      | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null || true
+                fi
+                sudo apt update || true
+                sudo apt install -y gh || echo "⚠️  Failed to install gh via apt; you can install it manually: https://github.com/cli/cli#installation"
+            else
+                echo "✅ gh already installed"
+            fi
 
             # eza
             if ! command -v eza >/dev/null; then

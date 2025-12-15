@@ -12,24 +12,15 @@ function ren_pics() {
 
 # ===== Alias Helpers =====
 function nice_print_aliases() {
-    # Print a localized header depending on LANG
-    if [ "$(locale | grep LANG | cut -d= -f2 | cut -d_ -f1)" = "it" ]; then
-        echo -e "Lista Alias:\n"
-    else
-        echo -e "Aliases List:\n"
-    fi
-
-    # Print current aliases, highlighting 'alias' and 'git', formatting the '='
-    # Prefer GNU grep if available for color; otherwise print without color for portability
-    if command -v ggrep >/dev/null 2>&1; then
-        alias | GREP_COLOR='01;32' ggrep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
-    else
-        if grep --version 2>/dev/null | head -n1 | grep -qi gnu; then
-            alias | GREP_COLOR='01;32' grep -E --color=always 'alias |git' | sed 's/\=/ \t/g'
-        else
-            alias | grep -E 'alias |git' | sed 's/\=/ \t/g'
-        fi
-    fi
+    #TODO: restore coloring, sorting and spacing, this needs to be valid on bash/zsh - MacOS/Debian
+    alias |
+    while IFS='=' read -r name value; do
+        # Remove leading 'alias ' and surrounding quotes
+        name=${name#alias }
+        value=${value#\'}
+        value=${value%\'}
+        printf "%s\t\t%s\n" "$name" "$value"
+    done
 }
 # export -f nice_print_aliases  # Usually unnecessary unless using in subshells
 
