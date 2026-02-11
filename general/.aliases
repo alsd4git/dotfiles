@@ -1,13 +1,14 @@
+# shellcheck shell=bash
 # ===== Alias Configuration =====
 
 # Remember: if more than one alias has the same name, the last one takes precedence.
 
 # Detect if 'eza' is available and set a flag
 if command -v eza >/dev/null 2>&1; then
-  export USE_EZA=true
+    export USE_EZA=true
 else
-  export USE_EZA=false
-  # You can find it here: https://github.com/eza-community/eza/blob/main/INSTALL.md
+    export USE_EZA=false
+    # You can find it here: https://github.com/eza-community/eza/blob/main/INSTALL.md
 fi
 
 #export NANORC="$HOME/.nanorc" #may be needed for some systems
@@ -24,36 +25,36 @@ alias h='history'
 OS_NAME=$(uname -s)
 # Use 'eza' if available, otherwise choose portable ls flags
 if [ "$USE_EZA" = true ]; then
-  alias l='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
-  alias lt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+    alias l='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+    alias lt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
 else
-  if [ "$OS_NAME" = "Darwin" ]; then
-    alias l='ls -lAhG'
-    alias lt='ls -lAhG'
-  else
-    alias l='ls --color=auto -lAh --group-directories-first'
-    alias lt='ls --color=auto -lAh --group-directories-first'
-  fi
+    if [ "$OS_NAME" = "Darwin" ]; then
+        alias l='ls -lAhG'
+        alias lt='ls -lAhG'
+    else
+        alias l='ls --color=auto -lAh --group-directories-first'
+        alias lt='ls --color=auto -lAh --group-directories-first'
+    fi
 fi
 
 # Always available eza-based aliases (only if eza is installed)
 if [ "$USE_EZA" = true ]; then
-  alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
-  alias lxt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
+    alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
+    alias lxt='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git'
 fi
 
 # Classic ls alias
 if [ "$OS_NAME" = "Darwin" ]; then
-  alias ll='ls -lAhG'
+    alias ll='ls -lAhG'
 else
-  alias ll='ls --color=auto -lAh --group-directories-first'
+    alias ll='ls --color=auto -lAh --group-directories-first'
 fi
 
 # OS-aware mount output (do not shadow mount)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  alias mntlist='diskutil list'
+    alias mntlist='diskutil list'
 else
-  alias mntlist='mount | column -t'
+    alias mntlist='mount | column -t'
 fi
 
 # Networking and system info
@@ -61,12 +62,13 @@ alias myip='curl -s https://ifconfig.me; echo'
 
 # Safer nano usage
 if command -v nano >/dev/null 2>&1; then
-  alias n='nano'
-  alias nano='nano'
+    alias n='nano'
+    alias nano='nano'
 fi
 
 # Homebrew: update formulae, upgrade installed packages, and cleanup old versions
-alias brewup='brew update ; brew upgrade ; brew cleanup'
+alias brewup='brew update ; brew upgrade --greedy ; brew cleanup'
+
 alias noh='[[ ${SHELL##*/} == zsh ]] && : > ~/.zsh_history || : > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"
@@ -74,8 +76,7 @@ alias update='sudo apt-get update && sudo apt-get upgrade -y'
 alias wget='wget -c'
 
 # ===== Docker Aliases =====
-# Pull latest tags for all repositories of local images (repo list via `docker images`)
-alias up_dockers='docker images | grep -v REPOSITORY | awk '\''{print $1}'\'' | xargs -L1 docker pull'
+# Pull latest tags for all local images (implemented as function in ~/.shell_functions)
 # Recreate Portainer Community Edition with mapped ports and persistent volume
 alias up_portainer_ce='docker pull portainer/portainer-ce:latest ; docker stop portainer ; docker rm portainer ; docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest --http-enabled'
 # Recreate Portainer Business Edition with mapped ports and persistent volume
@@ -91,9 +92,8 @@ alias sf='swift-format Sources/ Tests/ --recursive --in-place'
 
 # ===== Private Aliases Loader =====
 if [ -f ~/.private_aliases ]; then
-  . ~/.private_aliases
-else
-  touch ~/.private_aliases
+    # shellcheck source=/dev/null
+    . ~/.private_aliases
 fi
 
 # ===== Editor convenience =====
@@ -105,4 +105,4 @@ alias rpx='repomix -o "$(basename "$PWD")-repomix.md" --style markdown --ignore 
 
 # ===== Package Management =====
 # npm: update all globally installed packages to the latest versions allowed by semver ranges
-alias npmupg='npm -g update'
+alias npmupg='npm outdated -g ; npm update -g'

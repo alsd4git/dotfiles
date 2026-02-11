@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ===== File and Media Utilities =====
 function ren_pics() {
     # Rename all images in current folder using folder name and EXIF date
@@ -7,27 +8,49 @@ function ren_pics() {
         return 1
     fi
     shopt -s nullglob 2>/dev/null || true
-    exiv2 -r"$cur_dir"' - %Y-%m-%d %H.%M.%S' -F rename *.jpg *.jpeg *.JPG *.JPEG *.png *.PNG *.heic *.HEIC 2>/dev/null || true
+    exiv2 -r"$cur_dir"' - %Y-%m-%d %H.%M.%S' -F rename ./*.jpg ./*.jpeg ./*.JPG ./*.JPEG ./*.png ./*.PNG ./*.heic ./*.HEIC 2>/dev/null || true
+}
+
+function up_dockers() {
+    # Pull each unique, tagged local image reference.
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "docker not found. Install Docker to use up_dockers."
+        return 1
+    fi
+
+    local image_refs
+    image_refs="$(docker image ls --format '{{.Repository}}:{{.Tag}}' \
+        | awk -F: '$1 != "<none>" && $2 != "<none>" { print $0 }' \
+        | sort -u)"
+
+    if [ -z "$image_refs" ]; then
+        echo "No tagged local images found."
+        return 0
+    fi
+
+    while IFS= read -r image_ref; do
+        docker pull "$image_ref"
+    done <<<"$image_refs"
 }
 
 # ===== Alias Helpers =====
 function nice_print_aliases() {
     #TODO: restore coloring, sorting and spacing, this needs to be valid on bash/zsh - MacOS/Debian
-    alias |
-    while IFS='=' read -r name value; do
-        # Remove leading 'alias ' and surrounding quotes
-        name=${name#alias }
-        value=${value#\'}
-        value=${value%\'}
-        printf "%s\t\t%s\n" "$name" "$value"
-    done
+    alias \
+        | while IFS='=' read -r name value; do
+            # Remove leading 'alias ' and surrounding quotes
+            name=${name#alias }
+            value=${value#\'}
+            value=${value%\'}
+            printf "%s\t\t%s\n" "$name" "$value"
+        done
 }
 # export -f nice_print_aliases  # Usually unnecessary unless using in subshells
 
 # ===== Nano Backup Wrappers =====
 function nanobk() {
     echo "You are making a copy of \"$1\" before you open it. Press enter to continue."
-    read nul
+    read -r
     cp "$1" "$1.bak"
     nano "$1"
 }
