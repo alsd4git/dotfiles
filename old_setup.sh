@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 copy_with_backup() {
     # $1 = source path
     # $2 = destination filename (optional, defaults to basename of $1)
@@ -6,7 +8,7 @@ copy_with_backup() {
         # File exists in home
         if ! cmp -s ~/"$dest_name" "$1"; then
             # Files differ
-            mv ~/"$dest_name" ~/old_"$dest_name"_$(date +'%m.%d.%Y_%H.%M.%S').bak
+            mv ~/"$dest_name" "$HOME/old_${dest_name}_$(date +'%m.%d.%Y_%H.%M.%S').bak"
             echo -e "backed up: ~/$dest_name \tto: ~/old_${dest_name}_$(date +'%m.%d.%Y_%H.%M.%S').bak"
         else
             echo -e "$dest_name is already updated"
@@ -18,10 +20,10 @@ copy_with_backup() {
 add_to_bashrc_if_not_present() {
     #based on https://stackoverflow.com/questions/4749330/how-to-test-if-string-exists-in-file-with-bash
     if grep -Fq "$1" ~/.bashrc; then
-        echo $1 " found, no need to add"
+        echo "$1 found, no need to add"
     else
-        echo "adding "$1
-        echo $1 >>~/.bashrc
+        echo "adding $1"
+        echo "$1" >>~/.bashrc
     fi
 }
 
@@ -42,15 +44,17 @@ if [ -f ~/.bashrc ]; then
 else
     # whole new file, need to add bash_aliases loading
     echo ".bashrc not found, i will create one in your profile directory and add alias sourcing to it"
-    touch . ~/.bashrc
-    echo ". ~/.bash_aliases" >>~/.bashrc
-    echo ". ~/.bash_functions" >>~/.bashrc
-    echo ". ~/.git_aliases" >>~/.bashrc
-    echo ". ~/.git_functions" >>~/.bashrc
-    echo ". ~/.history_settings" >>~/.bashrc
-    echo ". ~/.omp_init" >>~/.bashrc
-    echo "nice_print_aliases" >>~/.bashrc
-    echo "screenfetch 2>/dev/null" >>~/.bashrc
+    touch ~/.bashrc
+    {
+        echo ". ~/.bash_aliases"
+        echo ". ~/.bash_functions"
+        echo ". ~/.git_aliases"
+        echo ". ~/.git_functions"
+        echo ". ~/.history_settings"
+        echo ". ~/.omp_init"
+        echo "nice_print_aliases"
+        echo "screenfetch 2>/dev/null"
+    } >>~/.bashrc
 fi
 echo "i will now copy new files, backing up the old ones (only for changed/updated files)"
 copy_with_backup general/.aliases .bash_aliases

@@ -1,9 +1,10 @@
+# shellcheck shell=bash
 #remember that if more than one alias has the same name, the one that appear later is the one that will be used
 
 # Show commits on current branch not in 'release'
 alias ch="git cherry -v release"
 # Stage all changes and commit with a message (usage: gac "message")
-alias gac="git add . && git commit -m"  # + commit message
+alias gac="git add . && git commit -m" # + commit message
 # List branches (usage: gb)
 alias gb="git branch" # + branch name
 # Checkout branch or path (consider `git switch` for branches)
@@ -22,8 +23,8 @@ alias gd="git diff" #diff between work directory and HEAD
 alias gds="git diff --stat" #diff stats between work directory and HEAD
 # Fetch from remotes
 alias gf="git fetch"
-# Pull current branch from origin with rebase, autostash, and whitespace-ignoring merge strategy
-alias gl="git pull --rebase --autostash -Xignore-all-space origin \$(git rev-parse --abbrev-ref HEAD)" # + current branch
+# Pull current branch from its configured upstream with rebase, autostash, and whitespace-ignoring merge strategy
+alias gl="git pull --rebase --autostash -Xignore-all-space"
 # Last commit with file change stats
 alias gla="git log -1 --stat" #see details of last commit
 # Last commit full diff + stats, with color
@@ -34,8 +35,8 @@ alias gln="git log --graph --decorate --pretty=oneline --abbrev-commit"
 alias glo="git log --oneline"
 # Pretty one-line log with colors, truncation, dates, refs and author
 alias glop="git log --pretty=format:'%C(yellow)%h%Creset - %C(green)%ad%Creset - %<(140,trunc)%s %<(45,trunc) %C(red)%d %C(green)%<(14,trunc)%ar %C(cyan)<%aN>' --abbrev-commit --date=short" #thanks to 'https://www.edureka.co/blog/git-format-commit-history/' and 'https://ma.ttias.be/pretty-git-log-in-one-line/'
-# Push current branch to origin
-alias gp="git push origin \$(git rev-parse --abbrev-ref HEAD)" # + current branch
+# Push current branch to its configured upstream
+alias gp="git push"
 # Rebase with whitespace-ignoring strategy; autostash local changes
 alias gr="git rebase -Xignore-all-space --autostash" # + branch name
 # Status summary
@@ -44,8 +45,8 @@ alias gs="git status"
 alias gsu="git branch --set-upstream-to=origin/\$(git rev-parse --abbrev-ref HEAD)"
 # Undo last commit but keep changes staged
 alias gu="git reset --soft HEAD~1" #undo last commit without losing work
-# Show commits on local branch not yet on origin/<branch>
-alias lg="git log origin/\$(git rev-parse --abbrev-ref HEAD)..\$(git rev-parse --abbrev-ref HEAD)"
+# Show commits on local branch not yet on its upstream
+alias lg="git log @{upstream}..HEAD"
 # Show commits on current branch that are not in origin/release
 # Show commits on current branch that are not in origin/release
 alias lgr="git log origin/release..\$(git rev-parse --abbrev-ref HEAD)"

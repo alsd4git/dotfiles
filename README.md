@@ -31,6 +31,8 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * `exiv2` (Needed for `ren_pics` function)
   * `fastfetch` (System info display - preferred)
   * `nano` (Ensures a consistent editor is available)
+  * `shellcheck` (Shell script static analysis)
+  * `shfmt` (Shell script formatter)
   * `uv` (Python tooling manager; installed but does not pin a Python version)
   * `swiftly` (Swift toolchain manager; installed but does not install a Swift toolchain)
 * 🪄 **Enhanced Shell Experience:**
@@ -89,13 +91,13 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 **Installer Options:**
 
 * `./install.sh --help` or `-h`: Show help message.
-* `./install.sh --dry-run` or `-dr`: Show what would be done without making changes.
+* `./install.sh --dry-run` or `-dr`: Show what would be done without making changes (no file writes, no deletions, no global Git config changes).
 * `./install.sh --copy` or `-c`: Copy files instead of creating symlinks (backs up existing files).
 * `./install.sh --force` or `-f`: Skip all prompts, assumes yes to optional installs and backup cleaning.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
-* `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made.
-* `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME`.
+* `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made (runs uninstall flow only, then exits).
+* `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME` (or preview removals in dry-run mode).
 
 ---
 
@@ -110,7 +112,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * Runs `git config --global core.excludesfile "$HOME/.global.gitignore"` to tell Git to use this file.
 * **Sets Git Defaults:** Configures recommended global Git settings: `pull.rebase = true`, `rebase.autostash = true`, `core.editor = nano`.
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
-  * If Homebrew is missing on macOS, the installer bootstraps it and sets up the shell env automatically (adds `eval "$($(brew_path)/brew shellenv)"` to `~/.zprofile` and `~/.bash_profile`).
+  * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).
   * On Ubuntu/Debian, the `bat` binary may be named `batcat`, and `fd` as `fdfind`. The installer creates shims (`/usr/local/bin/bat` and `/usr/local/bin/fd`) for a consistent experience.
   * For Python/Swift tooling, only the managers are installed (`uv`, `swiftly`); no specific Python or Swift toolchain versions are installed by this script.
   * Ensures `~/.local/bin` is on `PATH` (if the directory exists) so user-installed tools like `uv` and `swiftly` are available.
