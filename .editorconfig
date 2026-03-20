@@ -11,3 +11,5 @@ indent_size = 2
 [*.sh]
 indent_size = 4
 
+[*.ps1]
+indent_size = 4
