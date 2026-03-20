@@ -1,6 +1,6 @@
 # dotfiles
 
-My personal dotfiles collection, designed for consistency across macOS and Debian/Ubuntu systems using Bash or Zsh.
+My personal dotfiles collection, designed for consistency across macOS and Debian/Ubuntu systems using Bash or Zsh, with a separate Windows PowerShell preview path.
 
 ---
 
@@ -43,6 +43,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * ⚙️ **Git Enhancements:** Useful Git aliases, functions (like `fzf` branch switching), and recommended global settings (`pull.rebase`, `rebase.autostash`, `core.editor`, `core.excludesfile`).
   * Examples: `gl` (pull current branch with rebase/autostash), `gp` (push current branch), `gsu` (set upstream), `gla`/`glaf` (last commit summary/full), `lg`/`lgr` (commits missing on origin/release).
 * 🔒 **Private Aliases:** Supports loading personal, untracked aliases from `~/.private_aliases`.
+* 🪟 **Windows Preview:** `install.ps1` bootstraps a small PowerShell profile and Windows package managers separately from the Bash/Zsh path.
 
 ---
 
@@ -53,7 +54,9 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 ├── general/       # Shared shell config (aliases, functions, history, prompt)
 ├── git/           # Git-specific aliases, functions, and global ignore
 ├── nano/          # Nano text editor configuration
+├── windows/       # Minimal PowerShell profile for Windows
 ├── install.sh     # Recommended installation script
+├── install.ps1    # Windows/PowerShell installer preview
 ├── old_setup.sh   # DEPRECATED: Legacy copy-with-backup installer
 └── README.md      # This file
 ```
@@ -98,6 +101,19 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
 * `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
 * `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME` (or preview removals in dry-run mode).
+
+---
+
+## 🪟 Windows Preview
+
+The Windows path is intentionally smaller and currently focuses on PowerShell profile setup plus package manager bootstrap.
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install.ps1
+```
+
+If Chocolatey needs elevation, accept the UAC prompt when the script relaunches itself.
 
 ---
 
@@ -157,6 +173,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 | --- | --- | --- |
 | macOS | Homebrew | Bootstraps Homebrew if missing, installs the preferred toolchain packages, and updates shell startup files for `brew`, `fzf`, `zoxide`, `nvm`, and `swiftly` when relevant. |
 | Debian/Ubuntu | apt | Installs core packages, configures `gh` from the official repository, creates `bat`/`fd` shims when needed, and installs `swiftly` from the official tarball flow. |
+| Windows | winget / Scoop / Chocolatey | Installs the PowerShell profile, bootstraps Scoop and Chocolatey when missing, and leaves winget as the preferred package manager when already present. |
 
 ---
 
@@ -168,6 +185,8 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **`fzf` bindings are missing:** Rerun the installer with `--all` or source the `fzf` keybindings and completion files manually from your shell rc.
 * **`bat` and `fd` look unfamiliar on Ubuntu:** `batcat` and `fdfind` are the packaged binary names; the installer creates `bat` and `fd` shims when it can write to `/usr/local/bin`.
 * **Prompt customization is not visible:** `oh-my-posh` only loads in interactive shells, so non-interactive sessions will not show the prompt theme.
+* **`winget` is missing on Windows:** Install App Installer from Microsoft, or continue with Scoop and Chocolatey while keeping winget for later.
+* **Chocolatey needs elevation:** The Windows installer relaunches with UAC when it needs admin rights; if you prefer `gsudo`, install it first and future iterations can use it as the elevation path.
 
 ---
 

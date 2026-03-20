@@ -16,10 +16,13 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P2 | planned | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
 | P2 | planned | CI | Add a scheduled or manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
+| P2 | planned | Windows / PowerShell | Expand `install.ps1` with a small starter package set via winget once the Windows reference install is codified. |
 | P2 | planned | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
 | P2 | planned | Python (uv) | Add a prompt to install `pipx` via `uv tool` and suggest common global tools such as `pre-commit`. |
 | P3 | planned | Swift (swiftly) | Add a helper to list and switch toolchains, plus an optional prompt for a specific version or channel. |
 | P3 | planned | Environment & Tools | Consider `direnv`, `pre-commit`, or `starship` as optional additions if they keep the config lean. |
+| P3 | planned | Windows / PowerShell | Add profile aliases/functions that match the reference Windows workflow without forcing Bash parity. |
+| P3 | planned | Windows / PowerShell | Add a clean Windows smoke test in CI once the PowerShell setup stabilizes. |
 | P3 | maybe | CI | Add an uninstall smoke test that installs, uninstalls, and asserts no managed files remain. |
 | P3 | maybe | CLI Utilities | Evaluate `lazygit`, `tmux`/`zellij`, `yq`, `httpie`/`curlie`, `duf`/`dust`, `tldr`, and `tree`/`broot`. |
 | P3 | maybe | Zsh Plugins | Evaluate `zsh-autosuggestions` and `zsh-syntax-highlighting` only if startup cost stays low. |
