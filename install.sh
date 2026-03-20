@@ -119,6 +119,45 @@ latest_nvm_tag() {
         | tail -n1
 }
 
+apply_rc_lines() {
+    local action="$1"
+    local rc_file="$2"
+    shift 2
+
+    local line
+    for line in "$@"; do
+        if [[ "$action" == "add" ]]; then
+            add_to_rc_if_not_present "$rc_file" "$line"
+        else
+            remove_from_rc_if_present "$rc_file" "$line"
+        fi
+    done
+}
+
+COMMON_RC_LINES=(
+    "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
+    "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
+    "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
+    "[[ -f ~/.git_functions ]] && source ~/.git_functions"
+    "[[ -f ~/.history_settings ]] && source ~/.history_settings"
+    "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+    '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
+    '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
+)
+
+NVM_RC_LINES=(
+    'export NVM_DIR="$HOME/.nvm"'
+    '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+    '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+)
+
+HOMEBREW_RC_LINES=(
+    'eval "$(/opt/homebrew/bin/brew shellenv)"'
+    'eval "$(/usr/local/bin/brew shellenv)"'
+)
+
+PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
+
 ### === Define dotfiles ===
 # Feel free to extend the SYMLINKS array if new files/folders are added
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
@@ -170,12 +209,7 @@ run_uninstall() {
 
     # Remove startup additions (guarded lines)
     for rc in ~/.zshrc ~/.bashrc; do
-        remove_from_rc_if_present "$rc" "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
-        remove_from_rc_if_present "$rc" "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
-        remove_from_rc_if_present "$rc" "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
-        remove_from_rc_if_present "$rc" "[[ -f ~/.git_functions ]] && source ~/.git_functions"
-        remove_from_rc_if_present "$rc" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
-        remove_from_rc_if_present "$rc" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+        apply_rc_lines remove "$rc" "${COMMON_RC_LINES[@]}"
         remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && nice_print_aliases"
         remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { fastfetch 2>/dev/null; } &>/dev/null"
         remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { screenfetch 2>/dev/null; } &>/dev/null"
@@ -189,15 +223,14 @@ run_uninstall() {
         remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.bash"
         remove_from_rc_if_present "$rc" "source /usr/share/fzf/key-bindings.zsh"
         remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.zsh"
-        remove_from_rc_if_present "$rc" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
-        remove_from_rc_if_present "$rc" '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
-        remove_from_rc_if_present "$rc" '# PATH de-dup (dotfiles installer)'
+        remove_from_rc_if_present "$rc" "$PATH_DEDUP_MARKER"
         remove_from_rc_if_present "$rc" 'typeset -U path'
         remove_from_rc_if_present "$rc" '[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
-        # nvm
-        remove_from_rc_if_present "$rc" 'export NVM_DIR="$HOME/.nvm"'
-        remove_from_rc_if_present "$rc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-        remove_from_rc_if_present "$rc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+        apply_rc_lines remove "$rc" "${NVM_RC_LINES[@]}"
+    done
+
+    for rc in ~/.zprofile ~/.bash_profile; do
+        apply_rc_lines remove "$rc" "${HOMEBREW_RC_LINES[@]}"
     done
 }
 
@@ -274,12 +307,12 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     # Initialize Homebrew in current session and future shells
                     if [ -x /opt/homebrew/bin/brew ]; then
                         eval "$(/opt/homebrew/bin/brew shellenv)"
-                        add_to_rc_if_not_present "$HOME/.zprofile" 'eval "$(/opt/homebrew/bin/brew shellenv)"'
-                        add_to_rc_if_not_present "$HOME/.bash_profile" 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+                        apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[0]}"
+                        apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[0]}"
                     elif [ -x /usr/local/bin/brew ]; then
                         eval "$(/usr/local/bin/brew shellenv)"
-                        add_to_rc_if_not_present "$HOME/.zprofile" 'eval "$(/usr/local/bin/brew shellenv)"'
-                        add_to_rc_if_not_present "$HOME/.bash_profile" 'eval "$(/usr/local/bin/brew shellenv)"'
+                        apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[1]}"
+                        apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[1]}"
                     fi
                 fi
 
@@ -310,11 +343,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     bash_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
                     bash_comp="$(brew --prefix)/opt/fzf/shell/completion.bash"
                     if [[ "$SHELL_NAME" == "zsh" ]]; then
-                        if [ -f "$zsh_bind" ]; then add_to_rc_if_not_present "$HOME/.zshrc" "source $zsh_bind"; fi
-                        if [ -f "$zsh_comp" ]; then add_to_rc_if_not_present "$HOME/.zshrc" "source $zsh_comp"; fi
+                        if [ -f "$zsh_bind" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_bind"; fi
+                        if [ -f "$zsh_comp" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_comp"; fi
                     else
-                        if [ -f "$bash_bind" ]; then add_to_rc_if_not_present "$HOME/.bashrc" "source $bash_bind"; fi
-                        if [ -f "$bash_comp" ]; then add_to_rc_if_not_present "$HOME/.bashrc" "source $bash_comp"; fi
+                        if [ -f "$bash_bind" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_bind"; fi
+                        if [ -f "$bash_comp" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_comp"; fi
                     fi
                 fi
 
@@ -351,20 +384,21 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
             Linux)
                 echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
                 sudo apt update
-                # Base packages (alphabetical)
-                sudo apt install -y \
-                    bat \
-                    curl \
-                    exiv2 \
-                    fd-find \
-                    fzf \
-                    git-delta \
-                    gnupg \
-                    jq \
-                    nano \
-                    ripgrep \
-                    unzip \
-                    zoxide || true
+
+                # Required packages (alphabetical)
+                for pkg in curl exiv2 fzf gnupg jq nano ripgrep unzip; do
+                    echo "📦 Installing $pkg..."
+                    sudo apt install -y "$pkg"
+                done
+
+                # Best-effort packages: useful enhancements, but not hard blockers
+                for pkg in bat fd-find git-delta fastfetch zoxide; do
+                    if sudo apt install -y "$pkg"; then
+                        echo "📦 Installed $pkg"
+                    else
+                        echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
+                    fi
+                done
 
                 # gh (GitHub CLI) via official apt repository
                 if ! command -v gh >/dev/null 2>&1; then
@@ -519,13 +553,9 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
 
         # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
         if [[ "$SHELL_NAME" == "zsh" ]]; then
-            add_to_rc_if_not_present "$HOME/.zshrc" 'export NVM_DIR="$HOME/.nvm"'
-            add_to_rc_if_not_present "$HOME/.zshrc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-            add_to_rc_if_not_present "$HOME/.zshrc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+            apply_rc_lines add "$HOME/.zshrc" "${NVM_RC_LINES[@]}"
         else
-            add_to_rc_if_not_present "$HOME/.bashrc" 'export NVM_DIR="$HOME/.nvm"'
-            add_to_rc_if_not_present "$HOME/.bashrc" '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-            add_to_rc_if_not_present "$HOME/.bashrc" '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+            apply_rc_lines add "$HOME/.bashrc" "${NVM_RC_LINES[@]}"
         fi
 
         # Initialize nvm in current session if possible
@@ -607,15 +637,8 @@ configure_shell_rc() {
         fi
     fi
 
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.git_functions ]] && source ~/.git_functions"
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.history_settings ]] && source ~/.history_settings"
-    add_to_rc_if_not_present "$rc_file" "[[ -f ~/.omp_init ]] && source ~/.omp_init"
-    add_to_rc_if_not_present "$rc_file" '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
-    add_to_rc_if_not_present "$rc_file" '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
-    add_to_rc_if_not_present "$rc_file" '# PATH de-dup (dotfiles installer)'
+    apply_rc_lines add "$rc_file" "${COMMON_RC_LINES[@]}"
+    add_to_rc_if_not_present "$rc_file" "$PATH_DEDUP_MARKER"
     add_to_rc_if_not_present "$rc_file" "$path_dedup_line"
 
     if $DRY_RUN; then
