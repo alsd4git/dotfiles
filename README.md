@@ -96,7 +96,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * `./install.sh --force` or `-f`: Skip all prompts, assumes yes to optional installs and backup cleaning.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
-* `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made (runs uninstall flow only, then exits).
+* `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
 * `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME` (or preview removals in dry-run mode).
 
 ---
@@ -148,6 +148,39 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * Debian/Ubuntu (via apt)
 
 Other Linux distributions are not covered by the installer. You can adapt the scripts or install tools manually on those platforms.
+
+---
+
+## 🧩 Platform Matrix
+
+| Platform | Package manager | What the installer does |
+| --- | --- | --- |
+| macOS | Homebrew | Bootstraps Homebrew if missing, installs the preferred toolchain packages, and updates shell startup files for `brew`, `fzf`, `zoxide`, `nvm`, and `swiftly` when relevant. |
+| Debian/Ubuntu | apt | Installs core packages, configures `gh` from the official repository, creates `bat`/`fd` shims when needed, and installs `swiftly` from the official tarball flow. |
+
+---
+
+## 🔎 Troubleshooting
+
+* **Homebrew not on `PATH`:** Open a new shell or run `eval "$(/opt/homebrew/bin/brew shellenv)"` on Apple Silicon, or `eval "$(/usr/local/bin/brew shellenv)"` on Intel Macs.
+* **`nvm` does not load:** Restart the shell or source `~/.bashrc` / `~/.zshrc`; if you need a one-off recovery, run `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use --lts`.
+* **`swiftly` is missing on Linux:** Make sure `~/.local/share/swiftly/env.sh` exists and that `gnupg` is installed, because signature verification depends on `gpg`; a manual recovery is `test -f "$HOME/.local/share/swiftly/env.sh" && . "$HOME/.local/share/swiftly/env.sh" && swiftly install stable`.
+* **`fzf` bindings are missing:** Rerun the installer with `--all` or source the `fzf` keybindings and completion files manually from your shell rc.
+* **`bat` and `fd` look unfamiliar on Ubuntu:** `batcat` and `fdfind` are the packaged binary names; the installer creates `bat` and `fd` shims when it can write to `/usr/local/bin`.
+* **Prompt customization is not visible:** `oh-my-posh` only loads in interactive shells, so non-interactive sessions will not show the prompt theme.
+
+---
+
+## ✅ Verification
+
+After installation, a quick smoke check is:
+
+```bash
+command -v git nano fzf zoxide uv swiftly gh
+git config --global --get core.excludesfile
+```
+
+If you use Zsh, open a new interactive shell and confirm that `aa`, `l`, `gl`, and `myip` are available.
 
 ---
 

@@ -3,7 +3,7 @@ name: Shell Quality
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
   workflow_dispatch:
 
@@ -42,3 +42,63 @@ jobs:
             general/.omp_init \
             git/.git_aliases \
             git/.git_functions
+
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run installer dry-run
+        env:
+          HOME: ${{ runner.temp }}/dotfiles-dry-run-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+          ./install.sh --dry-run --minimal
+
+  smoke-install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [bash, zsh]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Zsh
+        if: matrix.shell == 'zsh'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
+      - name: Run minimal install
+        env:
+          HOME: ${{ runner.temp }}/dotfiles-smoke-${{ matrix.shell }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+
+          if [ "${{ matrix.shell }}" = "zsh" ]; then
+            shell_bin="$(command -v zsh)"
+          else
+            shell_bin="/bin/bash"
+          fi
+
+          export SHELL="$shell_bin"
+          ./install.sh --minimal
+
+          mkdir -p "$HOME/.local/bin"
+          cat >"$HOME/.local/bin/codex-smoke" <<'EOF'
+          #!/usr/bin/env bash
+          echo smoke
+          EOF
+          chmod +x "$HOME/.local/bin/codex-smoke"
+
+          env -i HOME="$HOME" SHELL="$shell_bin" PATH="/usr/bin:/bin" "$shell_bin" -ic '
+            type aa >/dev/null
+            type l >/dev/null
+            type gl >/dev/null
+            command -v codex-smoke >/dev/null
+          '
