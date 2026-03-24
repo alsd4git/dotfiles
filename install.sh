@@ -405,8 +405,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     echo "📥 Installing GitHub CLI (gh)..."
                     if [ ! -f /usr/share/keyrings/githubcli-archive-keyring.gpg ]; then
                         if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-                            | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-                        then
+                            | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg; then
                             sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg || true
                         fi
                     fi
