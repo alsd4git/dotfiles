@@ -140,13 +140,15 @@ install_optional_apt_package() {
     fi
 }
 
-install_uv_python_latest() {
-    if uv python install --preview --default; then
+install_uv_python_version() {
+    local python_version="${1:-$UV_PYTHON_VERSION}"
+
+    if uv python install --preview --default "$python_version"; then
         return 0
     fi
 
-    echo "⚠️  uv default executables require preview mode; falling back to a regular Python install."
-    uv python install || true
+    echo "⚠️  uv default executables require preview mode; falling back to Python $python_version without default executables."
+    uv python install "$python_version" || true
 }
 
 # Get the latest nvm tag from GitHub (falls back silently on failure)
@@ -196,6 +198,7 @@ HOMEBREW_RC_LINES=(
 )
 
 PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
+UV_PYTHON_VERSION='3.13'
 
 ### === Define dotfiles ===
 # Feel free to extend the SYMLINKS array if new files/folders are added
@@ -404,11 +407,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
-                # Optional: install latest Python via uv
+                # Optional: install pinned Python via uv
                 if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
+                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        install_uv_python_latest
+                        install_uv_python_version
                     fi
                 fi
 
@@ -547,11 +550,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 # shellcheck disable=SC1090
                 if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
 
-                # Optional: install latest Python via uv
+                # Optional: install pinned Python via uv
                 if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
+                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        install_uv_python_latest
+                        install_uv_python_version
                     fi
                 fi
 
