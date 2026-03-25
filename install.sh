@@ -72,6 +72,61 @@ if $MINIMAL_MODE; then
     SKIP_FETCH=true
 fi
 
+### === Defaults & Constants ===
+UV_PYTHON_VERSION='3.13'
+
+COMMON_RC_LINES=(
+    "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
+    "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
+    "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
+    "[[ -f ~/.git_functions ]] && source ~/.git_functions"
+    "[[ -f ~/.history_settings ]] && source ~/.history_settings"
+    "[[ -f ~/.omp_init ]] && source ~/.omp_init"
+    '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
+    '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
+)
+
+NVM_RC_LINES=(
+    'export NVM_DIR="$HOME/.nvm"'
+    '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+    '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+)
+
+HOMEBREW_RC_LINES=(
+    'eval "$(/opt/homebrew/bin/brew shellenv)"'
+    'eval "$(/usr/local/bin/brew shellenv)"'
+)
+
+PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
+BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
+
+### === Define dotfiles ===
+BASEDIR=$(cd "$(dirname "$0")" && pwd)
+DOTFILES_HOME="$BASEDIR"
+
+SYMLINK_KEYS=(
+    "$HOME/.shell_aliases"
+    "$HOME/.shell_functions"
+    "$HOME/.history_settings"
+    "$HOME/.omp_init"
+    "$HOME/.nanorc"
+    "$HOME/.git_aliases"
+    "$HOME/.git_functions"
+    "$HOME/.global.gitignore"
+)
+SYMLINK_VALUES=(
+    "$DOTFILES_HOME/general/.aliases"
+    "$DOTFILES_HOME/general/.functions"
+    "$DOTFILES_HOME/general/.history_settings"
+    "$DOTFILES_HOME/general/.omp_init"
+    "$DOTFILES_HOME/nano/.nanorc"
+    "$DOTFILES_HOME/git/.git_aliases"
+    "$DOTFILES_HOME/git/.git_functions"
+    "$DOTFILES_HOME/git/global.gitignore"
+)
+
+REQUIRED_TOOLS=(nano docker swift git)
+
 ### === Detect Environment ===
 OS="$(uname -s)"
 SHELL_NAME=$(basename "$SHELL")
@@ -174,63 +229,6 @@ apply_rc_lines() {
         fi
     done
 }
-
-COMMON_RC_LINES=(
-    "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
-    "[[ -f ~/.shell_functions ]] && source ~/.shell_functions"
-    "[[ -f ~/.git_aliases ]] && source ~/.git_aliases"
-    "[[ -f ~/.git_functions ]] && source ~/.git_functions"
-    "[[ -f ~/.history_settings ]] && source ~/.history_settings"
-    "[[ -f ~/.omp_init ]] && source ~/.omp_init"
-    '[[ -d "$HOME/.local/bin" ]] && export PATH="$HOME/.local/bin:$PATH"'
-    '[[ -f "$HOME/.local/share/swiftly/env.sh" ]] && . "$HOME/.local/share/swiftly/env.sh"'
-)
-
-NVM_RC_LINES=(
-    'export NVM_DIR="$HOME/.nvm"'
-    '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
-    '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
-)
-
-HOMEBREW_RC_LINES=(
-    'eval "$(/opt/homebrew/bin/brew shellenv)"'
-    'eval "$(/usr/local/bin/brew shellenv)"'
-)
-
-PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
-UV_PYTHON_VERSION='3.13'
-
-### === Define dotfiles ===
-# Feel free to extend the SYMLINKS array if new files/folders are added
-BASEDIR=$(cd "$(dirname "$0")" && pwd)
-DOTFILES_HOME="$BASEDIR"
-
-if ! $DRY_RUN; then
-    mkdir -p "$HOME/.local/bin"
-    mkdir -p "$HOME/.local/share/swiftly"
-fi
-
-# Create SYMLINKS map in a way compatible with both Bash and Zsh
-SYMLINK_KEYS=(
-    "$HOME/.shell_aliases"
-    "$HOME/.shell_functions"
-    "$HOME/.history_settings"
-    "$HOME/.omp_init"
-    "$HOME/.nanorc"
-    "$HOME/.git_aliases"
-    "$HOME/.git_functions"
-    "$HOME/.global.gitignore"
-)
-SYMLINK_VALUES=(
-    "$DOTFILES_HOME/general/.aliases"
-    "$DOTFILES_HOME/general/.functions"
-    "$DOTFILES_HOME/general/.history_settings"
-    "$DOTFILES_HOME/general/.omp_init"
-    "$DOTFILES_HOME/nano/.nanorc"
-    "$DOTFILES_HOME/git/.git_aliases"
-    "$DOTFILES_HOME/git/.git_functions"
-    "$DOTFILES_HOME/git/global.gitignore"
-)
 
 run_uninstall() {
     echo -e "\n🧹 Uninstalling dotfiles symlinks and shell rc additions..."
@@ -639,8 +637,6 @@ fi
 ### === Check for other tools used in aliases/functions ===
 echo -e "\n🔍 Checking for other recommended tools..."
 
-REQUIRED_TOOLS=(nano docker swift git)
-
 for tool in "${REQUIRED_TOOLS[@]}"; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "⚠️  $tool not found. Some aliases or functions may not work correctly."
@@ -712,8 +708,6 @@ configure_shell_rc() {
         add_to_rc_if_not_present "$rc_file" "source $fzf_comp"
     fi
 }
-
-BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
 
 if [[ "$SHELL_NAME" == "zsh" ]]; then
     configure_shell_rc "zsh" "$HOME/.zshrc" "/usr/share/fzf/key-bindings.zsh" "/usr/share/fzf/completion.zsh" 'typeset -U path'
