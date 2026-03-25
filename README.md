@@ -25,7 +25,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * `fd` (Fast `find`) with `fdfind` shim on Ubuntu
   * `ripgrep` (`rg`, fast grep)
   * `jq` (Lightweight JSON processor)
-  * `git-delta` (Enhanced Git pager/diff viewer)
+  * `delta` (Enhanced Git pager/diff viewer)
   * `gh` (GitHub CLI)
   * `oh-my-posh` (Customizable prompt)
   * `exiv2` (Needed for `ren_pics` function)

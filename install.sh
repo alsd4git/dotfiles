@@ -140,6 +140,15 @@ install_optional_apt_package() {
     fi
 }
 
+install_uv_python_latest() {
+    if uv python install --preview --default; then
+        return 0
+    fi
+
+    echo "⚠️  uv default executables require preview mode; falling back to a regular Python install."
+    uv python install || true
+}
+
 # Get the latest nvm tag from GitHub (falls back silently on failure)
 latest_nvm_tag() {
     git ls-remote --tags https://github.com/nvm-sh/nvm.git 2>/dev/null \
@@ -399,7 +408,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 if command -v uv >/dev/null 2>&1; then
                     if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        uv python install --latest || true
+                        install_uv_python_latest
                     fi
                 fi
 
@@ -421,7 +430,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 done
 
                 # Best-effort packages: useful enhancements, but not hard blockers
-                for pkg in bat fd-find git-delta fastfetch zoxide; do
+                for pkg in bat delta fastfetch zoxide; do
                     install_optional_apt_package "$pkg"
                 done
 
@@ -542,7 +551,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 if command -v uv >/dev/null 2>&1; then
                     if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        uv python install --default || true
+                        install_uv_python_latest
                     fi
                 fi
 
