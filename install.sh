@@ -110,6 +110,36 @@ remove_from_rc_if_present() {
     fi
 }
 
+apt_package_installed() {
+    dpkg -s "$1" >/dev/null 2>&1
+}
+
+install_required_apt_package() {
+    local pkg="$1"
+
+    if apt_package_installed "$pkg"; then
+        echo "✅ $pkg already installed"
+    else
+        echo "📦 Installing $pkg..."
+        sudo apt install -y "$pkg"
+    fi
+}
+
+install_optional_apt_package() {
+    local pkg="$1"
+
+    if apt_package_installed "$pkg"; then
+        echo "✅ $pkg already installed"
+    else
+        echo "📦 Installing $pkg..."
+        if sudo apt install -y "$pkg"; then
+            echo "✅ Installed $pkg"
+        else
+            echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
+        fi
+    fi
+}
+
 # Get the latest nvm tag from GitHub (falls back silently on failure)
 latest_nvm_tag() {
     git ls-remote --tags https://github.com/nvm-sh/nvm.git 2>/dev/null \
@@ -387,17 +417,12 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
 
                 # Required packages (alphabetical)
                 for pkg in curl exiv2 fzf gnupg jq nano ripgrep unzip; do
-                    echo "📦 Installing $pkg..."
-                    sudo apt install -y "$pkg"
+                    install_required_apt_package "$pkg"
                 done
 
                 # Best-effort packages: useful enhancements, but not hard blockers
                 for pkg in bat fd-find git-delta fastfetch zoxide; do
-                    if sudo apt install -y "$pkg"; then
-                        echo "📦 Installed $pkg"
-                    else
-                        echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
-                    fi
+                    install_optional_apt_package "$pkg"
                 done
 
                 # gh (GitHub CLI) via official apt repository
@@ -441,10 +466,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 # fastfetch
                 if ! command -v fastfetch >/dev/null; then
                     echo "📥 Installing fastfetch..."
-                    sudo apt install -y fastfetch || {
+                    install_optional_apt_package fastfetch
+                    if ! command -v fastfetch >/dev/null; then
                         echo "⚠️ fastfetch not available via apt. You can build it manually:"
                         echo "   https://github.com/fastfetch-cli/fastfetch"
-                    }
+                    fi
                 fi
 
                 # handle batcat/bat and fdfind/fd shims
@@ -516,7 +542,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 if command -v uv >/dev/null 2>&1; then
                     if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install latest Python via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        uv python install --latest || true
+                        uv python install --default || true
                     fi
                 fi
 
