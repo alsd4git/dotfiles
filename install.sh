@@ -430,7 +430,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 done
 
                 # Best-effort packages: useful enhancements, but not hard blockers
-                for pkg in bat delta fastfetch zoxide; do
+                for pkg in bat delta fd-find fastfetch zoxide; do
                     install_optional_apt_package "$pkg"
                 done
 
