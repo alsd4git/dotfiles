@@ -11,7 +11,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 
 | Priority | Status | Area | Idea |
 | --- | --- | --- | --- |
-| P1 | planned | Git & Diffing | Make `git-delta` the default pager with a sane theme and side-by-side settings, gated behind an opt-in prompt. |
+| P1 | planned | Git & Diffing | Make `delta` the default pager with a sane theme and side-by-side settings, gated behind an opt-in prompt. |
 | P1 | planned | PATH & Shell Robustness | Auto-clean legacy PATH de-dup lines inserted by older installer versions during upgrade. |
 | P2 | planned | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
