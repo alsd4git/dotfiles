@@ -196,14 +196,12 @@ install_optional_apt_package() {
 }
 
 install_uv_python_version() {
-    local python_version="${1:-$UV_PYTHON_VERSION}"
-
-    if uv python install --preview --default "$python_version"; then
+    if uv python install --preview --default "$UV_PYTHON_VERSION"; then
         return 0
     fi
 
-    echo "⚠️  uv default executables require preview mode; falling back to Python $python_version without default executables."
-    uv python install "$python_version" || true
+    echo "⚠️  uv default executables require preview mode; falling back to Python $UV_PYTHON_VERSION without default executables."
+    uv python install "$UV_PYTHON_VERSION" || true
 }
 
 # Get the latest nvm tag from GitHub (falls back silently on failure)
