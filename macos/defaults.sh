@@ -6,6 +6,10 @@ IFS=$'\n\t'
 DRY_RUN=false
 RESTART=false
 SHOW_HELP=false
+TRACKPAD_DOMAINS=(
+    com.apple.AppleMultitouchTrackpad
+    com.apple.driver.AppleBluetoothMultitouch.trackpad
+)
 
 usage() {
     cat <<'EOF'
@@ -56,17 +60,26 @@ run_cmd() {
     fi
 }
 
+write_trackpad_bool() {
+    local key="$1"
+    local value="$2"
+
+    for domain in "${TRACKPAD_DOMAINS[@]}"; do
+        run_cmd defaults write "$domain" "$key" -bool "$value"
+    done
+}
+
 echo "🍎 Applying recommended macOS defaults..."
 
 run_cmd mkdir -p "$HOME/Pictures/Screenshots"
 run_cmd defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
-run_cmd defaults write NSGlobalDomain KeyRepeat -int 2
-run_cmd defaults write NSGlobalDomain InitialKeyRepeat -int 15
 run_cmd defaults write NSGlobalDomain AppleShowAllExtensions -bool true
 run_cmd defaults write com.apple.finder ShowPathbar -bool true
 run_cmd defaults write com.apple.finder ShowStatusBar -bool true
-run_cmd defaults write com.apple.finder FXPreferredViewStyle -string clmv
-run_cmd defaults write com.apple.dock autohide -bool true
+run_cmd defaults write com.apple.finder FXPreferredViewStyle -string Nlsv
+write_trackpad_bool Clicking true
+write_trackpad_bool TrackpadThreeFingerDrag true
+run_cmd defaults write NSGlobalDomain com.apple.trackpad.forceClick -bool true
 run_cmd defaults write com.apple.screencapture location -string "$HOME/Pictures/Screenshots"
 run_cmd defaults write com.apple.screencapture type -string png
 
