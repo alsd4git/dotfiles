@@ -72,11 +72,23 @@ write_trackpad_bool() {
 echo "🍎 Applying recommended macOS defaults..."
 
 run_cmd mkdir -p "$HOME/Pictures/Screenshots"
+run_cmd defaults write NSGlobalDomain AppleInterfaceStyle -string Dark
 run_cmd defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
 run_cmd defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+run_cmd defaults write NSGlobalDomain com.apple.springing.enabled -bool true
+run_cmd defaults write NSGlobalDomain com.apple.springing.delay -float 0.5
+run_cmd defaults write NSGlobalDomain com.apple.swipescrolldirection -bool true
 run_cmd defaults write com.apple.finder ShowPathbar -bool true
 run_cmd defaults write com.apple.finder ShowStatusBar -bool true
 run_cmd defaults write com.apple.finder FXPreferredViewStyle -string Nlsv
+run_cmd defaults write com.apple.finder ShowExternalHardDrivesOnDesktop -bool true
+run_cmd defaults write com.apple.finder ShowMountedServersOnDesktop -bool true
+run_cmd defaults write com.apple.finder ShowRemovableMediaOnDesktop -bool true
+run_cmd defaults write com.apple.dock tilesize -int 62
+run_cmd defaults write com.apple.dock magnification -bool true
+run_cmd defaults write com.apple.dock largesize -int 93
+run_cmd defaults write com.apple.dock show-recents -bool false
+run_cmd defaults write com.apple.dock autohide -bool false
 write_trackpad_bool Clicking true
 write_trackpad_bool TrackpadThreeFingerDrag true
 run_cmd defaults write NSGlobalDomain com.apple.trackpad.forceClick -bool true
