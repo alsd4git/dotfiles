@@ -14,6 +14,7 @@ brew "dockutil"
 brew "eza"
 brew "exiftool"
 brew "exiv2"
+brew "imagemagick"
 brew "ffmpeg"
 brew "fastfetch"
 brew "fd"
@@ -40,12 +41,12 @@ brew "swiftly"
 brew "tmux"
 brew "trash"
 brew "tree"
+brew "xmlstarlet"
 brew "uv"
 brew "yq"
 brew "zoxide"
 
 cask "android-platform-tools"
-cask "basictex"
 cask "bruno"
 cask "codexbar"
 cask "cursor"
@@ -55,7 +56,6 @@ cask "font-jetbrains-mono-nerd-font"
 cask "github"
 cask "maccy"
 cask "keyguard"
-cask "kopiaui"
 cask "latest"
 cask "meld"
 cask "ngrok"
@@ -73,9 +73,7 @@ cask "wave"
 mas "Amphetamine", id: 937984704
 mas "Bitwarden", id: 1352778147
 mas "Folder Quick Look", id: 6753110395
-mas "Kitsune", id: 6466716447
 mas "LocalSend", id: 1661733229
-mas "Termius", id: 1176074088
 mas "Xcode", id: 497799835
 
 # Add Mac App Store entries here later with mas once you want to manage them centrally.
