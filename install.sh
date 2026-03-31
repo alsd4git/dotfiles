@@ -104,6 +104,7 @@ BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOTFILES_HOME="$BASEDIR"
 MACOS_BREWFILE="$DOTFILES_HOME/macos/Brewfile"
+MACOS_DOCK_SCRIPT="$DOTFILES_HOME/macos/dock.sh"
 MACOS_DEFAULTS_SCRIPT="$DOTFILES_HOME/macos/defaults.sh"
 
 SYMLINK_KEYS=(
@@ -342,7 +343,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
         do_install="y"
     else
         if [[ "$OS" == "Darwin" ]]; then
-            read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings)? [y/N]: ' do_install
+            read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings + Dock layout)? [y/N]: ' do_install
         else
             read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly)? [y/N]: ' do_install
         fi
@@ -402,6 +403,15 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 else
                     echo "⚠️  Missing macOS defaults script at $MACOS_DEFAULTS_SCRIPT; skipping defaults."
+                fi
+
+                if [ -f "$MACOS_DOCK_SCRIPT" ]; then
+                    if $INSTALL_ALL || $FORCE_MODE; then apply_macos_dock="y"; else read -r -p $'\n🧷 Apply saved Dock layout? [y/N]: ' apply_macos_dock; fi
+                    if [[ "$apply_macos_dock" =~ ^[Yy]$ ]]; then
+                        bash "$MACOS_DOCK_SCRIPT" --restart
+                    fi
+                else
+                    echo "⚠️  Missing macOS Dock script at $MACOS_DOCK_SCRIPT; skipping Dock layout."
                 fi
 
                 # Optional: install pinned Python via uv
