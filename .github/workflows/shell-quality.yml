@@ -23,6 +23,7 @@ jobs:
         run: |
           shellcheck -x \
             install.sh \
+            macos/defaults.sh \
             old_setup.sh \
             general/.aliases \
             general/.functions \
@@ -35,6 +36,7 @@ jobs:
         run: |
           shfmt -d -i 4 -ci -bn \
             install.sh \
+            macos/defaults.sh \
             old_setup.sh \
             general/.aliases \
             general/.functions \

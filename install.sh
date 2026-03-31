@@ -103,6 +103,8 @@ BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/
 ### === Define dotfiles ===
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOTFILES_HOME="$BASEDIR"
+MACOS_BREWFILE="$DOTFILES_HOME/macos/Brewfile"
+MACOS_DEFAULTS_SCRIPT="$DOTFILES_HOME/macos/defaults.sh"
 
 SYMLINK_KEYS=(
     "$HOME/.shell_aliases"
@@ -195,13 +197,21 @@ install_optional_apt_package() {
     fi
 }
 
+ensure_local_bin_on_path() {
+    if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+}
+
 install_uv_python_version() {
     if uv python install --preview --default "$UV_PYTHON_VERSION"; then
+        ensure_local_bin_on_path
         return 0
     fi
 
     echo "⚠️  uv default executables require preview mode; falling back to Python $UV_PYTHON_VERSION without default executables."
     uv python install "$UV_PYTHON_VERSION" || true
+    ensure_local_bin_on_path
 }
 
 # Get the latest nvm tag from GitHub (falls back silently on failure)
@@ -331,7 +341,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
     if $INSTALL_ALL; then
         do_install="y"
     else
-        read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly)? [y/N]: ' do_install
+        if [[ "$OS" == "Darwin" ]]; then
+            read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings)? [y/N]: ' do_install
+        else
+            read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly)? [y/N]: ' do_install
+        fi
     fi
 
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
@@ -354,23 +368,15 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
-                # Install standard tools only if missing (alphabetical)
-                for pkg in bat eza exiv2 fastfetch fd fzf gh git-delta jq nano ripgrep shellcheck shfmt uv zoxide; do
-                    if ! brew list "$pkg" >/dev/null 2>&1; then
-                        echo "📦 Installing $pkg..."
-                        brew install "$pkg"
-                    else
-                        echo "✅ $pkg already installed"
-                    fi
-                done
-
-                # Install oh-my-posh only if not present (works whether installed via formula or cask)
-                if command -v oh-my-posh >/dev/null 2>&1; then
-                    echo "✅ oh-my-posh already installed"
+                if [ -f "$MACOS_BREWFILE" ]; then
+                    echo "📦 Installing macOS packages from Brewfile..."
+                    brew bundle install --file "$MACOS_BREWFILE" --no-lock
                 else
-                    echo "📦 Installing oh-my-posh from tap..."
-                    brew install jandedobbeleer/oh-my-posh/oh-my-posh
+                    echo "⚠️  Missing macOS Brewfile at $MACOS_BREWFILE; skipping package install."
                 fi
+
+                ensure_local_bin_on_path
+
                 # fzf keybindings/completions (Homebrew layout)
                 if $INSTALL_ALL || $FORCE_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
                 if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
@@ -389,18 +395,13 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
-                # swiftly (Swift toolchain manager)
-                if command -v swiftly >/dev/null 2>&1; then
-                    echo "✅ swiftly already installed"
-                else
-                    echo "📦 Installing swiftly (Swift toolchain manager)..."
-                    if brew install swiftly; then
-                        :
-                    else
-                        echo "⚠️  Homebrew install for swiftly failed. Falling back to official installer."
-                        echo "   Note: piping install scripts is potentially unsafe. Review https://swiftlang.github.io/swiftly/ before proceeding."
-                        curl -fsSL https://swiftlang.github.io/swiftly/install.sh | bash
+                if [ -f "$MACOS_DEFAULTS_SCRIPT" ]; then
+                    if $INSTALL_ALL || $FORCE_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
+                    if [[ "$apply_macos_defaults" =~ ^[Yy]$ ]]; then
+                        bash "$MACOS_DEFAULTS_SCRIPT" --restart
                     fi
+                else
+                    echo "⚠️  Missing macOS defaults script at $MACOS_DEFAULTS_SCRIPT; skipping defaults."
                 fi
 
                 # Optional: install pinned Python via uv
@@ -542,7 +543,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 fi
 
                 # Ensure current session can find freshly installed user binaries
-                if [ -x "$HOME/.local/bin/uv" ]; then export PATH="$HOME/.local/bin:$PATH"; fi
+                ensure_local_bin_on_path
                 # shellcheck disable=SC1090
                 if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
 

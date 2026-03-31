@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+DRY_RUN=false
+RESTART=false
+SHOW_HELP=false
+
+usage() {
+    cat <<'EOF'
+Usage: ./macos/defaults.sh [options]
+
+Options:
+  -n, --dry-run   Print the macOS defaults that would be applied.
+      --restart   Restart Finder and Dock after applying defaults.
+  -h, --help      Show this help message.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -n | --dry-run)
+            DRY_RUN=true
+            ;;
+        --restart)
+            RESTART=true
+            ;;
+        -h | --help)
+            SHOW_HELP=true
+            ;;
+        *)
+            echo "❓ Unknown argument: $arg" >&2
+            exit 1
+            ;;
+    esac
+done
+
+if $SHOW_HELP; then
+    usage
+    exit 0
+fi
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "❌ macOS defaults can only be applied on Darwin hosts." >&2
+    exit 1
+fi
+
+run_cmd() {
+    if $DRY_RUN; then
+        printf '🧪 Would run:'
+        printf ' %q' "$@"
+        printf '\n'
+    else
+        "$@"
+    fi
+}
+
+echo "🍎 Applying recommended macOS defaults..."
+
+run_cmd mkdir -p "$HOME/Pictures/Screenshots"
+run_cmd defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+run_cmd defaults write NSGlobalDomain KeyRepeat -int 2
+run_cmd defaults write NSGlobalDomain InitialKeyRepeat -int 15
+run_cmd defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+run_cmd defaults write com.apple.finder ShowPathbar -bool true
+run_cmd defaults write com.apple.finder ShowStatusBar -bool true
+run_cmd defaults write com.apple.finder FXPreferredViewStyle -string clmv
+run_cmd defaults write com.apple.dock autohide -bool true
+run_cmd defaults write com.apple.screencapture location -string "$HOME/Pictures/Screenshots"
+run_cmd defaults write com.apple.screencapture type -string png
+
+if $RESTART; then
+    if $DRY_RUN; then
+        echo "🧪 Would restart Finder and Dock"
+    else
+        killall Finder Dock >/dev/null 2>&1 || true
+    fi
+fi
+
+echo "✅ macOS defaults applied"
