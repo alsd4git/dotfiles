@@ -1,0 +1,29 @@
+# Homebrew manifest for macOS machines bootstrapped by this repo.
+# Keep this list generic and public; personal apps can be installed manually.
+
+tap "homebrew/cask-fonts"
+tap "jandedobbeleer/oh-my-posh"
+
+brew "bat"
+brew "eza"
+brew "exiv2"
+brew "fastfetch"
+brew "fd"
+brew "fzf"
+brew "gh"
+brew "git-delta"
+brew "jq"
+brew "mas"
+brew "nano"
+brew "oh-my-posh"
+brew "pre-commit"
+brew "ripgrep"
+brew "shellcheck"
+brew "shfmt"
+brew "swiftly"
+brew "uv"
+brew "zoxide"
+
+cask "font-hack-nerd-font"
+
+# Add Mac App Store entries here later with mas once you want to manage them centrally.
