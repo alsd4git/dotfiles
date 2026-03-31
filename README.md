@@ -196,6 +196,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Prompt customization is not visible:** `oh-my-posh` only loads in interactive shells, so non-interactive sessions will not show the prompt theme.
 * **`winget` is missing on Windows:** Install App Installer from Microsoft, or continue with Scoop and Chocolatey while keeping winget for later.
 * **Chocolatey needs elevation:** The Windows installer relaunches with UAC when it needs admin rights; if you prefer `gsudo`, install it first and future iterations can use it as the elevation path.
+* **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. It does not patch `/etc/pam.d` for you.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 
 ---

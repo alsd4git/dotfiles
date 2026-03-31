@@ -204,6 +204,27 @@ ensure_local_bin_on_path() {
     fi
 }
 
+report_macos_sudo_touch_id_status() {
+    local sudo_pam="/etc/pam.d/sudo"
+    local sudo_local="/etc/pam.d/sudo_local"
+
+    if grep -Eq '^[[:space:]]*auth[[:space:]]+sufficient[[:space:]]+pam_tid\.so' "$sudo_pam" 2>/dev/null; then
+        echo "✅ Touch ID is already enabled for sudo via $sudo_pam"
+        return 0
+    fi
+
+    if grep -Eq 'pam_tid\.so' "$sudo_local" 2>/dev/null; then
+        echo "✅ Touch ID for sudo is configured in $sudo_local"
+        return 0
+    fi
+
+    echo "⚠️  Touch ID for sudo does not appear to be enabled."
+    echo "ℹ️  Manual recovery path:"
+    echo "   1. Create /etc/pam.d/sudo_local with: auth       sufficient     pam_tid.so"
+    echo "   2. Save it with sudo"
+    echo "   3. Test with: sudo -k && sudo -v"
+}
+
 install_uv_python_version() {
     if uv python install --preview --default "$UV_PYTHON_VERSION"; then
         ensure_local_bin_on_path
@@ -412,6 +433,11 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 else
                     echo "⚠️  Missing macOS Dock script at $MACOS_DOCK_SCRIPT; skipping Dock layout."
+                fi
+
+                if $INSTALL_ALL || $FORCE_MODE; then check_macos_sudo_touch_id="y"; else read -r -p $'\n🔐 Check Touch ID for sudo configuration? [Y/n]: ' check_macos_sudo_touch_id; fi
+                if [[ ! "$check_macos_sudo_touch_id" =~ ^[Nn]$ ]]; then
+                    report_macos_sudo_touch_id_status
                 fi
 
                 # Optional: install pinned Python via uv
