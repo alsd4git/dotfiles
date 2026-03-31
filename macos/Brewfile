@@ -1,7 +1,6 @@
 # Homebrew manifest for macOS machines bootstrapped by this repo.
-# Keep this list generic and public; personal apps can be installed manually.
+# Keep this list public and curated from the current Mac inventory.
 
-tap "homebrew/cask-fonts"
 tap "jandedobbeleer/oh-my-posh"
 
 brew "act"
@@ -9,22 +8,28 @@ brew "actionlint"
 brew "ast-grep"
 brew "bat"
 brew "biome"
+brew "colordiff"
 brew "difftastic"
 brew "dockutil"
 brew "eza"
 brew "exiftool"
 brew "exiv2"
+brew "ffmpeg"
 brew "fastfetch"
 brew "fd"
 brew "fzf"
 brew "gh"
+brew "git"
 brew "git-delta"
 brew "htop"
 brew "jq"
+brew "mole"
+brew "mongosh"
 brew "mas"
 brew "nano"
 brew "oh-my-posh"
 brew "pandoc"
+brew "openjdk@21"
 brew "pre-commit"
 brew "ripgrep"
 brew "scrcpy"
@@ -39,17 +44,38 @@ brew "uv"
 brew "yq"
 brew "zoxide"
 
+cask "android-platform-tools"
+cask "basictex"
 cask "bruno"
+cask "codexbar"
 cask "cursor"
 cask "dbeaver-community"
+cask "figma"
+cask "font-jetbrains-mono-nerd-font"
 cask "github"
 cask "maccy"
+cask "keyguard"
+cask "kopiaui"
+cask "latest"
+cask "meld"
 cask "ngrok"
+cask "onyx"
 cask "orbstack"
+cask "opencode-desktop"
 cask "postman"
+cask "repobar"
 cask "raycast"
 cask "rustdesk"
 cask "stats"
-cask "font-hack-nerd-font"
+cask "trimmy"
+cask "wailbrew"
+cask "wave"
+mas "Amphetamine", id: 937984704
+mas "Bitwarden", id: 1352778147
+mas "Folder Quick Look", id: 6753110395
+mas "Kitsune", id: 6466716447
+mas "LocalSend", id: 1661733229
+mas "Termius", id: 1176074088
+mas "Xcode", id: 497799835
 
 # Add Mac App Store entries here later with mas once you want to manage them centrally.
