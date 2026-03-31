@@ -35,7 +35,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * `shfmt` (Shell script formatter)
   * `uv` (Python tooling manager; can optionally install CPython 3.13 under `~/.local`)
   * `swiftly` (Swift toolchain manager; installed but does not install a Swift toolchain)
-  * macOS also applies a small recommended `defaults` baseline for typing, Finder, Dock, and screenshots
+  * macOS also applies a small recommended `defaults` baseline for typing, Finder, Dock, and screenshots, plus an optional saved Dock layout
 * 🪄 **Enhanced Shell Experience:**
   * Sensible command history settings with cross-session sharing.
   * `oh-my-posh` integration for an informative prompt (interactive shells only).
@@ -56,6 +56,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 ├── git/           # Git-specific aliases, functions, and global ignore
 ├── macos/         # macOS Brewfile and system defaults
 │   ├── Brewfile
+│   ├── dock.sh
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
 ├── windows/       # Minimal PowerShell profile for Windows
@@ -93,7 +94,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
     ./install.sh
     ```
 
-    * The script will guide you through the process, asking for confirmation before installing optional tools and recommended macOS defaults unless run with `-f` or `-a`.
+    * The script will guide you through the process, asking for confirmation before installing optional tools, recommended macOS defaults, and the saved Dock layout unless run with `-f` or `-a`.
 
 **Installer Options:**
 
@@ -133,13 +134,14 @@ If Chocolatey needs elevation, accept the UAC prompt when the script relaunches 
 * **Sets Git Defaults:** Configures recommended global Git settings: `pull.rebase = true`, `rebase.autostash = true`, `core.editor = nano`.
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).
-  * On macOS, the tool manifest lives in `macos/Brewfile` and the baseline defaults live in `macos/defaults.sh`.
+  * On macOS, the tool manifest lives in `macos/Brewfile`, the baseline defaults live in `macos/defaults.sh`, and the saved Dock layout lives in `macos/dock.sh`.
   * On Ubuntu/Debian, the `bat` binary may be named `batcat`, and `fd` as `fdfind`. The installer creates shims (`/usr/local/bin/bat` and `/usr/local/bin/fd`) for a consistent experience.
   * For Python/Swift tooling, the managers are installed (`uv`, `swiftly`), and the script can optionally install CPython 3.13 via `uv` or the latest stable Swift toolchain via `swiftly`.
   * Ensures `~/.local/bin` is on `PATH` (if the directory exists) so user-installed tools like `uv` and `swiftly` are available.
   * On Linux, `swiftly` is installed from the official Swift.org tarball flow and initialized with `--skip-install` to avoid installing a Swift toolchain by default.
   * On Linux, `swiftly` requires `gpg` for signature verification; the installer ensures `gnupg` is installed.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
+* **macOS Dock Layout:** The installer can also restore the saved Dock apps/folders from `macos/dock.sh` using `dockutil`.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
 * **Configures Startup Commands (Optional):** Asks if you want `nice_print_aliases` and `fastfetch` (or `screenfetch` as a fallback) to run when a new shell starts. These run only in interactive shells.
 * **fzf & zoxide Initialization:** If installed, `zoxide` is initialized for your shell; `fzf` keybindings/completions are sourced when available.
@@ -177,7 +179,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 
 | Platform | Package manager | What the installer does |
 | --- | --- | --- |
-| macOS | Homebrew Bundle | Bootstraps Homebrew if missing, installs the manifest in `macos/Brewfile`, applies the recommended defaults in `macos/defaults.sh`, and updates shell startup files for `brew`, `fzf`, `zoxide`, `nvm`, and `swiftly` when relevant. |
+| macOS | Homebrew Bundle | Bootstraps Homebrew if missing, installs the manifest in `macos/Brewfile`, applies the recommended defaults in `macos/defaults.sh`, restores the Dock layout in `macos/dock.sh`, and updates shell startup files for `brew`, `fzf`, `zoxide`, `nvm`, and `swiftly` when relevant. |
 | Debian/Ubuntu | apt | Installs core packages, configures `gh` from the official repository, creates `bat`/`fd` shims when needed, and installs `swiftly` from the official tarball flow. |
 | Windows | winget / Scoop / Chocolatey | Installs the PowerShell profile, bootstraps Scoop and Chocolatey when missing, and leaves winget as the preferred package manager when already present. |
 
