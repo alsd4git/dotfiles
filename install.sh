@@ -225,6 +225,61 @@ report_macos_sudo_touch_id_status() {
     echo "   3. Test with: sudo -k && sudo -v"
 }
 
+ensure_macos_xcode_tools() {
+    local developer_dir xcode_version xcode_line
+
+    if ! developer_dir=$(xcode-select -p 2>/dev/null); then
+        echo "⚠️  Xcode developer tools are missing."
+        echo "ℹ️  Install Xcode from the App Store or run: xcode-select --install"
+        return 1
+    fi
+
+    if ! xcode_version=$(xcodebuild -version 2>/dev/null); then
+        echo "⚠️  xcodebuild is unavailable even though xcode-select points to $developer_dir"
+        echo "ℹ️  Install Xcode, then run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
+        return 1
+    fi
+
+    echo "✅ Xcode developer directory: $developer_dir"
+    while IFS= read -r xcode_line; do
+        [[ -n "$xcode_line" ]] && echo "✅ $xcode_line"
+    done <<<"$xcode_version"
+}
+
+report_macos_stats_quarantine_hint() {
+    local stats_app="/Applications/Stats.app"
+
+    if [ ! -d "$stats_app" ] || ! command -v xattr >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if xattr -p com.apple.quarantine "$stats_app" >/dev/null 2>&1; then
+        echo "ℹ️  Stats.app still has the quarantine bit set."
+        echo "   If it refuses to open, run:"
+        echo "   sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/"
+    fi
+}
+
+report_git_identity_hint() {
+    local git_name git_email
+
+    if ! command -v git >/dev/null 2>&1; then
+        return 0
+    fi
+
+    git_name=$(git config --global --get user.name 2>/dev/null || true)
+    git_email=$(git config --global --get user.email 2>/dev/null || true)
+
+    if [[ -n "$git_name" && -n "$git_email" ]]; then
+        return 0
+    fi
+
+    echo "ℹ️  Git identity is not fully configured yet."
+    echo "   Set it with:"
+    echo "   git config --global user.name \"Your Name\""
+    echo "   git config --global user.email \"you@example.com\""
+}
+
 install_uv_python_version() {
     if uv python install --preview --default "$UV_PYTHON_VERSION"; then
         ensure_local_bin_on_path
@@ -375,6 +430,10 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
 
         case "$OS" in
             Darwin)
+                if ! ensure_macos_xcode_tools; then
+                    exit 1
+                fi
+
                 if ! command -v brew >/dev/null; then
                     echo "🍺 Homebrew not found. Installing..."
                     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -392,7 +451,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
 
                 if [ -f "$MACOS_BREWFILE" ]; then
                     echo "📦 Installing macOS packages from Brewfile..."
-                    brew bundle install --file "$MACOS_BREWFILE" --no-lock
+                    brew bundle install --file "$MACOS_BREWFILE"
                 else
                     echo "⚠️  Missing macOS Brewfile at $MACOS_BREWFILE; skipping package install."
                 fi
@@ -455,6 +514,8 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                         swiftly install stable || true
                     fi
                 fi
+
+                report_macos_stats_quarantine_hint
                 ;;
             Linux)
                 echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
@@ -791,5 +852,7 @@ if $CLEAN_BACKUPS; then
         fi
     fi
 fi
+
+report_git_identity_hint
 
 echo -e "\n🚀 Setup complete. You may need to restart your shell or source the new config."
