@@ -91,6 +91,8 @@ run_cmd defaults write com.apple.dock show-recents -bool false
 run_cmd defaults write com.apple.dock autohide -bool false
 write_trackpad_bool Clicking true
 write_trackpad_bool TrackpadThreeFingerDrag true
+write_trackpad_bool Dragging true
+write_trackpad_bool DragLock false
 run_cmd defaults write NSGlobalDomain com.apple.trackpad.forceClick -bool true
 run_cmd defaults write com.apple.screencapture location -string "$HOME/Pictures/Screenshots"
 run_cmd defaults write com.apple.screencapture type -string png
