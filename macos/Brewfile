@@ -93,7 +93,6 @@ cask "wave"
 cask "zen"
 mas "Amphetamine", id: 937984704
 mas "Bitwarden", id: 1352778147
-mas "Folder Quick Look", id: 6753110395
 mas "LocalSend", id: 1661733229
 mas "Xcode", id: 497799835
 
