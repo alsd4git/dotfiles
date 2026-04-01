@@ -99,8 +99,10 @@ run_cmd defaults write com.apple.screencapture type -string png
 
 if $RESTART; then
     if $DRY_RUN; then
-        echo "🧪 Would restart Finder and Dock"
+        echo "🧪 Would restart cfprefsd, SystemUIServer, Finder and Dock"
     else
+        killall cfprefsd >/dev/null 2>&1 || true
+        killall SystemUIServer >/dev/null 2>&1 || true
         killall Finder Dock >/dev/null 2>&1 || true
     fi
 fi
