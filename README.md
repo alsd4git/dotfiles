@@ -192,12 +192,13 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **`nvm` does not load:** Restart the shell or source `~/.bashrc` / `~/.zshrc`; if you need a one-off recovery, run `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use --lts`.
 * **`swiftly` is missing on Linux:** Make sure `~/.local/share/swiftly/env.sh` exists and that `gnupg` is installed, because signature verification depends on `gpg`; a manual recovery is `test -f "$HOME/.local/share/swiftly/env.sh" && . "$HOME/.local/share/swiftly/env.sh" && swiftly install stable`.
 * **Xcode developer tools are missing on macOS:** The installer now checks `xcode-select -p` and `xcodebuild -version` before running the macOS package/bootstrap path. If either check fails, install Xcode from the App Store or run `xcode-select --install` and retry.
+* **Three-finger drag is not taking effect:** Set it manually in `System Settings > Accessibility > Pointer Control > Trackpad Options` and enable `Use trackpad for dragging`. macOS may not persist that toggle reliably through `defaults`.
 * **`fzf` bindings are missing:** Rerun the installer with `--all` or source the `fzf` keybindings and completion files manually from your shell rc.
 * **`bat` and `fd` look unfamiliar on Ubuntu:** `batcat` and `fdfind` are the packaged binary names; the installer creates `bat` and `fd` shims when it can write to `/usr/local/bin`.
 * **Prompt customization is not visible:** `oh-my-posh` only loads in interactive shells, so non-interactive sessions will not show the prompt theme.
 * **`winget` is missing on Windows:** Install App Installer from Microsoft, or continue with Scoop and Chocolatey while keeping winget for later.
 * **Chocolatey needs elevation:** The Windows installer relaunches with UAC when it needs admin rights; if you prefer `gsudo`, install it first and future iterations can use it as the elevation path.
-* **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. It does not patch `/etc/pam.d` for you.
+* **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. The file to edit is `/etc/pam.d/sudo`, and the line to add is `auth       sufficient     pam_tid.so`.
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 
