@@ -280,6 +280,12 @@ report_git_identity_hint() {
     echo "   git config --global user.email \"you@example.com\""
 }
 
+phase_banner() {
+    printf '\n%s\n' "────────────────────────────────────────────────"
+    printf '▶ %s\n' "$1"
+    printf '%s\n' "────────────────────────────────────────────────"
+}
+
 install_uv_python_version() {
     if uv python install --preview --default "$UV_PYTHON_VERSION"; then
         ensure_local_bin_on_path
@@ -449,15 +455,17 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
+                phase_banner "Homebrew Bundle"
                 if [ -f "$MACOS_BREWFILE" ]; then
                     echo "📦 Installing macOS packages from Brewfile..."
-                    brew bundle install --file "$MACOS_BREWFILE"
+                    brew bundle install --verbose --file "$MACOS_BREWFILE"
                 else
                     echo "⚠️  Missing macOS Brewfile at $MACOS_BREWFILE; skipping package install."
                 fi
 
                 ensure_local_bin_on_path
 
+                phase_banner "Shell integration"
                 # fzf keybindings/completions (Homebrew layout)
                 if $INSTALL_ALL || $FORCE_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
                 if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
@@ -476,6 +484,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
+                phase_banner "macOS system preferences"
                 if [ -f "$MACOS_DEFAULTS_SCRIPT" ]; then
                     if $INSTALL_ALL || $FORCE_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
                     if [[ "$apply_macos_defaults" =~ ^[Yy]$ ]]; then
@@ -500,6 +509,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 fi
 
                 # Optional: install pinned Python via uv
+                phase_banner "Toolchain checks"
                 if command -v uv >/dev/null 2>&1; then
                     if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
@@ -515,6 +525,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                     fi
                 fi
 
+                phase_banner "Post-install hints"
                 report_macos_stats_quarantine_hint
                 ;;
             Linux)
