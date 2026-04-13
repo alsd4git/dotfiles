@@ -163,6 +163,27 @@ function myip {
     }
 }
 
+function Get-Weather {
+    param(
+        [string]$Location
+    )
+
+    if ($Location) {
+        $encodedLocation = [Uri]::EscapeDataString($Location)
+        $uri = "https://wttr.in/$encodedLocation?format=4"
+    } else {
+        $uri = 'https://wttr.in?format=4'
+    }
+
+    try {
+        (Invoke-RestMethod -Uri $uri).Trim()
+    } catch {
+        Write-Warning 'Unable to fetch weather.'
+    }
+}
+
+Set-Alias weather Get-Weather -Force
+
 function npmupg {
     if (-not (Test-CommandExists npm)) {
         Write-Warning 'npm not found.'
@@ -182,6 +203,22 @@ function rpx {
     $repoName = Split-Path -Leaf (Get-Location)
     repomix -o "$repoName-repomix.md" --style markdown --ignore '*.html'
 }
+
+function Install-ChocoPackage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageName
+    )
+
+    if (-not (Test-CommandExists choco)) {
+        Write-Warning 'Chocolatey not found.'
+        return
+    }
+
+    choco install $PackageName
+}
+
+Set-Alias cinst Install-ChocoPackage -Force
 
 function edt {
     $profilePath = Get-ProfilePath
