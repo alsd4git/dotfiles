@@ -49,16 +49,39 @@ function Ensure-ParentDirectory {
     }
 }
 
+function Ensure-Directory {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    if ($DryRun) {
+        Write-Info "Would create directory $Path"
+    } else {
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    }
+}
+
 function Get-BackupPath {
     param([string]$Path)
-    $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    return "$Path.bak.$timestamp"
+
+    $timestamp = [DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmssfff')
+    $candidate = "$Path.bak.$timestamp"
+    $counter = 0
+
+    while (Test-Path -LiteralPath $candidate) {
+        $counter += 1
+        $candidate = "$Path.bak.$timestamp.$counter"
+    }
+
+    return $candidate
 }
 
 function Backup-Path {
     param([string]$Path)
 
-    if (-not (Test-Path $Path)) {
+    if (-not (Test-Path -LiteralPath $Path)) {
         return
     }
 
@@ -66,9 +89,19 @@ function Backup-Path {
     if ($DryRun) {
         Write-Info "Would back up $Path -> $backupPath"
     } else {
-        Move-Item -Path $Path -Destination $backupPath
+        Move-Item -LiteralPath $Path -Destination $backupPath
         Write-Info "Backed up $Path -> $backupPath"
     }
+}
+
+function Test-FileLikePath {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    return -not (Get-Item -LiteralPath $Path -Force).PSIsContainer
 }
 
 function Test-SameFileContent {
@@ -77,12 +110,12 @@ function Test-SameFileContent {
         [string]$Target
     )
 
-    if (-not (Test-Path $Source) -or -not (Test-Path $Target)) {
+    if (-not (Test-FileLikePath $Source) -or -not (Test-FileLikePath $Target)) {
         return $false
     }
 
-    $sourceHash = (Get-FileHash -Path $Source -Algorithm SHA256).Hash
-    $targetHash = (Get-FileHash -Path $Target -Algorithm SHA256).Hash
+    $sourceHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
+    $targetHash = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash
     return $sourceHash -eq $targetHash
 }
 
@@ -94,14 +127,19 @@ function Copy-WithBackup {
 
     Ensure-ParentDirectory -Path $Target
 
-    if ((Test-Path $Target) -and -not (Test-SameFileContent -Source $Source -Target $Target)) {
+    if ((Test-Path -LiteralPath $Target) -and (Test-SameFileContent -Source $Source -Target $Target)) {
+        Write-Info "Already up to date: $Target"
+        return
+    }
+
+    if (Test-Path -LiteralPath $Target) {
         Backup-Path -Path $Target
     }
 
     if ($DryRun) {
         Write-Info "Would copy $Source -> $Target"
     } else {
-        Copy-Item -Path $Source -Destination $Target -Force
+        Copy-Item -LiteralPath $Source -Destination $Target -Force
         Write-Info "Copied $Source -> $Target"
     }
 }
@@ -221,6 +259,7 @@ $WindowsProfileSource = Join-Path $RepoRoot 'windows/profile.ps1'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
+$WindowsOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
 
 Write-Section "Windows dotfiles setup"
 Write-Info "Detected PowerShell edition: $($PSVersionTable.PSEdition)"
@@ -237,6 +276,7 @@ if ($ChocolateyOnly) {
 
 Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
+Ensure-Directory -Path $WindowsOverlayDir
 
 Write-Section "Package managers"
 if (Test-CommandExists winget) { $wingetState = 'available' } else { $wingetState = 'not found' }
