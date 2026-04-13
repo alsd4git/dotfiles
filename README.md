@@ -120,6 +120,13 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 If Chocolatey needs elevation, accept the UAC prompt when the script relaunches itself.
 
+For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
+
+- `~\.private_profile.ps1` for one-off overrides
+- `~\.config\dotfiles\windows\profile.d\*.ps1` for ordered local fragments
+
+The public profile loads those overlays last, so they can override the shared defaults without forcing personal details into the repo.
+
 ---
 
 ## 🧠 What `install.sh` Does

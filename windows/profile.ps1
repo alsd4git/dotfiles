@@ -14,6 +14,28 @@ function Get-ProfilePath {
     return $PROFILE
 }
 
+function Import-ProfileFile {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path)) {
+        return
+    }
+
+    . $Path
+}
+
+function Import-ProfileDirectory {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path -PathType Container)) {
+        return
+    }
+
+    Get-ChildItem -Path $Path -Filter '*.ps1' -File | Sort-Object Name | ForEach-Object {
+        . $_.FullName
+    }
+}
+
 function Get-GitCurrentBranch {
     if (-not (Test-CommandExists git)) {
         return $null
@@ -109,6 +131,25 @@ if (Test-CommandExists oh-my-posh) {
     } catch {
         # Keep startup non-fatal if the prompt engine is temporarily unavailable.
     }
+}
+
+function Set-PoshTheme {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigPath
+    )
+
+    if (-not (Test-CommandExists oh-my-posh)) {
+        Write-Warning 'oh-my-posh not found.'
+        return
+    }
+
+    if (-not (Test-Path $ConfigPath)) {
+        Write-Warning "Theme not found: $ConfigPath"
+        return
+    }
+
+    oh-my-posh init pwsh --config $ConfigPath | Invoke-Expression
 }
 
 Set-Alias c Clear-Host -Force
@@ -336,8 +377,11 @@ function lgr {
     git log "origin/release..$branch" @args
 }
 
-# Put machine-specific prompt/theme tweaks or private helpers in this optional local file.
-$privateProfile = Join-Path $HOME '.private_profile.ps1'
-if (Test-Path $privateProfile) {
-    . $privateProfile
+# Load optional local overlays last so they can override the public defaults above.
+$profileOverlayDir = $env:DOTFILES_WINDOWS_PROFILE_DIR
+if ([string]::IsNullOrWhiteSpace($profileOverlayDir)) {
+    $profileOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
 }
+
+Import-ProfileDirectory -Path $profileOverlayDir
+Import-ProfileFile -Path (Join-Path $HOME '.private_profile.ps1')
