@@ -122,6 +122,8 @@ If Chocolatey needs elevation, accept the UAC prompt when the script relaunches 
 
 The Windows installer backs up any conflicting profile or Git ignore file as `.bak.<timestamp>` before copying the shared version into place, and it also creates the optional local overlay directory used by the public profile loader.
 
+There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
+
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
 
 - `~\.private_profile.ps1` for one-off overrides

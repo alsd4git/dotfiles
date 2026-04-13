@@ -277,6 +277,7 @@ if ($ChocolateyOnly) {
 Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Ensure-Directory -Path $WindowsOverlayDir
+Write-Info "Local overlay example: $($RepoRoot)\windows\profile.local.example.ps1"
 
 Write-Section "Package managers"
 if (Test-CommandExists winget) { $wingetState = 'available' } else { $wingetState = 'not found' }
