@@ -124,6 +124,8 @@ The Windows installer backs up any conflicting profile or Git ignore file as `.b
 
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
 
+If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
+
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
 
 - `~\.private_profile.ps1` for one-off overrides

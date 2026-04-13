@@ -4,7 +4,8 @@ param(
     [switch]$Force,
     [switch]$Minimal,
     [switch]$Elevated,
-    [switch]$ChocolateyOnly
+    [switch]$ChocolateyOnly,
+    [switch]$CleanBackups
 )
 
 Set-StrictMode -Version Latest
@@ -151,6 +152,7 @@ function Get-ForwardedArgs {
     if ($Minimal) { $argsOut += '-Minimal' }
     if ($Elevated) { $argsOut += '-Elevated' }
     if ($ChocolateyOnly) { $argsOut += '-ChocolateyOnly' }
+    if ($CleanBackups) { $argsOut += '-CleanBackups' }
     return $argsOut
 }
 
@@ -204,6 +206,56 @@ function Install-GitIgnore {
         Write-Info "Configured git core.excludesfile -> $Target"
     } else {
         Write-Warning "git not found; skipping core.excludesfile configuration."
+    }
+}
+
+function Get-BackupFiles {
+    param([string]$RootPath)
+
+    if ([string]::IsNullOrWhiteSpace($RootPath) -or -not (Test-Path -LiteralPath $RootPath)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -Path $RootPath -Filter '*.bak.*' -File -Force -ErrorAction SilentlyContinue)
+}
+
+function Remove-BackupFiles {
+    param([string]$RootPath)
+
+    $backups = @(Get-BackupFiles -RootPath $RootPath)
+    if ($backups.Count -eq 0) {
+        Write-Info "No backup files found in $RootPath."
+        return
+    }
+
+    Write-Section "Backup cleanup"
+    Write-Info "Found the following backup files:"
+    foreach ($backup in $backups) {
+        Write-Info " - $($backup.FullName)"
+    }
+
+    if ($DryRun) {
+        foreach ($backup in $backups) {
+            Write-Info "Would remove $($backup.FullName)"
+        }
+        Write-Info "Dry-run complete. No backup files were removed."
+        return
+    }
+
+    if ($Force) {
+        $confirm = 'y'
+    } else {
+        $confirm = Read-Host "Delete all of these backup files? [y/N]"
+    }
+
+    if ($confirm -match '^[Yy]$') {
+        foreach ($backup in $backups) {
+            Write-Info "Removing $($backup.FullName)"
+            Remove-Item -LiteralPath $backup.FullName -Force
+        }
+        Write-Info "Done cleaning up backups."
+    } else {
+        Write-Info "Skipped backup cleanup."
     }
 }
 
@@ -278,6 +330,10 @@ Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Ensure-Directory -Path $WindowsOverlayDir
 Write-Info "Local overlay example: $($RepoRoot)\windows\profile.local.example.ps1"
+
+if ($CleanBackups) {
+    Remove-BackupFiles -RootPath $HOME
+}
 
 Write-Section "Package managers"
 if (Test-CommandExists winget) { $wingetState = 'available' } else { $wingetState = 'not found' }
