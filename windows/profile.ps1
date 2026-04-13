@@ -225,14 +225,73 @@ function Get-Weather {
 
 Set-Alias weather Get-Weather -Force
 
+function Get-PackageManagerStatus {
+    $packageManagers = @(
+        [pscustomobject]@{ Name = 'winget'; Command = 'winget' }
+        [pscustomobject]@{ Name = 'scoop'; Command = 'scoop' }
+        [pscustomobject]@{ Name = 'choco'; Command = 'choco' }
+        [pscustomobject]@{ Name = 'npm'; Command = 'npm' }
+        [pscustomobject]@{ Name = 'pnpm'; Command = 'pnpm' }
+        [pscustomobject]@{ Name = 'yarn'; Command = 'yarn' }
+        [pscustomobject]@{ Name = 'corepack'; Command = 'corepack' }
+    )
+
+    foreach ($item in $packageManagers) {
+        $command = Get-Command $item.Command -ErrorAction SilentlyContinue
+        $source = $null
+        if ($command) {
+            if ($command.Source) {
+                $source = $command.Source
+            } elseif ($command.Path) {
+                $source = $command.Path
+            } else {
+                $source = $command.Definition
+            }
+        }
+
+        [pscustomobject]@{
+            Manager   = $item.Name
+            Available = [bool]$command
+            Source    = $source
+        }
+    }
+}
+
+function pkgmgr {
+    Get-PackageManagerStatus | Format-Table -AutoSize
+}
+
 function npmupg {
     if (-not (Test-CommandExists npm)) {
         Write-Warning 'npm not found.'
         return
     }
 
+    Write-Host "`nnpm global updates"
     npm outdated -g
     npm update -g
+}
+
+function scoopup {
+    if (-not (Test-CommandExists scoop)) {
+        Write-Warning 'scoop not found.'
+        return
+    }
+
+    Write-Host "`nScoop updates"
+    scoop status
+    scoop update *
+}
+
+function wingup {
+    if (-not (Test-CommandExists winget)) {
+        Write-Warning 'winget not found.'
+        return
+    }
+
+    Write-Host "`nwinget updates"
+    winget upgrade
+    winget upgrade --all --accept-package-agreements --accept-source-agreements
 }
 
 function rpx {
@@ -260,6 +319,22 @@ function Install-ChocoPackage {
 }
 
 Set-Alias cinst Install-ChocoPackage -Force
+
+function cupa {
+    if (-not (Test-CommandExists choco)) {
+        Write-Warning 'Chocolatey not found.'
+        return
+    }
+
+    Write-Host "`nChocolatey updates"
+    if (Test-CommandExists sudo) {
+        sudo choco outdated
+        sudo choco upgrade all -y
+    } else {
+        choco outdated
+        choco upgrade all -y
+    }
+}
 
 function edt {
     $profilePath = Get-ProfilePath
