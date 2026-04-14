@@ -342,6 +342,14 @@ if (Test-CommandExists choco) { $chocoState = 'available' } else { $chocoState =
 Write-Info "winget: $wingetState"
 Write-Info "scoop: $scoopState"
 Write-Info "choco: $chocoState"
+if (Test-CommandExists winget) {
+    Write-Info "winget is assumed to come from App Installer; this script does not bootstrap it."
+} else {
+    Write-Warning "winget not found; install App Installer if you want the Windows Store package manager."
+}
+if (-not (Test-CommandExists choco)) {
+    Write-Info "Chocolatey bootstrap will relaunch elevated when needed."
+}
 Write-Info "Elevation helper: $(if (Test-CommandExists gsudo) { 'gsudo detected' } elseif (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
 
 if (-not $Minimal) {

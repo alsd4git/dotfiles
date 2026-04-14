@@ -125,6 +125,14 @@ if (Get-Module -ListAvailable -Name gsudoModule) {
     }
 }
 
+if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
+    try {
+        Set-Alias sudo gsudo -Force
+    } catch {
+        # Optional executable; ignore failures.
+    }
+}
+
 if (Test-CommandExists oh-my-posh) {
     try {
         oh-my-posh init pwsh | Invoke-Expression
@@ -231,8 +239,6 @@ function Get-PackageManagerStatus {
         [pscustomobject]@{ Name = 'scoop'; Command = 'scoop' }
         [pscustomobject]@{ Name = 'choco'; Command = 'choco' }
         [pscustomobject]@{ Name = 'npm'; Command = 'npm' }
-        [pscustomobject]@{ Name = 'pnpm'; Command = 'pnpm' }
-        [pscustomobject]@{ Name = 'yarn'; Command = 'yarn' }
         [pscustomobject]@{ Name = 'corepack'; Command = 'corepack' }
     )
 
@@ -259,6 +265,34 @@ function Get-PackageManagerStatus {
 
 function pkgmgr {
     Get-PackageManagerStatus | Format-Table -AutoSize
+}
+
+function Get-ElevationRunner {
+    if (Test-CommandExists sudo) {
+        return 'sudo'
+    }
+
+    if (Test-CommandExists gsudo) {
+        return 'gsudo'
+    }
+
+    return $null
+}
+
+function Invoke-ChocolateyElevated {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    $elevationRunner = Get-ElevationRunner
+    if (-not $elevationRunner) {
+        Write-Warning 'sudo/gsudo not found.'
+        return $false
+    }
+
+    & $elevationRunner choco @Arguments
+    return ($LASTEXITCODE -eq 0)
 }
 
 function npmupg {
@@ -315,7 +349,9 @@ function Install-ChocoPackage {
         return
     }
 
-    choco install $PackageName
+    if (-not (Invoke-ChocolateyElevated -Arguments @('install', $PackageName))) {
+        Write-Warning "Chocolatey install failed for $PackageName."
+    }
 }
 
 Set-Alias cinst Install-ChocoPackage -Force
@@ -327,12 +363,12 @@ function cupa {
     }
 
     Write-Host "`nChocolatey updates"
-    if (Test-CommandExists sudo) {
-        sudo choco outdated
-        sudo choco upgrade all -y
-    } else {
-        choco outdated
-        choco upgrade all -y
+    if (-not (Invoke-ChocolateyElevated -Arguments @('outdated'))) {
+        return
+    }
+
+    if (-not (Invoke-ChocolateyElevated -Arguments @('upgrade', 'all', '-y'))) {
+        Write-Warning 'Chocolatey upgrade failed.'
     }
 }
 
