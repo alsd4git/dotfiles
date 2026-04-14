@@ -126,7 +126,11 @@ There is also a tracked example at `windows/profile.local.example.ps1` you can c
 
 If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
 
-The Windows profile also exposes `pkgmgr` to inspect available package managers, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and relaunches elevated to install `Chocolatey` when needed.
+
+The Windows profile also exposes `pkgmgr` to inspect the installed managers, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+
+`cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
 
