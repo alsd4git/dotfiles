@@ -59,6 +59,114 @@ function nbk() {
     nanobk "$1"
 }
 
+# ===== Network Monitoring =====
+function netuse() {
+    # Run any command while showing live network traffic on a given interface.
+    # Usage: netuse <command...>                  (defaults to eth0)
+    #        netuse --iface tailscale0 <command...>
+    local iface="eth0"
+    if [[ "$1" == "--iface" ]]; then
+        iface="$2"; shift 2
+    fi
+    if [[ $# -eq 0 ]]; then
+        echo "Usage: netuse [--iface IFACE] <command...>"
+        return 1
+    fi
+
+    local interval=2
+    local cyan='\033[0;36m' green='\033[0;32m' yellow='\033[1;33m' dim='\033[2m' nc='\033[0m'
+
+    _hu_bytes() {
+        local b=$1
+        if (( b >= 1073741824 )); then printf "%d.%d GB" $((b/1073741824)) $(( (b%1073741824)*10/1073741824 ))
+        elif (( b >= 1048576 )); then printf "%d.%d MB" $((b/1048576)) $(( (b%1048576)*10/1048576 ))
+        elif (( b >= 1024 )); then printf "%d.%d KB" $((b/1024)) $(( (b%1024)*10/1024 ))
+        else printf "%d B" "$b"; fi
+    }
+    _hu_speed() {
+        local s=$1
+        if (( s >= 1048576 )); then printf "%d.%d MB/s" $((s/1048576)) $(( (s%1048576)*10/1048576 ))
+        elif (( s >= 1024 )); then printf "%d.%d KB/s" $((s/1024)) $(( (s%1024)*10/1024 ))
+        else printf "%d B/s" "$s"; fi
+    }
+    _get_rx() { awk -v i="$iface:" '$1==i{print $2}' /proc/net/dev; }
+
+    local start_rx start_time
+    start_rx=$(_get_rx)
+    start_time=$(date +%s)
+
+    echo -e "${cyan}━━━ Network Monitor ━━━${nc}"
+    echo -e "${dim}Interface: $iface | Refresh: ${interval}s${nc}"
+    echo ""
+
+    # Expand alias if first argument is one
+    local cmd="$*"
+    if type -t "$1" 2>/dev/null | grep -q '^alias$'; then
+        local alias_val
+        alias_val=$(alias "$1" 2>/dev/null | sed "s/^alias [^=]*='//;s/'$//")
+        shift
+        cmd="$alias_val $*"
+    fi
+
+    local fifo
+    fifo=$(mktemp -u)
+    mkfifo "$fifo"
+
+    ( eval "$cmd" 2>&1 | while IFS= read -r line; do
+        printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
+    done; echo "__DONE__" ) > "$fifo" &
+
+    # Open FIFO read-write so it never blocks on missing writer
+    exec 3<>"$fifo"
+
+    local prev_rx prev_time
+    prev_rx=$(_get_rx)
+    prev_time=$(date +%s%N)
+    local running=true
+
+    while $running; do
+        if read -t "$interval" -r line <&3; then
+            if [[ "$line" == "__DONE__" ]]; then
+                running=false
+            else
+                echo "$line"
+            fi
+        fi
+
+        local curr_rx curr_time dt
+        curr_rx=$(_get_rx)
+        curr_time=$(date +%s%N)
+        dt=$(( (curr_time - prev_time) / 1000000 ))
+        if (( dt > 0 )); then
+            local delta speed total elapsed
+            delta=$(( curr_rx - prev_rx ))
+            speed=$(( delta * 1000 / dt ))
+            total=$(( curr_rx - start_rx ))
+            elapsed=$(( $(date +%s) - start_time ))
+            printf "\r${yellow}[NET]${nc} ↓ %s  |  speed: %s  |  elapsed: %ds    " \
+                "$(_hu_bytes $total)" "$(_hu_speed $speed)" "$elapsed"
+        fi
+        prev_rx=$curr_rx
+        prev_time=$curr_time
+    done
+
+    exec 3<&-
+    wait 2>/dev/null
+    rm -f "$fifo"
+
+    local total_rx total_time
+    total_rx=$(( $(_get_rx) - start_rx ))
+    total_time=$(( $(date +%s) - start_time ))
+    echo ""
+    echo ""
+    echo -e "${cyan}━━━ Riepilogo ━━━${nc}"
+    echo -e "  Downloaded: $(_hu_bytes $total_rx)"
+    echo -e "  Tempo: ${total_time}s"
+    if (( total_time > 0 )); then
+        echo -e "  Media: $(_hu_speed $((total_rx / total_time)))"
+    fi
+}
+
 # ===== Notes and Future Enhancements =====
 # A useful cheatsheet online: https://devhints.io/bash
 # Use 'export' if you want functions to be available in subshells
