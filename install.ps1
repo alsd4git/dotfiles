@@ -302,12 +302,44 @@ function Install-ChocolateyBootstrap {
     Invoke-Expression $script
 }
 
+function Get-WindowsPackageManifest {
+    param([string]$ManifestPath)
+
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        return $null
+    }
+
+    return Import-PowerShellDataFile -LiteralPath $ManifestPath
+}
+
+function Write-WindowsPackageManifestSummary {
+    param([hashtable]$Manifest)
+
+    if (-not $Manifest) {
+        Write-Warning 'No curated Windows package manifest found.'
+        return
+    }
+
+    Write-Section 'Curated package manifest'
+    Write-Info "Public baseline: $($Manifest.Winget.Count + $Manifest.Scoop.Count + $Manifest.Chocolatey.Count + $Manifest.NpmGlobal.Count) entries"
+
+    foreach ($sectionName in @('Winget', 'Scoop', 'Chocolatey', 'NpmGlobal')) {
+        $items = @($Manifest.$sectionName)
+        Write-Info "$sectionName ($($items.Count))"
+
+        foreach ($item in $items) {
+            Write-Info " - $item"
+        }
+    }
+}
+
 if (-not (Test-IsWindows)) {
     throw "install.ps1 is intended for Windows."
 }
 
 $RepoRoot = Split-Path -Parent $PSCommandPath
 $WindowsProfileSource = Join-Path $RepoRoot 'windows/profile.ps1'
+$WindowsPackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
@@ -351,6 +383,14 @@ if (-not (Test-CommandExists choco)) {
     Write-Info "Chocolatey bootstrap will relaunch elevated when needed."
 }
 Write-Info "Elevation helper: $(if (Test-CommandExists gsudo) { 'gsudo detected' } elseif (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
+
+$manifest = Get-WindowsPackageManifest -ManifestPath $WindowsPackageManifest
+if ($manifest) {
+    Write-WindowsPackageManifestSummary -Manifest $manifest
+    Write-Info "Manifest file: $WindowsPackageManifest"
+} else {
+    Write-Warning "Curated package manifest not found at $WindowsPackageManifest."
+}
 
 if (-not $Minimal) {
     if ($Force) {
