@@ -8,12 +8,17 @@ function Test-CommandExists {
 
 function Write-Section {
     param([string]$Message)
-    Write-Host "`n$Message"
+    Write-Host "`n🪟 $Message" -ForegroundColor Cyan
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host $Message
+    Write-Host "  $Message" -ForegroundColor Gray
+}
+
+function Write-Success {
+    param([string]$Message)
+    Write-Host "  ✅ $Message" -ForegroundColor Green
 }
 
 function Get-ProfilePath {
@@ -503,7 +508,7 @@ function npmupg {
         return
     }
 
-    Write-Host "`nnpm global updates"
+    Write-Section 'npm global updates'
     npm outdated -g
     npm update -g
 }
@@ -514,7 +519,7 @@ function scoopup {
         return
     }
 
-    Write-Host "`nScoop updates"
+    Write-Section 'Scoop updates'
     scoop status
     scoop update *
 }
@@ -525,7 +530,7 @@ function wingup {
         return
     }
 
-    Write-Host "`nwinget updates"
+    Write-Section 'winget updates'
     winget upgrade
     winget upgrade --all --accept-package-agreements --accept-source-agreements
 }
@@ -564,7 +569,7 @@ function cupa {
         return
     }
 
-    Write-Host "`nChocolatey updates"
+    Write-Section 'Chocolatey updates'
     if (-not (Invoke-ChocolateyElevated -Arguments @('outdated'))) {
         return
     }
