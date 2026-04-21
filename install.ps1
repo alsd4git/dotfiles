@@ -300,6 +300,25 @@ function Install-ChocolateyBootstrap {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $script = Invoke-RestMethod -Uri 'https://community.chocolatey.org/install.ps1'
     Invoke-Expression $script
+
+    $chocoBin = Join-Path $env:ProgramData 'chocolatey\bin'
+    if ((Test-Path -LiteralPath $chocoBin) -and ($env:Path -notlike "*$chocoBin*")) {
+        $env:Path = "$chocoBin;$env:Path"
+    }
+}
+
+function Get-WindowsPackageManifestPath {
+    param([string]$DefaultPath)
+
+    if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_WINDOWS_PACKAGE_MANIFEST) -and (Test-Path -LiteralPath $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST)) {
+        return $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($DefaultPath) -and (Test-Path -LiteralPath $DefaultPath)) {
+        return $DefaultPath
+    }
+
+    return $null
 }
 
 function Get-WindowsPackageManifest {
@@ -310,6 +329,228 @@ function Get-WindowsPackageManifest {
     }
 
     return Import-PowerShellDataFile -LiteralPath $ManifestPath
+}
+
+function Test-WingetPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageId)
+
+    if (-not (Test-CommandExists winget)) {
+        return $false
+    }
+
+    & winget list --id $PackageId --exact *> $null
+    return $LASTEXITCODE -eq 0
+}
+
+function Get-ScoopInstalledPackages {
+    $roots = @()
+
+    foreach ($root in @(
+        $env:SCOOP
+        $env:SCOOP_GLOBAL
+        (Join-Path $HOME 'scoop')
+        $env:ProgramData
+    )) {
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            continue
+        }
+
+        $appsRoot = if ($root -like '*scoop') {
+            Join-Path $root 'apps'
+        } elseif ($root -eq $env:ProgramData) {
+            Join-Path $root 'scoop\apps'
+        } else {
+            Join-Path $root 'apps'
+        }
+
+        if (Test-Path -LiteralPath $appsRoot) {
+            $roots += $appsRoot
+        }
+    }
+
+    if ($roots.Count -eq 0) {
+        return @()
+    }
+
+    $packages = foreach ($root in ($roots | Sort-Object -Unique)) {
+        Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+    }
+
+    return @($packages | Sort-Object -Unique)
+}
+
+function Test-ScoopPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-ScoopInstalledPackages) -contains $PackageName
+}
+
+function Get-ChocolateyInstalledPackages {
+    if (-not (Test-CommandExists choco)) {
+        return @()
+    }
+
+    $lines = & choco list --local-only --limit-output 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $lines) {
+        return @()
+    }
+
+    return @(
+        $lines |
+            ForEach-Object { ($_ -split '\|')[0] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-ChocolateyPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-ChocolateyInstalledPackages) -contains $PackageName
+}
+
+function Get-NpmGlobalPackages {
+    if (-not (Test-CommandExists npm)) {
+        return @()
+    }
+
+    $lines = & npm list -g --depth=0 --parseable 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $lines) {
+        return @()
+    }
+
+    return @(
+        $lines |
+            ForEach-Object { Split-Path -Leaf $_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-NpmGlobalPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-NpmGlobalPackages) -contains $PackageName
+}
+
+function Get-WindowsPackageComparison {
+    param([hashtable]$Manifest)
+
+    if (-not $Manifest) {
+        return @()
+    }
+
+    $comparison = @()
+
+    foreach ($section in @(
+        [pscustomobject]@{ Manager = 'Winget'; Packages = @($Manifest.Winget) }
+        [pscustomobject]@{ Manager = 'Scoop'; Packages = @($Manifest.Scoop) }
+        [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($Manifest.Chocolatey) }
+        [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($Manifest.NpmGlobal) }
+    )) {
+        foreach ($packageName in $section.Packages) {
+            $installed = $false
+
+            switch ($section.Manager) {
+                'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
+                'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
+                'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
+                'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+            }
+
+            $comparison += [pscustomobject]@{
+                Manager   = $section.Manager
+                Package   = $packageName
+                Installed = [bool]$installed
+            }
+        }
+    }
+
+    return $comparison
+}
+
+function Install-WindowsPackageBaseline {
+    param([hashtable]$Manifest)
+
+    if (-not $Manifest) {
+        Write-Warning 'No curated Windows package manifest found.'
+        return
+    }
+
+    Write-Section 'Curated package install'
+
+    foreach ($section in @(
+        [pscustomobject]@{ Manager = 'Winget'; Command = 'winget'; Packages = @($Manifest.Winget) }
+        [pscustomobject]@{ Manager = 'Scoop'; Command = 'scoop'; Packages = @($Manifest.Scoop) }
+        [pscustomobject]@{ Manager = 'Chocolatey'; Command = 'choco'; Packages = @($Manifest.Chocolatey) }
+        [pscustomobject]@{ Manager = 'NpmGlobal'; Command = 'npm'; Packages = @($Manifest.NpmGlobal) }
+    )) {
+        if ($section.Packages.Count -eq 0) {
+            Write-Info "$($section.Manager): nothing to install."
+            continue
+        }
+
+        if (-not (Test-CommandExists $section.Command)) {
+            Write-Warning "$($section.Manager) not available; skipping."
+            continue
+        }
+
+        Write-Info "$($section.Manager):"
+        foreach ($packageName in $section.Packages) {
+            $installed = $false
+
+            switch ($section.Manager) {
+                'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
+                'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
+                'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
+                'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+            }
+
+            if ($installed) {
+                Write-Info " - already installed: $packageName"
+                continue
+            }
+
+            if ($DryRun) {
+                Write-Info " - would install: $packageName"
+                continue
+            }
+
+            switch ($section.Manager) {
+                'Winget' {
+                    & winget install --id $packageName --exact --silent --accept-package-agreements --accept-source-agreements
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Info " - installed: $packageName"
+                    } else {
+                        Write-Warning " - failed: $packageName"
+                    }
+                }
+                'Scoop' {
+                    & scoop install $packageName
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Info " - installed: $packageName"
+                    } else {
+                        Write-Warning " - failed: $packageName"
+                    }
+                }
+                'Chocolatey' {
+                    if (-not (Invoke-ChocolateyElevated -Arguments @('install', $packageName, '-y'))) {
+                        Write-Warning " - failed: $packageName"
+                    } else {
+                        Write-Info " - installed: $packageName"
+                    }
+                }
+                'NpmGlobal' {
+                    & npm install -g $packageName
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Info " - installed: $packageName"
+                    } else {
+                        Write-Warning " - failed: $packageName"
+                    }
+                }
+            }
+        }
+    }
 }
 
 function Write-WindowsPackageManifestSummary {
@@ -343,6 +584,8 @@ $WindowsPackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
+$WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
+$WindowsPackageTarget = Join-Path $WindowsConfigRoot 'packages.psd1'
 $WindowsOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
 
 Write-Section "Windows dotfiles setup"
@@ -360,6 +603,8 @@ if ($ChocolateyOnly) {
 
 Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
+Ensure-Directory -Path $WindowsConfigRoot
+Copy-WithBackup -Source $WindowsPackageManifest -Target $WindowsPackageTarget
 Ensure-Directory -Path $WindowsOverlayDir
 Write-Info "Local overlay example: $($RepoRoot)\windows\profile.local.example.ps1"
 
@@ -403,6 +648,17 @@ if (-not $Minimal) {
     if ($installManagers) {
         Ensure-Scoop
         Install-ChocolateyBootstrap
+    }
+
+    if ($Force) {
+        $installPackages = $true
+    } else {
+        $reply = Read-Host "Install missing packages from the curated manifest now? [y/N]"
+        $installPackages = $reply -match '^[Yy]$'
+    }
+
+    if ($installPackages) {
+        Install-WindowsPackageBaseline -Manifest $manifest
     }
 } else {
     Write-Info "Minimal mode: skipping package manager bootstrap."

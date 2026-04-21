@@ -6,6 +6,16 @@ function Test-CommandExists {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Write-Section {
+    param([string]$Message)
+    Write-Host "`n$Message"
+}
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host $Message
+}
+
 function Get-ProfilePath {
     if ($PROFILE.PSObject.Properties.Name -contains 'CurrentUserAllHosts' -and $PROFILE.CurrentUserAllHosts) {
         return $PROFILE.CurrentUserAllHosts
@@ -232,6 +242,198 @@ function Get-Weather {
 }
 
 Set-Alias weather Get-Weather -Force
+
+function Get-WindowsPackageManifestPath {
+    if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_WINDOWS_PACKAGE_MANIFEST) -and (Test-Path -LiteralPath $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST)) {
+        return $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST
+    }
+
+    $defaultPath = Join-Path $HOME '.config\dotfiles\windows\packages.psd1'
+    if (Test-Path -LiteralPath $defaultPath) {
+        return $defaultPath
+    }
+
+    return $null
+}
+
+function Get-WindowsPackageManifest {
+    param([string]$ManifestPath)
+
+    $resolvedPath = $ManifestPath
+    if ([string]::IsNullOrWhiteSpace($resolvedPath)) {
+        $resolvedPath = Get-WindowsPackageManifestPath
+    }
+
+    if ([string]::IsNullOrWhiteSpace($resolvedPath) -or -not (Test-Path -LiteralPath $resolvedPath)) {
+        return $null
+    }
+
+    return Import-PowerShellDataFile -LiteralPath $resolvedPath
+}
+
+function Test-WingetPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageId)
+
+    if (-not (Test-CommandExists winget)) {
+        return $false
+    }
+
+    & winget list --id $PackageId --exact *> $null
+    return $LASTEXITCODE -eq 0
+}
+
+function Get-ScoopInstalledPackages {
+    $roots = @()
+
+    foreach ($root in @(
+        $env:SCOOP
+        $env:SCOOP_GLOBAL
+        (Join-Path $HOME 'scoop')
+        $env:ProgramData
+    )) {
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            continue
+        }
+
+        $appsRoot = if ($root -like '*scoop') {
+            Join-Path $root 'apps'
+        } elseif ($root -eq $env:ProgramData) {
+            Join-Path $root 'scoop\apps'
+        } else {
+            Join-Path $root 'apps'
+        }
+
+        if (Test-Path -LiteralPath $appsRoot) {
+            $roots += $appsRoot
+        }
+    }
+
+    if ($roots.Count -eq 0) {
+        return @()
+    }
+
+    $packages = foreach ($root in ($roots | Sort-Object -Unique)) {
+        Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+    }
+
+    return @($packages | Sort-Object -Unique)
+}
+
+function Test-ScoopPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-ScoopInstalledPackages) -contains $PackageName
+}
+
+function Get-ChocolateyInstalledPackages {
+    if (-not (Test-CommandExists choco)) {
+        return @()
+    }
+
+    $lines = & choco list --local-only --limit-output 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $lines) {
+        return @()
+    }
+
+    return @(
+        $lines |
+            ForEach-Object { ($_ -split '\|')[0] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-ChocolateyPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-ChocolateyInstalledPackages) -contains $PackageName
+}
+
+function Get-NpmGlobalPackages {
+    if (-not (Test-CommandExists npm)) {
+        return @()
+    }
+
+    $lines = & npm list -g --depth=0 --parseable 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $lines) {
+        return @()
+    }
+
+    return @(
+        $lines |
+            ForEach-Object { Split-Path -Leaf $_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+}
+
+function Test-NpmGlobalPackageInstalled {
+    param([Parameter(Mandatory = $true)][string]$PackageName)
+
+    return @(Get-NpmGlobalPackages) -contains $PackageName
+}
+
+function Get-WindowsPackageComparison {
+    $manifest = Get-WindowsPackageManifest
+    if (-not $manifest) {
+        return @()
+    }
+
+    $comparison = @()
+
+    foreach ($section in @(
+        [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Winget) }
+        [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Scoop) }
+        [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Chocolatey) }
+        [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.NpmGlobal) }
+    )) {
+        foreach ($packageName in $section.Packages) {
+            $installed = $false
+
+            switch ($section.Manager) {
+                'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
+                'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
+                'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
+                'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+            }
+
+            $comparison += [pscustomobject]@{
+                Manager   = $section.Manager
+                Package   = $packageName
+                Installed = [bool]$installed
+            }
+        }
+    }
+
+    return $comparison
+}
+
+function pkgcmp {
+    $comparison = @(Get-WindowsPackageComparison)
+    if ($comparison.Count -eq 0) {
+        Write-Warning 'No curated Windows package manifest found.'
+        return
+    }
+
+    foreach ($group in $comparison | Group-Object Manager | Sort-Object Name) {
+        $groupRows = @($group.Group)
+        $installedCount = @($groupRows | Where-Object Installed).Count
+        $missingRows = @($groupRows | Where-Object { -not $_.Installed })
+
+        Write-Section $group.Name
+        Write-Info "Installed: $installedCount/$($groupRows.Count)"
+
+        if ($missingRows.Count -eq 0) {
+            Write-Info 'Missing: none'
+            continue
+        }
+
+        Write-Info 'Missing:'
+        foreach ($row in $missingRows) {
+            Write-Info " - $($row.Package)"
+        }
+    }
+}
 
 function Get-PackageManagerStatus {
     $packageManagers = @(
