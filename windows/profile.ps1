@@ -32,6 +32,17 @@ function Get-ProfilePath {
     return $PROFILE
 }
 
+function Ensure-ParentDirectory {
+    param([string]$Path)
+
+    $parent = Split-Path -Parent $Path
+    if ([string]::IsNullOrWhiteSpace($parent) -or (Test-Path -LiteralPath $parent)) {
+        return
+    }
+
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+}
+
 #----------------------------------------------------------------
 # PROFILE AND GIT HELPERS
 #----------------------------------------------------------------
@@ -140,7 +151,59 @@ if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
 #----------------------------------------------------------------
 # VARIABLES
 #----------------------------------------------------------------
-$OhMyPoshThemesPath = 'C:\Program Files (x86)\oh-my-posh\themes'
+function Resolve-OhMyPoshThemesPath {
+    $cachePath = Join-Path $HOME '.config\dotfiles\windows\omp.path'
+    $candidates = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_WINDOWS_OMP_THEMES_PATH)) {
+        $candidates += $env:DOTFILES_WINDOWS_OMP_THEMES_PATH
+    }
+
+    if (Test-Path -LiteralPath $cachePath) {
+        $cachedPath = (Get-Content -LiteralPath $cachePath -Raw).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($cachedPath)) {
+            $candidates += $cachedPath
+        }
+    }
+
+    $candidates += @(
+        'C:\Program Files (x86)\oh-my-posh\themes'
+        'C:\Program Files\oh-my-posh\themes'
+    )
+
+    $ompCommand = Get-Command oh-my-posh -ErrorAction SilentlyContinue
+    if ($ompCommand.Path) {
+        $binaryFolder = Split-Path -Parent $ompCommand.Path
+        $candidates = @(
+            (Join-Path (Split-Path -Parent $binaryFolder) 'themes')
+        ) + $candidates
+    }
+
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+
+        $themeFile = Join-Path $candidate 'tokyo.omp.json'
+        if (Test-Path -LiteralPath $themeFile) {
+            try {
+                Ensure-ParentDirectory -Path $cachePath
+                Set-Content -LiteralPath $cachePath -Value $candidate -NoNewline
+            } catch {
+                # Cache writes are best-effort only.
+            }
+
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+$OhMyPoshThemesPath = Resolve-OhMyPoshThemesPath
+if ([string]::IsNullOrWhiteSpace($OhMyPoshThemesPath)) {
+    $OhMyPoshThemesPath = 'C:\Program Files (x86)\oh-my-posh\themes'
+}
 
 #----------------------------------------------------------------
 # INIT SHELL
@@ -802,7 +865,7 @@ function gf {
     git fetch @args
 }
 
-function gl {
+function Invoke-GitPullRebase {
     git pull --rebase --autostash -Xignore-all-space @args
 }
 
@@ -865,6 +928,9 @@ function lgr {
 
     git log "origin/release..$branch" @args
 }
+
+Remove-Item Alias:gl -Force -ErrorAction SilentlyContinue
+Set-Alias gl Invoke-GitPullRebase -Force
 
 #----------------------------------------------------------------
 # LOCAL OVERLAYS
