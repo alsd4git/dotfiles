@@ -276,7 +276,19 @@ Set-Alias tokyo Set-Tokyo -Force
 
 Set-Alias c Clear-Host -Force
 Set-Alias h Get-History -Force
-Set-Alias a Get-Alias -Force
+
+function a {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Name)
+
+    if ($Name.Count -eq 0) {
+        Get-Alias | Sort-Object Name | Format-Table Name, Definition -AutoSize
+        return
+    }
+
+    foreach ($item in $Name) {
+        Get-Command $item -ErrorAction SilentlyContinue
+    }
+}
 
 function l {
     Invoke-ListDirectory -Arguments $args
