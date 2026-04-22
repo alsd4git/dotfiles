@@ -60,9 +60,13 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
 ├── windows/       # Minimal PowerShell profile for Windows
+│   ├── omp/
+│   │   └── tokyo.omp.json
 │   ├── packages.optional.psd1
 │   ├── packages.private.example.psd1
 │   ├── packages.psd1
+│   ├── terminal/
+│   │   └── settings.json
 │   ├── profile.local.example.ps1
 │   └── profile.ps1
 ├── install.sh     # Recommended installation script
@@ -145,10 +149,11 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 
 - `winget` for core shell/runtime apps and Store-backed desktop apps
 - `scoop` for portable CLI utilities
-- `Microsoft PC Manager` is declared with the Microsoft Store source (`msstore`) because the Store product ID is what `winget` needs there
 - `Bitwarden`, `Chrome`, `Quick Share`, `RustDesk`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
 - `Chocolatey` is kept only as a legacy/private fallback lane, not as part of the public baseline
 - `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
+
+The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, and the minimal Windows Terminal settings live in `windows/terminal/settings.json`. The installer copies the theme into `~\.config\dotfiles\windows\omp\tokyo.omp.json` so the prompt does not depend on the repo staying mounted.
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
@@ -243,7 +248,9 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1` and `windows/packages.optional.psd1`; treat them as curated baselines, not a dump of every installed Windows app.
-* **Windows package sources:** Use `winget` for GUI apps and anything Store-backed, and `scoop` for portable CLI tools. If a package is only available via the Microsoft Store, the manifest can declare `Source = 'msstore'` with the Store product ID.
+* **Windows package sources:** Use `winget` for GUI apps and `scoop` for portable CLI tools. Store-only apps that do not resolve reliably in `winget` should stay manual instead of making the bootstrap more fragile; `PC Manager` is one of those edge cases on some machines.
+* **Windows prompt assets:** `windows/omp/tokyo.omp.json` captures the current `oh-my-posh` theme, and `windows/terminal/settings.json` captures the minimal Terminal defaults, including the `JetBrainsMono Nerd Font` face.
+* **Windows Terminal cleanup:** The template intentionally leaves out machine-specific SSH and one-off profiles; keep those in a local overlay if you still want them.
 * **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifests, and `install.ps1` only installs missing packages after you confirm the prompt.
 * **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
 
