@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$DryRun,
+    [Alias('y')]
     [switch]$Force,
     [switch]$Minimal,
     [switch]$Elevated,
