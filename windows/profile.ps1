@@ -277,6 +277,8 @@ Set-Alias tokyo Set-Tokyo -Force
 Set-Alias c Clear-Host -Force
 Set-Alias h Get-History -Force
 
+Remove-Item Alias:a,Alias:aa -Force -ErrorAction SilentlyContinue
+
 function a {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Name)
 
@@ -286,7 +288,19 @@ function a {
     }
 
     foreach ($item in $Name) {
-        Get-Command $item -ErrorAction SilentlyContinue
+        $command = Get-Command $item -ErrorAction SilentlyContinue
+        if ($null -eq $command) {
+            Write-Warning "$item not found."
+            continue
+        }
+
+        [pscustomobject]@{
+            Name        = $command.Name
+            CommandType = $command.CommandType
+            Definition  = $command.Definition
+            Source      = $command.Source
+            Path        = $command.Path
+        } | Format-List
     }
 }
 
