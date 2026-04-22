@@ -135,7 +135,7 @@ There is also a tracked template at `windows/packages.private.example.psd1` that
 
 If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
 
-The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and relaunches elevated to install `Chocolatey` when needed.
+The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and treats `Chocolatey` as a deprecated fallback only for private/legacy overlays.
 
 The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
@@ -145,8 +145,8 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 
 - `winget` for core shell/runtime apps
 - `scoop` for portable CLI utilities
-- `Microsoft PC Manager`, `Bitwarden`, `Chrome`, `Quick Share`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
-- `Chocolatey` stays as a narrow fallback lane for the few apps that still fit better there, such as `rustdesk.install`
+- `Microsoft PC Manager`, `Bitwarden`, `Chrome`, `Quick Share`, `RustDesk`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
+- `Chocolatey` is kept only as a legacy/private fallback lane, not as part of the public baseline
 - `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
