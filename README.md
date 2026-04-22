@@ -145,8 +145,9 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 
 - `winget` for core shell/runtime apps
 - `scoop` for portable CLI utilities
-- `Windows.PowerToys`, `VS Code`, and `fastfetch` live in the optional extras manifest
-- `Chocolatey` and `NpmGlobal` are intentionally kept empty for now so we do not encode machine-specific or personal globals into the repo
+- `Microsoft PC Manager`, `Bitwarden`, `Chrome`, `Quick Share`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
+- `Chocolatey` stays as a narrow fallback lane for the few apps that still fit better there, such as `rustdesk.install`
+- `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
