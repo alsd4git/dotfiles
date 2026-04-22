@@ -273,6 +273,65 @@ function Resolve-WindowsPackageManifestPath {
     return $null
 }
 
+function Resolve-WindowsPackageEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$PackageEntry,
+        [Parameter(Mandatory = $true)]
+        [string]$Manager
+    )
+
+    if ($PackageEntry -is [string]) {
+        return [pscustomobject]@{
+            Name   = $PackageEntry
+            Id     = $PackageEntry
+            Source = if ($Manager -eq 'Winget') { 'winget' } else { $null }
+        }
+    }
+
+    $entry = if ($PackageEntry -is [hashtable]) { [pscustomobject]$PackageEntry } else { $PackageEntry }
+    $id = $entry.Id
+    if ([string]::IsNullOrWhiteSpace($id)) {
+        $id = $entry.PackageId
+    }
+    if ([string]::IsNullOrWhiteSpace($id)) {
+        $id = $entry.Name
+    }
+
+    $name = $entry.Name
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        $name = $entry.DisplayName
+    }
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        $name = $id
+    }
+
+    $source = $entry.Source
+    if ($Manager -eq 'Winget' -and [string]::IsNullOrWhiteSpace($source)) {
+        $source = 'winget'
+    }
+
+    return [pscustomobject]@{
+        Name   = $name
+        Id     = $id
+        Source = $source
+    }
+}
+
+function Format-WindowsPackageEntry {
+    param([object]$Package)
+
+    if ($null -eq $Package) {
+        return ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Package.Source) -or $Package.Source -eq 'winget') {
+        return $Package.Name
+    }
+
+    return "$($Package.Name) [$($Package.Source):$($Package.Id)]"
+}
+
 function Get-WindowsPackageManifestEntries {
     $windowsRoot = Split-Path -Parent $PSCommandPath
     $repoRoot = Split-Path -Parent $windowsRoot
@@ -325,20 +384,30 @@ function Get-WindowsPackageManifestEntries {
 }
 
 function Test-WingetPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageId)
+    param(
+        [Parameter(Mandatory = $true)][string]$PackageId,
+        [string]$Source = 'winget'
+    )
 
-    $installedIds = Get-WingetInstalledPackageIds
-    if (@($installedIds) -contains $PackageId) {
-        return $true
+    $sourceName = if ([string]::IsNullOrWhiteSpace($Source)) { 'winget' } else { $Source }
+
+    if ($sourceName -eq 'winget') {
+        $installedIds = Get-WingetInstalledPackageIds
+        if (@($installedIds) -contains $PackageId) {
+            return $true
+        }
     }
 
     if (-not (Test-CommandExists winget)) {
         return $false
     }
 
-    & winget list --id $PackageId --exact --source winget --accept-source-agreements *> $null
+    & winget list --id $PackageId --exact --source $sourceName --accept-source-agreements *> $null
     if ($LASTEXITCODE -eq 0) {
-        $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
+        if ($sourceName -eq 'winget') {
+            $installedIds = Get-WingetInstalledPackageIds
+            $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
+        }
         return $true
     }
 
@@ -472,20 +541,21 @@ function Get-WindowsPackageComparison {
             [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Data.Chocolatey) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
-            foreach ($packageName in $section.Packages) {
+            foreach ($packageEntry in $section.Packages) {
+                $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
                 $installed = $false
 
                 switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
-                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
+                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
+                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
+                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
                 $comparison += [pscustomobject]@{
                     Manifest  = $manifest.Name
                     Manager   = $section.Manager
-                    Package   = $packageName
+                    Package   = (Format-WindowsPackageEntry -Package $package)
                     Installed = [bool]$installed
                 }
             }
