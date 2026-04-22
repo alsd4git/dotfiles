@@ -141,7 +141,7 @@ If you want to remove old Windows backup files later, run `.\install.ps1 -CleanB
 
 The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and keeps `Chocolatey` only as a deprecated private/legacy fallback.
 
-The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+The Windows profile also exposes `a` to inspect commands, `aa` to print aliases, `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
 The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` / `rldz` manually if you want to re-source the profile.
 
@@ -273,7 +273,7 @@ If you use Zsh, open a new interactive shell and confirm that `aa`, `l`, `gl`, a
 ## 🧭 Cheatsheet
 
 * Shell basics:
-  * `aa`: Pretty-print aliases (`nice_print_aliases`).
+  * `a` / `aa`: Inspect a command or print aliases.
   * `l`/`lt`/`ll`: Directory listings (use `eza` if installed, otherwise `ls`).
   * `mntlist`: Show mounted volumes (portable, does not shadow `mount`).
   * `myip`: Show public IP.
