@@ -1,6 +1,9 @@
-# Generic PowerShell profile for the dotfiles repo.
+# Windows PowerShell profile for the dotfiles repo.
 # Keep this file portable: useful defaults, optional integrations, and no machine-specific paths.
 
+#----------------------------------------------------------------
+# SHARED HELPERS
+#----------------------------------------------------------------
 function Test-CommandExists {
     param([string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -29,28 +32,9 @@ function Get-ProfilePath {
     return $PROFILE
 }
 
-function Import-ProfileFile {
-    param([string]$Path)
-
-    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path)) {
-        return
-    }
-
-    . $Path
-}
-
-function Import-ProfileDirectory {
-    param([string]$Path)
-
-    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path -PathType Container)) {
-        return
-    }
-
-    Get-ChildItem -Path $Path -Filter '*.ps1' -File | Sort-Object Name | ForEach-Object {
-        . $_.FullName
-    }
-}
-
+#----------------------------------------------------------------
+# PROFILE AND GIT HELPERS
+#----------------------------------------------------------------
 function Get-GitCurrentBranch {
     if (-not (Test-CommandExists git)) {
         return $null
@@ -111,6 +95,11 @@ function rld {
     . (Get-ProfilePath)
 }
 
+Set-Alias rldz rld -Force
+
+#----------------------------------------------------------------
+# OPTIONAL MODULES
+#----------------------------------------------------------------
 if (Get-Module -ListAvailable -Name PSReadLine) {
     try {
         Set-PSReadLineOption -EditMode Windows
@@ -148,8 +137,14 @@ if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
     }
 }
 
+#----------------------------------------------------------------
+# VARIABLES
+#----------------------------------------------------------------
 $OhMyPoshThemesPath = 'C:\Program Files (x86)\oh-my-posh\themes'
 
+#----------------------------------------------------------------
+# INIT SHELL
+#----------------------------------------------------------------
 if (Test-CommandExists oh-my-posh) {
     try {
         oh-my-posh init pwsh --config "$OhMyPoshThemesPath\tokyo.omp.json" | Invoke-Expression
@@ -158,6 +153,9 @@ if (Test-CommandExists oh-my-posh) {
     }
 }
 
+#----------------------------------------------------------------
+# SHELL HELPERS
+#----------------------------------------------------------------
 function Set-Mini {
     if (-not (Test-CommandExists oh-my-posh)) {
         Write-Warning 'oh-my-posh not found.'
@@ -249,6 +247,9 @@ function Get-Weather {
 
 Set-Alias weather Get-Weather -Force
 
+#----------------------------------------------------------------
+# WINDOWS PACKAGE HELPERS
+#----------------------------------------------------------------
 function Resolve-WindowsPackageManifestPath {
     param(
         [string[]]$EnvironmentVariables,
@@ -604,8 +605,9 @@ function pkgcmp {
     }
 }
 
-Set-Alias rldz rld -Force
-
+#----------------------------------------------------------------
+# PACKAGE COMMANDS
+#----------------------------------------------------------------
 function Get-PackageManagerStatus {
     $packageManagers = @(
         [pscustomobject]@{ Name = 'winget'; Command = 'winget' }
@@ -745,6 +747,9 @@ function cupa {
     }
 }
 
+#----------------------------------------------------------------
+# EDITING AND GIT HELPERS
+#----------------------------------------------------------------
 function edt {
     $profilePath = Get-ProfilePath
 
@@ -861,7 +866,31 @@ function lgr {
     git log "origin/release..$branch" @args
 }
 
-# Load optional local overlays last so they can override the public defaults above.
+#----------------------------------------------------------------
+# LOCAL OVERLAYS
+#----------------------------------------------------------------
+function Import-ProfileFile {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path)) {
+        return
+    }
+
+    . $Path
+}
+
+function Import-ProfileDirectory {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path $Path -PathType Container)) {
+        return
+    }
+
+    Get-ChildItem -Path $Path -Filter '*.ps1' -File | Sort-Object Name | ForEach-Object {
+        . $_.FullName
+    }
+}
+
 $profileOverlayDir = $env:DOTFILES_WINDOWS_PROFILE_DIR
 if ([string]::IsNullOrWhiteSpace($profileOverlayDir)) {
     $profileOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
