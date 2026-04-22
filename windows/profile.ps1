@@ -21,6 +21,15 @@ function Write-Success {
     Write-Host "  ✅ $Message" -ForegroundColor Green
 }
 
+function Get-DefaultPoshThemePath {
+    $candidate = Join-Path $PSScriptRoot 'omp-minimal.omp.json'
+    if (Test-Path -LiteralPath $candidate) {
+        return $candidate
+    }
+
+    return $null
+}
+
 function Get-ProfilePath {
     if ($PROFILE.PSObject.Properties.Name -contains 'CurrentUserAllHosts' -and $PROFILE.CurrentUserAllHosts) {
         return $PROFILE.CurrentUserAllHosts
@@ -150,7 +159,12 @@ if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
 
 if (Test-CommandExists oh-my-posh) {
     try {
-        oh-my-posh init pwsh | Invoke-Expression
+        $defaultTheme = Get-DefaultPoshThemePath
+        if ($defaultTheme) {
+            oh-my-posh init pwsh --config $defaultTheme | Invoke-Expression
+        } else {
+            oh-my-posh init pwsh | Invoke-Expression
+        }
     } catch {
         # Keep startup non-fatal if the prompt engine is temporarily unavailable.
     }
