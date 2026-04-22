@@ -7,6 +7,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - `shellcheck` and `shfmt` are already enforced in CI for shell files.
 - CI now includes a dry-run installer check plus clean-home smoke tests for Bash and Zsh.
 - macOS now has a Brewfile manifest plus a small recommended defaults script wired into the installer.
+- Windows now has a curated public package baseline in `windows/packages.psd1`, plus installer output that summarizes it.
 
 ## Active Backlog
 
@@ -18,7 +19,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
 | P2 | planned | CI | Add a scheduled or manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
 | P2 | planned | macOS / Inventory | Use `list-macOS-apps` snapshots to curate and expand `macos/Brewfile` with conservative casks and App Store entries. |
-| P2 | planned | Windows / PowerShell | Expand `install.ps1` with a small starter package set via winget once the Windows reference install is codified. |
+| P2 | planned | Windows / PowerShell | Decide whether `install.ps1` should also install the curated Windows package manifest automatically, or keep it as an inventory-only reference. |
 | P2 | planned | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
 | P2 | planned | Python (uv) | Add a prompt to install `pipx` via `uv tool` and suggest common global tools such as `pre-commit`. |
 | P3 | planned | Swift (swiftly) | Add a helper to list and switch toolchains, plus an optional prompt for a specific version or channel. |

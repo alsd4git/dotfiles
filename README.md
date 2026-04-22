@@ -130,6 +130,14 @@ The Windows bootstrap assumes `winget` is already available through App Installe
 
 The Windows profile also exposes `pkgmgr` to inspect the installed managers, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
+There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
+
+- `winget` for core shell/runtime apps
+- `scoop` for portable CLI utilities
+- `Chocolatey` and `NpmGlobal` are intentionally kept empty for now so we do not encode machine-specific or personal globals into the repo
+
+The installer prints a summary of that manifest so you can compare the tracked baseline with the current machine without turning the repo into a full package dump.
+
 `cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
@@ -220,6 +228,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. The file to edit is `/etc/pam.d/sudo`, and the line to add is `auth       sufficient     pam_tid.so`.
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
+* **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1`; treat it as a curated baseline, not a dump of every installed Windows app.
 
 ---
 
