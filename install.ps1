@@ -849,8 +849,6 @@ $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
 $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
-$WindowsPoshThemeSource = Join-Path $RepoRoot 'windows\omp\tokyo.omp.json'
-$WindowsPoshThemeTarget = Join-Path $WindowsConfigRoot 'omp\tokyo.omp.json'
 $WindowsTerminalSettingsSource = Join-Path $RepoRoot 'windows\terminal\settings.json'
 $WindowsTerminalSettingsTarget = Resolve-WindowsTerminalSettingsPath
 $WindowsCorePackageTarget = Join-Path $WindowsConfigRoot 'packages.psd1'
@@ -877,9 +875,6 @@ Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
 if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
     Copy-WithBackup -Source $WindowsOptionalPackageManifest -Target $WindowsOptionalPackageTarget
-}
-if (Test-Path -LiteralPath $WindowsPoshThemeSource) {
-    Copy-WithBackup -Source $WindowsPoshThemeSource -Target $WindowsPoshThemeTarget
 }
 if (Test-Path -LiteralPath $WindowsTerminalSettingsSource) {
     Copy-WithBackup -Source $WindowsTerminalSettingsSource -Target $WindowsTerminalSettingsTarget
