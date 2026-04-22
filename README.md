@@ -134,6 +134,8 @@ The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pk
 
 The Windows installer now loads the installed PowerShell profile back into the current session after copying it, so the new aliases are visible immediately and the bootstrap ends with a small quick-alias summary.
 
+If the prompt looks stale after installation, run `rld` or `rldz` to re-source the profile and refresh `oh-my-posh` in place.
+
 There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
 
 - `winget` for core shell/runtime apps
@@ -234,6 +236,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1`; treat it as a curated baseline, not a dump of every installed Windows app.
 * **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifest, and `install.ps1` only installs missing packages after you confirm the prompt.
+* **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
 
 ---
 
@@ -257,7 +260,7 @@ If you use Zsh, open a new interactive shell and confirm that `aa`, `l`, `gl`, a
   * `l`/`lt`/`ll`: Directory listings (use `eza` if installed, otherwise `ls`).
   * `mntlist`: Show mounted volumes (portable, does not shadow `mount`).
   * `myip`: Show public IP.
-  * `rld` / `rldz`: Reload `~/.bashrc` / `~/.zshrc`.
+  * `rld` / `rldz`: Reload the current PowerShell profile.
   * `brewup`: Update, upgrade and clean Homebrew (macOS).
 
 * Packages and repos:
