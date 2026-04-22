@@ -401,6 +401,36 @@ function Resolve-WindowsPackageManifestPath {
     return $null
 }
 
+function Resolve-WindowsTerminalSettingsPath {
+    $packageRoots = @(
+        Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+        Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'
+    )
+
+    foreach ($candidate in $packageRoots) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    $packagesRoot = Join-Path $env:LOCALAPPDATA 'Packages'
+    if (Test-Path -LiteralPath $packagesRoot) {
+        $terminalRoots = @(Get-ChildItem -LiteralPath $packagesRoot -Directory -Filter 'Microsoft.WindowsTerminal*' -ErrorAction SilentlyContinue | Sort-Object Name)
+        foreach ($root in $terminalRoots) {
+            $candidate = Join-Path $root.FullName 'LocalState\settings.json'
+            if (Test-Path -LiteralPath $candidate) {
+                return $candidate
+            }
+        }
+
+        if ($terminalRoots.Count -gt 0) {
+            return (Join-Path $terminalRoots[0].FullName 'LocalState\settings.json')
+        }
+    }
+
+    return $packageRoots[0]
+}
+
 function Get-WindowsPackageManifestEntries {
     $repoRoot = Split-Path -Parent $PSCommandPath
     $windowsRoot = Join-Path $repoRoot 'windows'
@@ -819,6 +849,10 @@ $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
 $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
+$WindowsPoshThemeSource = Join-Path $RepoRoot 'windows\omp\tokyo.omp.json'
+$WindowsPoshThemeTarget = Join-Path $WindowsConfigRoot 'omp\tokyo.omp.json'
+$WindowsTerminalSettingsSource = Join-Path $RepoRoot 'windows\terminal\settings.json'
+$WindowsTerminalSettingsTarget = Resolve-WindowsTerminalSettingsPath
 $WindowsCorePackageTarget = Join-Path $WindowsConfigRoot 'packages.psd1'
 $WindowsOptionalPackageTarget = Join-Path $WindowsConfigRoot 'packages.optional.psd1'
 $WindowsPrivatePackageTarget = Join-Path $WindowsConfigRoot 'packages.private.psd1'
@@ -843,6 +877,12 @@ Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
 if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
     Copy-WithBackup -Source $WindowsOptionalPackageManifest -Target $WindowsOptionalPackageTarget
+}
+if (Test-Path -LiteralPath $WindowsPoshThemeSource) {
+    Copy-WithBackup -Source $WindowsPoshThemeSource -Target $WindowsPoshThemeTarget
+}
+if (Test-Path -LiteralPath $WindowsTerminalSettingsSource) {
+    Copy-WithBackup -Source $WindowsTerminalSettingsSource -Target $WindowsTerminalSettingsTarget
 }
 if (-not (Test-Path -LiteralPath $WindowsPrivatePackageTarget)) {
     if (Test-Path -LiteralPath $WindowsPrivatePackageExample) {

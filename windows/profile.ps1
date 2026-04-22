@@ -148,6 +148,11 @@ if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
     }
 }
 
+$defaultPoshTheme = Join-Path $HOME '.config\dotfiles\windows\omp\tokyo.omp.json'
+if ([string]::IsNullOrWhiteSpace($env:POSH_THEME) -and (Test-Path -LiteralPath $defaultPoshTheme)) {
+    $env:POSH_THEME = $defaultPoshTheme
+}
+
 if (Test-CommandExists oh-my-posh) {
     try {
         oh-my-posh init pwsh | Invoke-Expression
