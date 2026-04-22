@@ -60,6 +60,11 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
 ├── windows/       # Minimal PowerShell profile for Windows
+│   ├── packages.optional.psd1
+│   ├── packages.private.example.psd1
+│   ├── packages.psd1
+│   ├── profile.local.example.ps1
+│   └── profile.ps1
 ├── install.sh     # Recommended installation script
 ├── install.ps1    # Windows/PowerShell installer preview
 ├── old_setup.sh   # DEPRECATED: Legacy copy-with-backup installer
@@ -124,23 +129,26 @@ The Windows installer backs up any conflicting profile or Git ignore file as `.b
 
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
 
-The installer also copies the curated Windows package baseline into `~\.config\dotfiles\windows\packages.psd1`, so the shared manifest stays available even after the repo is moved or not mounted.
+The installer copies the curated Windows package baseline into `~\.config\dotfiles\windows\packages.psd1` and the optional extras into `~\.config\dotfiles\windows\packages.optional.psd1`, so the shared manifests stay available even after the repo is moved or not mounted.
+
+There is also a tracked template at `windows/packages.private.example.psd1` that can be copied to `~\.config\dotfiles\windows\packages.private.psd1` for local-only package entries.
 
 If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
 
 The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and relaunches elevated to install `Chocolatey` when needed.
 
-The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifest against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
 The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` / `rldz` manually if you want to re-source the profile.
 
-There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
+There are curated public manifests in `windows/packages.psd1` and `windows/packages.optional.psd1` that track the starter baseline by package manager:
 
 - `winget` for core shell/runtime apps
 - `scoop` for portable CLI utilities
+- `Windows.PowerToys`, `VS Code`, and `fastfetch` live in the optional extras manifest
 - `Chocolatey` and `NpmGlobal` are intentionally kept empty for now so we do not encode machine-specific or personal globals into the repo
 
-The installer prints a summary of that manifest, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
+The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
 `cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
@@ -232,8 +240,8 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. The file to edit is `/etc/pam.d/sudo`, and the line to add is `auth       sufficient     pam_tid.so`.
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
-* **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1`; treat it as a curated baseline, not a dump of every installed Windows app.
-* **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifest, and `install.ps1` only installs missing packages after you confirm the prompt.
+* **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1` and `windows/packages.optional.psd1`; treat them as curated baselines, not a dump of every installed Windows app.
+* **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifests, and `install.ps1` only installs missing packages after you confirm the prompt.
 * **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
 
 ---

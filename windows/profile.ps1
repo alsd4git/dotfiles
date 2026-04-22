@@ -248,32 +248,80 @@ function Get-Weather {
 
 Set-Alias weather Get-Weather -Force
 
-function Get-WindowsPackageManifestPath {
-    if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_WINDOWS_PACKAGE_MANIFEST) -and (Test-Path -LiteralPath $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST)) {
-        return $env:DOTFILES_WINDOWS_PACKAGE_MANIFEST
+function Resolve-WindowsPackageManifestPath {
+    param(
+        [string[]]$EnvironmentVariables,
+        [string]$LocalPath,
+        [string]$SourcePath
+    )
+
+    foreach ($environmentVariable in $EnvironmentVariables) {
+        $environmentValue = [Environment]::GetEnvironmentVariable($environmentVariable)
+        if (-not [string]::IsNullOrWhiteSpace($environmentValue) -and (Test-Path -LiteralPath $environmentValue)) {
+            return $environmentValue
+        }
     }
 
-    $defaultPath = Join-Path $HOME '.config\dotfiles\windows\packages.psd1'
-    if (Test-Path -LiteralPath $defaultPath) {
-        return $defaultPath
+    if (-not [string]::IsNullOrWhiteSpace($SourcePath) -and (Test-Path -LiteralPath $SourcePath)) {
+        return $SourcePath
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($LocalPath) -and (Test-Path -LiteralPath $LocalPath)) {
+        return $LocalPath
     }
 
     return $null
 }
 
-function Get-WindowsPackageManifest {
-    param([string]$ManifestPath)
+function Get-WindowsPackageManifestEntries {
+    $windowsRoot = Split-Path -Parent $PSCommandPath
+    $repoRoot = Split-Path -Parent $windowsRoot
+    $localRoot = Join-Path $HOME '.config\dotfiles\windows'
 
-    $resolvedPath = $ManifestPath
-    if ([string]::IsNullOrWhiteSpace($resolvedPath)) {
-        $resolvedPath = Get-WindowsPackageManifestPath
+    $manifestSpecs = @(
+        [pscustomobject]@{
+            Name       = 'Core'
+            Env        = @('DOTFILES_WINDOWS_PACKAGE_MANIFEST', 'DOTFILES_WINDOWS_PACKAGE_CORE_MANIFEST')
+            LocalPath  = Join-Path $localRoot 'packages.psd1'
+            SourcePath = (Join-Path $windowsRoot 'packages.psd1')
+        }
+        [pscustomobject]@{
+            Name       = 'Optional'
+            Env        = @('DOTFILES_WINDOWS_PACKAGE_OPTIONAL_MANIFEST')
+            LocalPath  = Join-Path $localRoot 'packages.optional.psd1'
+            SourcePath = (Join-Path $windowsRoot 'packages.optional.psd1')
+        }
+        [pscustomobject]@{
+            Name       = 'Private'
+            Env        = @('DOTFILES_WINDOWS_PACKAGE_PRIVATE_MANIFEST')
+            LocalPath  = Join-Path $localRoot 'packages.private.psd1'
+            SourcePath = $null
+        }
+    )
+
+    $manifests = @()
+
+    foreach ($spec in $manifestSpecs) {
+        $resolvedPath = Resolve-WindowsPackageManifestPath -EnvironmentVariables $spec.Env -LocalPath $spec.LocalPath -SourcePath $spec.SourcePath
+        if ([string]::IsNullOrWhiteSpace($resolvedPath)) {
+            continue
+        }
+
+        try {
+            $data = Import-PowerShellDataFile -LiteralPath $resolvedPath
+        } catch {
+            Write-Warning "Unable to load $($spec.Name) package manifest: $resolvedPath"
+            continue
+        }
+
+        $manifests += [pscustomobject]@{
+            Name = $spec.Name
+            Path = $resolvedPath
+            Data = $data
+        }
     }
 
-    if ([string]::IsNullOrWhiteSpace($resolvedPath) -or -not (Test-Path -LiteralPath $resolvedPath)) {
-        return $null
-    }
-
-    return Import-PowerShellDataFile -LiteralPath $resolvedPath
+    return $manifests
 }
 
 function Test-WingetPackageInstalled {
@@ -410,33 +458,36 @@ function Test-NpmGlobalPackageInstalled {
 }
 
 function Get-WindowsPackageComparison {
-    $manifest = Get-WindowsPackageManifest
-    if (-not $manifest) {
+    $manifests = @(Get-WindowsPackageManifestEntries)
+    if ($manifests.Count -eq 0) {
         return @()
     }
 
     $comparison = @()
 
-    foreach ($section in @(
-        [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Winget) }
-        [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Scoop) }
-        [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Chocolatey) }
-        [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.NpmGlobal) }
-    )) {
-        foreach ($packageName in $section.Packages) {
-            $installed = $false
+    foreach ($manifest in $manifests) {
+        foreach ($section in @(
+            [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Data.Winget) }
+            [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Data.Scoop) }
+            [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Data.Chocolatey) }
+            [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
+        )) {
+            foreach ($packageName in $section.Packages) {
+                $installed = $false
 
-            switch ($section.Manager) {
-                'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
-                'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
-                'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
-                'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
-            }
+                switch ($section.Manager) {
+                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
+                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
+                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
+                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+                }
 
-            $comparison += [pscustomobject]@{
-                Manager   = $section.Manager
-                Package   = $packageName
-                Installed = [bool]$installed
+                $comparison += [pscustomobject]@{
+                    Manifest  = $manifest.Name
+                    Manager   = $section.Manager
+                    Package   = $packageName
+                    Installed = [bool]$installed
+                }
             }
         }
     }
@@ -451,22 +502,33 @@ function pkgcmp {
         return
     }
 
-    foreach ($group in $comparison | Group-Object Manager | Sort-Object Name) {
-        $groupRows = @($group.Group)
-        $installedCount = @($groupRows | Where-Object Installed).Count
-        $missingRows = @($groupRows | Where-Object { -not $_.Installed })
+    foreach ($manifestGroup in $comparison | Group-Object Manifest | Sort-Object Name) {
+        $manifestRows = @($manifestGroup.Group)
+        $installedCount = @($manifestRows | Where-Object Installed).Count
+        $missingCount = $manifestRows.Count - $installedCount
 
-        Write-Section $group.Name
-        Write-Info "Installed: $installedCount/$($groupRows.Count)"
+        Write-Section $manifestGroup.Name
+        Write-Info "Installed: $installedCount/$($manifestRows.Count)"
 
-        if ($missingRows.Count -eq 0) {
-            Write-Info 'Missing: none'
-            continue
+        foreach ($managerGroup in $manifestRows | Group-Object Manager | Sort-Object Name) {
+            $managerRows = @($managerGroup.Group)
+            $managerInstalledCount = @($managerRows | Where-Object Installed).Count
+            $managerMissingRows = @($managerRows | Where-Object { -not $_.Installed })
+
+            Write-Info "$($managerGroup.Name): $managerInstalledCount/$($managerRows.Count)"
+
+            if ($managerMissingRows.Count -eq 0) {
+                continue
+            }
+
+            Write-Info 'Missing:'
+            foreach ($row in $managerMissingRows) {
+                Write-Info " - $($row.Package)"
+            }
         }
 
-        Write-Info 'Missing:'
-        foreach ($row in $missingRows) {
-            Write-Info " - $($row.Package)"
+        if ($missingCount -eq 0) {
+            Write-Info 'Missing: none'
         }
     }
 }
