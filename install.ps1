@@ -615,28 +615,6 @@ function Write-WindowsPackageManifestSummary {
     }
 }
 
-function Import-InstalledProfile {
-    param([string]$ProfilePath)
-
-    if ($DryRun) {
-        Write-Info "Would load the PowerShell profile into this session."
-        return
-    }
-
-    if (-not (Test-Path -LiteralPath $ProfilePath)) {
-        Write-Warning "Profile not found at $ProfilePath."
-        return
-    }
-
-    . $ProfilePath
-    Write-Success "Loaded the PowerShell profile into this session."
-
-    if (Test-CommandExists rld) {
-        rld
-        Write-Success "Refreshed the PowerShell profile with rld."
-    }
-}
-
 function Write-WindowsAliasSummary {
     $commands = @(
         'pkgmgr'
@@ -752,8 +730,7 @@ if (-not $Minimal) {
     Write-Info "Minimal mode: skipping package manager bootstrap."
 }
 
-Import-InstalledProfile -ProfilePath $PowerShellProfileTarget
 Write-WindowsAliasSummary
 
 Write-Section "Complete"
-Write-Info "Open a new PowerShell session, or run rld/rldz if the prompt still looks stale."
+Write-Info "Open a new PowerShell session to load the updated profile, or run rld/rldz manually if you want to refresh in place."

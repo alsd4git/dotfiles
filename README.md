@@ -132,11 +132,7 @@ The Windows bootstrap assumes `winget` is already available through App Installe
 
 The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifest against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
-The Windows installer now loads the installed PowerShell profile back into the current session after copying it, so the new aliases are visible immediately and the bootstrap ends with a small quick-alias summary.
-
-If the prompt looks stale after installation, run `rld` or `rldz` to re-source the profile and refresh `oh-my-posh` in place.
-
-By default the Windows profile uses a minimal ASCII-safe `oh-my-posh` theme from `windows/omp-minimal.omp.json`, so it stays readable even when Nerd Fonts are not available. You can still point `Set-PoshTheme` at a richer local theme from your private overlay if you want the full visual style.
+The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` / `rldz` manually if you want to re-source the profile.
 
 There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
 
@@ -239,7 +235,6 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1`; treat it as a curated baseline, not a dump of every installed Windows app.
 * **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifest, and `install.ps1` only installs missing packages after you confirm the prompt.
 * **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
-* **Windows prompt looks broken:** The default Windows theme is intentionally minimal and ASCII-safe. If you want icons and powerline glyphs, set a richer local theme with `Set-PoshTheme` in `~\.private_profile.ps1` or `~\.config\dotfiles\windows\profile.d\*.ps1`.
 
 ---
 
