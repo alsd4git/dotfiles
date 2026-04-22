@@ -159,17 +159,45 @@ function Resolve-OhMyPoshThemesPath {
         $candidates += $env:DOTFILES_WINDOWS_OMP_THEMES_PATH
     }
 
-    if (Test-Path -LiteralPath $cachePath) {
-        $cachedPath = (Get-Content -LiteralPath $cachePath -Raw).Trim()
-        if (-not [string]::IsNullOrWhiteSpace($cachedPath)) {
-            $candidates += $cachedPath
+    try {
+        $appxPackage = @(Get-AppxPackage -Name 'ohmyposh.cli' -ErrorAction SilentlyContinue) +
+            @(Get-AppxPackage -Name 'oh-my-posh' -ErrorAction SilentlyContinue) +
+            @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object {
+                $_.Name -like 'ohmyposh*' -or $_.PackageFamilyName -like 'ohmyposh*'
+            })
+
+        foreach ($package in $appxPackage | Select-Object -Unique) {
+            if ($package.InstallLocation) {
+                $candidates += (Join-Path $package.InstallLocation 'themes')
+            }
         }
+    } catch {
+        # AppX package discovery is best-effort only.
     }
 
     $candidates += @(
         'C:\Program Files (x86)\oh-my-posh\themes'
         'C:\Program Files\oh-my-posh\themes'
     )
+
+    $windowsAppsRoot = 'C:\Program Files\WindowsApps'
+    if (Test-Path -LiteralPath $windowsAppsRoot) {
+        try {
+            $candidates += @(
+                Get-ChildItem -LiteralPath $windowsAppsRoot -Directory -Filter 'ohmyposh.cli_*' -ErrorAction SilentlyContinue |
+                    ForEach-Object { Join-Path $_.FullName 'themes' }
+            )
+        } catch {
+            # Access to WindowsApps can be restricted; ignore and fall back to explicit candidates.
+        }
+    }
+
+    if (Test-Path -LiteralPath $cachePath) {
+        $cachedPath = (Get-Content -LiteralPath $cachePath -Raw).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($cachedPath)) {
+            $candidates += $cachedPath
+        }
+    }
 
     $ompCommand = Get-Command oh-my-posh -ErrorAction SilentlyContinue
     if ($ompCommand.Path) {
@@ -189,6 +217,7 @@ function Resolve-OhMyPoshThemesPath {
             try {
                 Ensure-ParentDirectory -Path $cachePath
                 Set-Content -LiteralPath $cachePath -Value $candidate -NoNewline
+                $env:DOTFILES_WINDOWS_OMP_THEMES_PATH = $candidate
             } catch {
                 # Cache writes are best-effort only.
             }
@@ -204,6 +233,7 @@ $OhMyPoshThemesPath = Resolve-OhMyPoshThemesPath
 if ([string]::IsNullOrWhiteSpace($OhMyPoshThemesPath)) {
     $OhMyPoshThemesPath = 'C:\Program Files (x86)\oh-my-posh\themes'
 }
+$env:DOTFILES_WINDOWS_OMP_THEMES_PATH = $OhMyPoshThemesPath
 
 #----------------------------------------------------------------
 # INIT SHELL
