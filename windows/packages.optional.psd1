@@ -3,6 +3,7 @@
 
     Winget = @(
         'Amazon.Corretto.21.JDK'
+        'ast-grep.ast-grep'
         'Bitwarden.Bitwarden'
         'Klocman.BulkCrapUninstaller'
         'calibre.calibre'
@@ -10,6 +11,7 @@
         'LiriLiri.AYA'
         'Xanashi.Icaros'
         'ImageMagick.ImageMagick'
+        'JohnMacFarlane.Pandoc'
         'Oracle.JavaRuntimeEnvironment'
         'LocalSend.LocalSend'
         'Meld.Meld'
@@ -22,16 +24,22 @@
         'qarmin.krokiet'
         'SublimeHQ.SublimeMerge'
         'SumatraPDF.SumatraPDF'
+        'koalaman.shellcheck'
         'Tailscale.Tailscale'
         'Mozilla.Thunderbird.it'
         'zhongyang219.TrafficMonitor.Full'
         'Devolutions.UniGetUI'
+        'mvdan.shfmt'
         'Upscayl.Upscayl'
         'Warp.Warp'
         'AntibodySoftware.WizTree'
         'Zen-Team.Zen-Browser'
         'Microsoft.PowerToys'
         'Microsoft.VisualStudioCode'
+        'MikeFarah.yq'
+        'Gyan.FFmpeg'
+        'OliverBetz.ExifTool'
+        'rhysd.actionlint'
     )
 
     Scoop = @(

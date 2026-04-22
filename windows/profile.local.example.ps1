@@ -2,4 +2,5 @@
 # Keep local tweaks here when they are personal, machine-specific, or too noisy for the public repo.
 
 # Example:
-# Set-Alias mini { Set-PoshTheme 'C:\Path\To\Your\Theme.omp.json' }
+# Set-Alias mini Set-Mini
+# Set-Alias tokyo Set-Tokyo
