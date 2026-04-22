@@ -156,7 +156,7 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 
 The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, the minimal Windows Terminal settings live in `windows/terminal/settings.json`, and `JetBrainsMono Nerd Font` is part of the core `winget` baseline. The live prompt resolves the installed `oh-my-posh` theme folder once, preferring the AppX install location when available, and caches it locally under `~\.config\dotfiles\windows\omp.path`, so the profile stays simple while still adapting to the installed path.
 
-The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
+The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work. Use `-y` if you want to answer yes to all installer prompts without typing each confirmation.
 
 `cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
