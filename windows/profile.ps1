@@ -62,6 +62,7 @@ function Get-GitCurrentBranch {
 function Invoke-ListDirectory {
     param(
         [switch]$Force,
+        [switch]$TotalSize,
         [Parameter(ValueFromRemainingArguments = $true)]
         [object[]]$Arguments
     )
@@ -80,6 +81,9 @@ function Invoke-ListDirectory {
             '--group'
             '--git'
         )
+        if ($TotalSize) {
+            $ezaArgs += '--total-size'
+        }
 
         if ($Arguments.Count -gt 0) {
             eza @ezaArgs @Arguments
@@ -267,6 +271,9 @@ function Set-Tokyo {
     oh-my-posh init pwsh --config "$OhMyPoshThemesPath\tokyo.omp.json" | Invoke-Expression
 }
 
+Set-Alias mini Set-Mini -Force
+Set-Alias tokyo Set-Tokyo -Force
+
 Set-Alias c Clear-Host -Force
 Set-Alias h Get-History -Force
 Set-Alias a Get-Alias -Force
@@ -281,6 +288,10 @@ function la {
 
 function ll {
     Invoke-ListDirectory -Force -Arguments $args
+}
+
+function lt {
+    Invoke-ListDirectory -Force -TotalSize -Arguments $args
 }
 
 function aa {
