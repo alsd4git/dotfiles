@@ -279,103 +279,134 @@ function Get-WindowsPackageManifest {
 function Test-WingetPackageInstalled {
     param([Parameter(Mandatory = $true)][string]$PackageId)
 
+    $installedIds = Get-WingetInstalledPackageIds
+    if (@($installedIds) -contains $PackageId) {
+        return $true
+    }
+
     if (-not (Test-CommandExists winget)) {
         return $false
     }
 
-    & winget list --id $PackageId --exact *> $null
-    return $LASTEXITCODE -eq 0
+    & winget list --id $PackageId --exact --source winget --accept-source-agreements *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
+        return $true
+    }
+
+    return $false
 }
 
-function Get-ScoopInstalledPackages {
+function Get-WingetInstalledPackageIds {
+    if (-not (Test-CommandExists winget)) {
+        return @()
+    }
+
+    if (Get-Variable -Scope Script -Name WingetInstalledPackageIds -ErrorAction SilentlyContinue) {
+        return $script:WingetInstalledPackageIds
+    }
+
+    $tempFile = Join-Path $env:TEMP "dotfiles-winget-export-$PID.json"
+    if (Test-Path -LiteralPath $tempFile) {
+        Remove-Item -LiteralPath $tempFile -Force
+    }
+
+    & winget export -o $tempFile --source winget --include-versions --accept-source-agreements *> $null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $tempFile)) {
+        $script:WingetInstalledPackageIds = @()
+        return @()
+    }
+
+    try {
+        $export = Get-Content -LiteralPath $tempFile -Raw | ConvertFrom-Json
+        $ids = $export.Sources.Packages.PackageIdentifier | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        $script:WingetInstalledPackageIds = @($ids | Sort-Object -Unique)
+    } catch {
+        $script:WingetInstalledPackageIds = @()
+    } finally {
+        Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
+    }
+
+    return $script:WingetInstalledPackageIds
+}
+
+function Get-ScoopAppRoots {
     $roots = @()
 
     foreach ($root in @(
         $env:SCOOP
         $env:SCOOP_GLOBAL
         (Join-Path $HOME 'scoop')
-        $env:ProgramData
+        (Join-Path $env:ProgramData 'scoop')
     )) {
         if ([string]::IsNullOrWhiteSpace($root)) {
             continue
         }
 
-        $appsRoot = if ($root -like '*scoop') {
-            Join-Path $root 'apps'
-        } elseif ($root -eq $env:ProgramData) {
-            Join-Path $root 'scoop\apps'
-        } else {
-            Join-Path $root 'apps'
-        }
-
+        $appsRoot = Join-Path $root 'apps'
         if (Test-Path -LiteralPath $appsRoot) {
             $roots += $appsRoot
         }
     }
 
-    if ($roots.Count -eq 0) {
-        return @()
-    }
-
-    $packages = foreach ($root in ($roots | Sort-Object -Unique)) {
-        Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
-    }
-
-    return @($packages | Sort-Object -Unique)
+    return @($roots | Sort-Object -Unique)
 }
 
 function Test-ScoopPackageInstalled {
     param([Parameter(Mandatory = $true)][string]$PackageName)
 
-    return @(Get-ScoopInstalledPackages) -contains $PackageName
-}
-
-function Get-ChocolateyInstalledPackages {
-    if (-not (Test-CommandExists choco)) {
-        return @()
+    foreach ($appsRoot in Get-ScoopAppRoots) {
+        if (Test-Path -LiteralPath (Join-Path $appsRoot $PackageName)) {
+            return $true
+        }
     }
 
-    $lines = & choco list --local-only --limit-output 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $lines) {
-        return @()
-    }
-
-    return @(
-        $lines |
-            ForEach-Object { ($_ -split '\|')[0] } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Sort-Object -Unique
-    )
+    return $false
 }
 
 function Test-ChocolateyPackageInstalled {
     param([Parameter(Mandatory = $true)][string]$PackageName)
 
-    return @(Get-ChocolateyInstalledPackages) -contains $PackageName
+    if (-not (Test-CommandExists choco)) {
+        return $false
+    }
+
+    $lines = & choco list --local-only --limit-output --exact $PackageName 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $lines) {
+        return $false
+    }
+
+    return [bool]($lines | Where-Object { $_ -like "$PackageName|*" } | Select-Object -First 1)
 }
 
-function Get-NpmGlobalPackages {
+function Get-NpmGlobalRoot {
     if (-not (Test-CommandExists npm)) {
-        return @()
+        return $null
     }
 
-    $lines = & npm list -g --depth=0 --parseable 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $lines) {
-        return @()
+    $root = & npm root -g 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($root)) {
+        return $null
     }
 
-    return @(
-        $lines |
-            ForEach-Object { Split-Path -Leaf $_ } |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-            Sort-Object -Unique
-    )
+    return $root.Trim()
 }
 
 function Test-NpmGlobalPackageInstalled {
     param([Parameter(Mandatory = $true)][string]$PackageName)
 
-    return @(Get-NpmGlobalPackages) -contains $PackageName
+    $root = Get-NpmGlobalRoot
+    if ([string]::IsNullOrWhiteSpace($root)) {
+        return $false
+    }
+
+    $packagePath = if ($PackageName -like '@*/*') {
+        Join-Path $root ($PackageName -replace '/', '\')
+    } else {
+        Join-Path $root $PackageName
+    }
+
+    return Test-Path -LiteralPath $packagePath
 }
 
 function Get-WindowsPackageComparison {
@@ -439,6 +470,8 @@ function pkgcmp {
         }
     }
 }
+
+Set-Alias rldz rld -Force
 
 function Get-PackageManagerStatus {
     $packageManagers = @(
