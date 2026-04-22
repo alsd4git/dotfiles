@@ -47,6 +47,65 @@ function Test-IsWindows {
     return $env:OS -eq 'Windows_NT'
 }
 
+function Resolve-WindowsPackageEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$PackageEntry,
+        [Parameter(Mandatory = $true)]
+        [string]$Manager
+    )
+
+    if ($PackageEntry -is [string]) {
+        return [pscustomobject]@{
+            Name   = $PackageEntry
+            Id     = $PackageEntry
+            Source = if ($Manager -eq 'Winget') { 'winget' } else { $null }
+        }
+    }
+
+    $entry = if ($PackageEntry -is [hashtable]) { [pscustomobject]$PackageEntry } else { $PackageEntry }
+    $id = $entry.Id
+    if ([string]::IsNullOrWhiteSpace($id)) {
+        $id = $entry.PackageId
+    }
+    if ([string]::IsNullOrWhiteSpace($id)) {
+        $id = $entry.Name
+    }
+
+    $name = $entry.Name
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        $name = $entry.DisplayName
+    }
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        $name = $id
+    }
+
+    $source = $entry.Source
+    if ($Manager -eq 'Winget' -and [string]::IsNullOrWhiteSpace($source)) {
+        $source = 'winget'
+    }
+
+    return [pscustomobject]@{
+        Name   = $name
+        Id     = $id
+        Source = $source
+    }
+}
+
+function Format-WindowsPackageEntry {
+    param([object]$Package)
+
+    if ($null -eq $Package) {
+        return ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Package.Source) -or $Package.Source -eq 'winget') {
+        return $Package.Name
+    }
+
+    return "$($Package.Name) [$($Package.Source):$($Package.Id)]"
+}
+
 function Ensure-ParentDirectory {
     param([string]$Path)
 
@@ -394,20 +453,30 @@ function Get-WindowsPackageManifestEntries {
 }
 
 function Test-WingetPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageId)
+    param(
+        [Parameter(Mandatory = $true)][string]$PackageId,
+        [string]$Source = 'winget'
+    )
 
-    $installedIds = Get-WingetInstalledPackageIds
-    if (@($installedIds) -contains $PackageId) {
-        return $true
+    $sourceName = if ([string]::IsNullOrWhiteSpace($Source)) { 'winget' } else { $Source }
+
+    if ($sourceName -eq 'winget') {
+        $installedIds = Get-WingetInstalledPackageIds
+        if (@($installedIds) -contains $PackageId) {
+            return $true
+        }
     }
 
     if (-not (Test-CommandExists winget)) {
         return $false
     }
 
-    & winget list --id $PackageId --exact --source winget --accept-source-agreements *> $null
+    & winget list --id $PackageId --exact --source $sourceName --accept-source-agreements *> $null
     if ($LASTEXITCODE -eq 0) {
-        $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
+        if ($sourceName -eq 'winget') {
+            $installedIds = Get-WingetInstalledPackageIds
+            $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
+        }
         return $true
     }
 
@@ -542,20 +611,21 @@ function Get-WindowsPackageComparison {
             [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Data.Chocolatey) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
-            foreach ($packageName in $section.Packages) {
+            foreach ($packageEntry in $section.Packages) {
+                $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
                 $installed = $false
 
                 switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
-                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
+                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
+                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
+                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
                 $comparison += [pscustomobject]@{
                     Manifest  = $manifest.Name
                     Manager   = $section.Manager
-                    Package   = $packageName
+                    Package   = (Format-WindowsPackageEntry -Package $package)
                     Installed = [bool]$installed
                 }
             }
@@ -604,56 +674,72 @@ function Install-WindowsPackageBaseline {
             }
 
             Write-Info "  $($section.Manager):"
-            foreach ($packageName in $section.Packages) {
+            foreach ($packageEntry in $section.Packages) {
+                $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
                 $installed = $false
 
                 switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $packageName }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $packageName }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $packageName }
-                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $packageName }
+                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
+                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
+                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
+                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
                 if ($installed) {
-                    Write-Success "  already installed: $packageName"
+                    Write-Success "  already installed: $(Format-WindowsPackageEntry -Package $package)"
                     continue
                 }
 
                 if ($DryRun) {
-                    Write-Info "   would install: $packageName"
+                    Write-Info "   would install: $(Format-WindowsPackageEntry -Package $package)"
                     continue
                 }
 
                 switch ($section.Manager) {
                     'Winget' {
-                        & winget install --id $packageName --exact --silent --accept-package-agreements --accept-source-agreements
+                        $wingetSource = if ([string]::IsNullOrWhiteSpace($package.Source)) { 'winget' } else { $package.Source }
+                        $wingetArgs = @(
+                            'install'
+                            '--id'
+                            $package.Id
+                            '--exact'
+                            '--accept-package-agreements'
+                            '--accept-source-agreements'
+                            '--source'
+                            $wingetSource
+                        )
+                        if ($wingetSource -eq 'winget') {
+                            $wingetArgs += '--silent'
+                        }
+
+                        & winget @wingetArgs
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Success "  installed: $packageName"
+                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
                         } else {
-                            Write-Warning "  failed: $packageName"
+                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
                     'Scoop' {
-                        & scoop install $packageName
+                        & scoop install $package.Name
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Success "  installed: $packageName"
+                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
                         } else {
-                            Write-Warning "  failed: $packageName"
+                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
                     'Chocolatey' {
-                        if (-not (Invoke-ChocolateyElevated -Arguments @('install', $packageName, '-y'))) {
-                            Write-Warning "  failed: $packageName"
+                        if (-not (Invoke-ChocolateyElevated -Arguments @('install', $package.Name, '-y'))) {
+                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         } else {
-                            Write-Success "  installed: $packageName"
+                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
                     'NpmGlobal' {
-                        & npm install -g $packageName
+                        & npm install -g $package.Name
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Success "  installed: $packageName"
+                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
                         } else {
-                            Write-Warning "  failed: $packageName"
+                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
                 }
@@ -683,7 +769,13 @@ function Write-WindowsPackageManifestSummary {
 
             Write-Info "  $sectionName ($($items.Count))"
             foreach ($item in $items) {
-                Write-Info "   - $item"
+                if ($sectionName -eq 'Winget') {
+                    $label = Format-WindowsPackageEntry -Package (Resolve-WindowsPackageEntry -PackageEntry $item -Manager $sectionName)
+                } else {
+                    $label = $item
+                }
+
+                Write-Info "   - $label"
             }
         }
     }
