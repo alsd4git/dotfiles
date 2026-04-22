@@ -7,7 +7,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - `shellcheck` and `shfmt` are already enforced in CI for shell files.
 - CI now includes a dry-run installer check plus clean-home smoke tests for Bash and Zsh.
 - macOS now has a Brewfile manifest plus a small recommended defaults script wired into the installer.
-- Windows now has a curated public package baseline in `windows/packages.psd1`, plus installer output that summarizes it.
+- Windows now has curated public package baselines in `windows/packages.psd1` and `windows/packages.optional.psd1`, plus installer output that summarizes them.
 - Windows package bootstrap is now idempotent and only installs missing baseline entries after confirmation.
 
 ## Active Backlog

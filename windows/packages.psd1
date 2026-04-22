@@ -1,14 +1,12 @@
 @{
-    # Curated starter inventory for Windows machines bootstrapped by this repo.
-    # Keep this public-safe and conservative: prefer common tools, not machine-specific globals.
+    # Core public baseline for Windows machines bootstrapped by this repo.
+    # Keep this conservative and public-safe: prefer common tools, not machine-specific globals.
 
     Winget = @(
         'Git.Git'
         'GitHub.cli'
         'JanDeDobbeleer.OhMyPosh'
         'Microsoft.PowerShell'
-        'Microsoft.PowerToys'
-        'Microsoft.VisualStudioCode'
         'Microsoft.WindowsTerminal'
         'OpenJS.NodeJS.LTS'
     )
@@ -18,7 +16,6 @@
         'bat'
         'delta'
         'eza'
-        'fastfetch'
         'fd'
         'fzf'
         'jq'
