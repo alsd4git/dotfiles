@@ -148,36 +148,32 @@ if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
     }
 }
 
-$defaultPoshTheme = Join-Path $HOME '.config\dotfiles\windows\omp\tokyo.omp.json'
-if ([string]::IsNullOrWhiteSpace($env:POSH_THEME) -and (Test-Path -LiteralPath $defaultPoshTheme)) {
-    $env:POSH_THEME = $defaultPoshTheme
-}
+$OhMyPoshThemesPath = 'C:\Program Files (x86)\oh-my-posh\themes'
 
 if (Test-CommandExists oh-my-posh) {
     try {
-        oh-my-posh init pwsh | Invoke-Expression
+        oh-my-posh init pwsh --config "$OhMyPoshThemesPath\tokyo.omp.json" | Invoke-Expression
     } catch {
         # Keep startup non-fatal if the prompt engine is temporarily unavailable.
     }
 }
 
-function Set-PoshTheme {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ConfigPath
-    )
-
+function Set-Mini {
     if (-not (Test-CommandExists oh-my-posh)) {
         Write-Warning 'oh-my-posh not found.'
         return
     }
 
-    if (-not (Test-Path $ConfigPath)) {
-        Write-Warning "Theme not found: $ConfigPath"
+    oh-my-posh init pwsh --config "$OhMyPoshThemesPath\amro.omp.json" | Invoke-Expression
+}
+
+function Set-Tokyo {
+    if (-not (Test-CommandExists oh-my-posh)) {
+        Write-Warning 'oh-my-posh not found.'
         return
     }
 
-    oh-my-posh init pwsh --config $ConfigPath | Invoke-Expression
+    oh-my-posh init pwsh --config "$OhMyPoshThemesPath\tokyo.omp.json" | Invoke-Expression
 }
 
 Set-Alias c Clear-Host -Force
