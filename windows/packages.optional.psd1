@@ -19,6 +19,7 @@
         'MiniTool.PartitionWizard.Free'
         'Google.Chrome'
         'Google.QuickShare'
+        'RustDesk.RustDesk'
         'qarmin.krokiet'
         'SublimeHQ.SublimeMerge'
         'SumatraPDF.SumatraPDF'
@@ -39,7 +40,6 @@
     )
 
     Chocolatey = @(
-        'rustdesk.install'
     )
 
     NpmGlobal = @(

@@ -781,9 +781,7 @@ if (Test-CommandExists winget) {
 } else {
     Write-Warning "winget not found; install App Installer if you want the Windows Store package manager."
 }
-if (-not (Test-CommandExists choco)) {
-    Write-Info "Chocolatey bootstrap will relaunch elevated when needed."
-}
+Write-Info "Chocolatey is treated as legacy fallback only, not part of the public bootstrap."
 Write-Info "Elevation helper: $(if (Test-CommandExists gsudo) { 'gsudo detected' } elseif (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
 
 $manifests = @(Get-WindowsPackageManifestEntries)
@@ -795,21 +793,23 @@ if ($manifests.Count -gt 0) {
 
 if (-not $Minimal) {
     if ($Force) {
-        $installManagers = $true
+        $installScoop = $true
     } else {
-        $reply = Read-Host "Install Scoop and Chocolatey if missing? [y/N]"
-        $installManagers = $reply -match '^[Yy]$'
+        $reply = Read-Host "Install Scoop if missing? [y/N]"
+        $installScoop = $reply -match '^[Yy]$'
     }
 
-    if ($installManagers) {
+    if ($installScoop) {
         Ensure-Scoop
-        Install-ChocolateyBootstrap
     }
 
     if ($manifests.Count -gt 0) {
         $coreManifests = @($manifests | Where-Object Name -eq 'Core')
         $optionalManifests = @($manifests | Where-Object Name -eq 'Optional')
         $privateManifests = @($manifests | Where-Object Name -eq 'Private')
+        $chocolateyPackageCount = @(
+            $manifests | ForEach-Object { @($_.Data.Chocolatey).Count }
+        ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
 
         if ($coreManifests.Count -gt 0) {
             if ($Force) {
@@ -856,6 +856,21 @@ if (-not $Minimal) {
                     Install-WindowsPackageBaseline -Manifests $privateManifests -ManifestNames @('Private')
                 }
             }
+        }
+
+        if ($chocolateyPackageCount -gt 0) {
+            if ($Force) {
+                $installChocolatey = $true
+            } else {
+                $reply = Read-Host "Install Chocolatey if missing for private/legacy packages? [y/N]"
+                $installChocolatey = $reply -match '^[Yy]$'
+            }
+
+            if ($installChocolatey) {
+                Install-ChocolateyBootstrap
+            }
+        } else {
+            Write-Info 'Chocolatey is deprecated in the public baseline and is not bootstrapped.'
         }
     }
 } else {
