@@ -132,13 +132,15 @@ The Windows bootstrap assumes `winget` is already available through App Installe
 
 The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifest against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
+The Windows installer now loads the installed PowerShell profile back into the current session after copying it, so the new aliases are visible immediately and the bootstrap ends with a small quick-alias summary.
+
 There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
 
 - `winget` for core shell/runtime apps
 - `scoop` for portable CLI utilities
 - `Chocolatey` and `NpmGlobal` are intentionally kept empty for now so we do not encode machine-specific or personal globals into the repo
 
-The installer prints a summary of that manifest and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
+The installer prints a summary of that manifest, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
 `cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 

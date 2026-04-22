@@ -14,12 +14,22 @@ $ProgressPreference = 'SilentlyContinue'
 
 function Write-Section {
     param([string]$Message)
-    Write-Host "`n$Message"
+    Write-Host "`n🪟 $Message" -ForegroundColor Cyan
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host $Message
+    Write-Host "  $Message" -ForegroundColor Gray
+}
+
+function Write-Success {
+    param([string]$Message)
+    Write-Host "  ✅ $Message" -ForegroundColor Green
+}
+
+function Write-Highlight {
+    param([string]$Message)
+    Write-Host "  ➜ $Message" -ForegroundColor Magenta
 }
 
 function Test-CommandExists {
@@ -42,12 +52,12 @@ function Ensure-ParentDirectory {
 
     $parent = Split-Path -Parent $Path
     if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path $parent)) {
-        if ($DryRun) {
-            Write-Info "Would create $parent"
-        } else {
-            New-Item -ItemType Directory -Path $parent -Force | Out-Null
-        }
+    if ($DryRun) {
+        Write-Info "Would create $parent"
+    } else {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
+}
 }
 
 function Ensure-Directory {
@@ -88,10 +98,10 @@ function Backup-Path {
 
     $backupPath = Get-BackupPath -Path $Path
     if ($DryRun) {
-        Write-Info "Would back up $Path -> $backupPath"
+        Write-Highlight "Would back up $Path -> $backupPath"
     } else {
         Move-Item -LiteralPath $Path -Destination $backupPath
-        Write-Info "Backed up $Path -> $backupPath"
+        Write-Success "Backed up $Path -> $backupPath"
     }
 }
 
@@ -138,10 +148,10 @@ function Copy-WithBackup {
     }
 
     if ($DryRun) {
-        Write-Info "Would copy $Source -> $Target"
+        Write-Highlight "Would copy $Source -> $Target"
     } else {
         Copy-Item -LiteralPath $Source -Destination $Target -Force
-        Write-Info "Copied $Source -> $Target"
+        Write-Success "Copied $Source -> $Target"
     }
 }
 
@@ -261,16 +271,16 @@ function Remove-BackupFiles {
 
 function Ensure-Scoop {
     if (Test-CommandExists scoop) {
-        Write-Info "Scoop already installed."
+        Write-Success "Scoop already installed."
         return
     }
 
     if ($DryRun) {
-        Write-Info "Would install Scoop."
+        Write-Highlight "Would install Scoop."
         return
     }
 
-    Write-Info "Installing Scoop..."
+    Write-Highlight "Installing Scoop..."
     try {
         Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
     } catch {
@@ -282,12 +292,12 @@ function Ensure-Scoop {
 
 function Install-ChocolateyBootstrap {
     if (Test-CommandExists choco) {
-        Write-Info "Chocolatey already installed."
+        Write-Success "Chocolatey already installed."
         return
     }
 
     if ($DryRun) {
-        Write-Info "Would install Chocolatey."
+        Write-Highlight "Would install Chocolatey."
         return
     }
 
@@ -296,7 +306,7 @@ function Install-ChocolateyBootstrap {
         return
     }
 
-    Write-Info "Installing Chocolatey..."
+    Write-Highlight "Installing Chocolatey..."
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $script = Invoke-RestMethod -Uri 'https://community.chocolatey.org/install.ps1'
     Invoke-Expression $script
@@ -507,7 +517,7 @@ function Install-WindowsPackageBaseline {
             }
 
             if ($installed) {
-                Write-Info " - already installed: $packageName"
+                Write-Success "already installed: $packageName"
                 continue
             }
 
@@ -520,7 +530,7 @@ function Install-WindowsPackageBaseline {
                 'Winget' {
                     & winget install --id $packageName --exact --silent --accept-package-agreements --accept-source-agreements
                     if ($LASTEXITCODE -eq 0) {
-                        Write-Info " - installed: $packageName"
+                        Write-Success "installed: $packageName"
                     } else {
                         Write-Warning " - failed: $packageName"
                     }
@@ -528,7 +538,7 @@ function Install-WindowsPackageBaseline {
                 'Scoop' {
                     & scoop install $packageName
                     if ($LASTEXITCODE -eq 0) {
-                        Write-Info " - installed: $packageName"
+                        Write-Success "installed: $packageName"
                     } else {
                         Write-Warning " - failed: $packageName"
                     }
@@ -537,13 +547,13 @@ function Install-WindowsPackageBaseline {
                     if (-not (Invoke-ChocolateyElevated -Arguments @('install', $packageName, '-y'))) {
                         Write-Warning " - failed: $packageName"
                     } else {
-                        Write-Info " - installed: $packageName"
+                        Write-Success "installed: $packageName"
                     }
                 }
                 'NpmGlobal' {
                     & npm install -g $packageName
                     if ($LASTEXITCODE -eq 0) {
-                        Write-Info " - installed: $packageName"
+                        Write-Success "installed: $packageName"
                     } else {
                         Write-Warning " - failed: $packageName"
                     }
@@ -570,6 +580,47 @@ function Write-WindowsPackageManifestSummary {
 
         foreach ($item in $items) {
             Write-Info " - $item"
+        }
+    }
+}
+
+function Import-InstalledProfile {
+    param([string]$ProfilePath)
+
+    if ($DryRun) {
+        Write-Info "Would load the PowerShell profile into this session."
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $ProfilePath)) {
+        Write-Warning "Profile not found at $ProfilePath."
+        return
+    }
+
+    . $ProfilePath
+    Write-Success "Loaded the PowerShell profile into this session."
+}
+
+function Write-WindowsAliasSummary {
+    $commands = @(
+        'pkgmgr'
+        'pkgcmp'
+        'npmupg'
+        'wingup'
+        'scoopup'
+        'cupa'
+        'cinst'
+        'weather'
+        'myip'
+        'rld'
+    )
+
+    Write-Section 'Quick aliases'
+    foreach ($commandName in $commands) {
+        if (Test-CommandExists $commandName) {
+            Write-Success $commandName
+        } else {
+            Write-Info $commandName
         }
     }
 }
@@ -663,6 +714,9 @@ if (-not $Minimal) {
 } else {
     Write-Info "Minimal mode: skipping package manager bootstrap."
 }
+
+Import-InstalledProfile -ProfilePath $PowerShellProfileTarget
+Write-WindowsAliasSummary
 
 Write-Section "Complete"
 Write-Info "Open a new PowerShell session so the profile changes are loaded."
