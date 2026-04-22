@@ -153,7 +153,7 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 - `Chocolatey` is kept only as a legacy/private fallback lane, not as part of the public baseline
 - `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
 
-The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, the minimal Windows Terminal settings live in `windows/terminal/settings.json`, and `JetBrainsMono Nerd Font` is part of the core `winget` baseline. The live prompt resolves the installed `oh-my-posh` theme folder once and caches it locally under `~\.config\dotfiles\windows\omp.path`, so the profile stays simple while still adapting to the installed path.
+The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, the minimal Windows Terminal settings live in `windows/terminal/settings.json`, and `JetBrainsMono Nerd Font` is part of the core `winget` baseline. The live prompt resolves the installed `oh-my-posh` theme folder once, preferring the AppX install location when available, and caches it locally under `~\.config\dotfiles\windows\omp.path`, so the profile stays simple while still adapting to the installed path.
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
@@ -249,7 +249,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1` and `windows/packages.optional.psd1`; treat them as curated baselines, not a dump of every installed Windows app.
 * **Windows package sources:** Use `winget` for GUI apps and `scoop` for portable CLI tools. Store-only apps that do not resolve reliably in `winget` should stay manual instead of making the bootstrap more fragile; `PC Manager` is one of those edge cases on some machines.
-* **Windows prompt assets:** `windows/omp/tokyo.omp.json` captures the current `oh-my-posh` theme, `windows/terminal/settings.json` captures the minimal Terminal defaults, and `JetBrainsMono Nerd Font` is bootstrapped through the core `winget` manifest. The live profile points to the installed theme path and caches the resolved folder locally so the prompt stays straightforward.
+* **Windows prompt assets:** `windows/omp/tokyo.omp.json` captures the current `oh-my-posh` theme, `windows/terminal/settings.json` captures the minimal Terminal defaults, and `JetBrainsMono Nerd Font` is bootstrapped through the core `winget` manifest. The live profile points to the installed theme path, prefers the AppX install location when present, and caches the resolved folder locally so the prompt stays straightforward.
 * **Windows Terminal cleanup:** The template intentionally leaves out machine-specific SSH and one-off profiles; keep those in a local overlay if you still want them.
 * **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifests, and `install.ps1` only installs missing packages after you confirm the prompt.
 * **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
