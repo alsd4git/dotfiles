@@ -124,11 +124,13 @@ The Windows installer backs up any conflicting profile or Git ignore file as `.b
 
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
 
+The installer also copies the curated Windows package baseline into `~\.config\dotfiles\windows\packages.psd1`, so the shared manifest stays available even after the repo is moved or not mounted.
+
 If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
 
 The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and relaunches elevated to install `Chocolatey` when needed.
 
-The Windows profile also exposes `pkgmgr` to inspect the installed managers, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+The Windows profile also exposes `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifest against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
 
 There is also a curated public manifest in `windows/packages.psd1` that tracks the small starter baseline by package manager:
 
@@ -136,7 +138,7 @@ There is also a curated public manifest in `windows/packages.psd1` that tracks t
 - `scoop` for portable CLI utilities
 - `Chocolatey` and `NpmGlobal` are intentionally kept empty for now so we do not encode machine-specific or personal globals into the repo
 
-The installer prints a summary of that manifest so you can compare the tracked baseline with the current machine without turning the repo into a full package dump.
+The installer prints a summary of that manifest and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work.
 
 `cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
@@ -229,6 +231,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1`; treat it as a curated baseline, not a dump of every installed Windows app.
+* **Windows reruns are safe:** `pkgcmp` shows what the machine is missing relative to the manifest, and `install.ps1` only installs missing packages after you confirm the prompt.
 
 ---
 

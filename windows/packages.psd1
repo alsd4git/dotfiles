@@ -7,17 +7,24 @@
         'GitHub.cli'
         'JanDeDobbeleer.OhMyPosh'
         'Microsoft.PowerShell'
+        'Microsoft.PowerToys'
+        'Microsoft.VisualStudioCode'
+        'Microsoft.WindowsTerminal'
         'OpenJS.NodeJS.LTS'
     )
 
     Scoop = @(
         '7zip'
+        'bat'
+        'delta'
         'eza'
         'fastfetch'
         'fd'
         'fzf'
+        'jq'
         'gsudo'
         'ripgrep'
+        'zoxide'
         'uv'
     )
 
