@@ -6,6 +6,7 @@
         'Git.Git'
         'GitHub.cli'
         'JanDeDobbeleer.OhMyPosh'
+        'DEVCOM.JetBrainsMonoNerdFont'
         'Microsoft.PowerShell'
         'Microsoft.WindowsTerminal'
         'OpenJS.NodeJS.LTS'
