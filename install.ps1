@@ -556,19 +556,8 @@ function Get-NpmGlobalRoot {
 function Resolve-TrafficMonitorConfigTargets {
     $targets = @(
         (Join-Path $HOME 'AppData\Local\TrafficMonitor\config.ini')
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\zhongyang219.TrafficMonitor.Full_Microsoft.Winget.Source_8wekyb3d8bbwe\TrafficMonitor\config.ini')
     )
-
-    $packagesRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
-    if (Test-Path -LiteralPath $packagesRoot) {
-        try {
-            $packageRoots = Get-ChildItem -LiteralPath $packagesRoot -Directory -Filter 'zhongyang219.TrafficMonitor.Full*' -ErrorAction SilentlyContinue
-            foreach ($packageRoot in $packageRoots) {
-                $targets += (Join-Path $packageRoot.FullName 'TrafficMonitor\config.ini')
-            }
-        } catch {
-            # Package discovery is best-effort only.
-        }
-    }
 
     return @($targets | Select-Object -Unique)
 }
