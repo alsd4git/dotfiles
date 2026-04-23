@@ -149,10 +149,11 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 
 - `winget` for core shell/runtime apps and Store-backed desktop apps
 - `scoop` for portable CLI utilities
-- `Bitwarden`, `Chrome`, `Quick Share`, `RustDesk`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
+- `Bitwarden`, `Chrome`, `Quick Share`, `Telegram`, `Android Studio`, `Keyguard`, `RustDesk`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
 - Cross-platform CLI tools that are equally useful on Windows now include `shellcheck`, `shfmt`, `yq`, `ast-grep`, `actionlint`, `pandoc`, `ffmpeg`, and `ExifTool`
 - `Chocolatey` is kept only as a legacy/private fallback lane, not as part of the public baseline
 - `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
+- If a future app only exists through Microsoft Store, the Windows manifest already supports `Source = 'msstore'` on a Winget entry; for now we only use that when it is genuinely needed.
 
 The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, the minimal Windows Terminal settings live in `windows/terminal/settings.json`, and `JetBrainsMono Nerd Font` is part of the core `winget` baseline. The live prompt resolves the installed `oh-my-posh` theme folder once, preferring the AppX install location when available, and caches it locally under `~\.config\dotfiles\windows\omp.path`, so the profile stays simple while still adapting to the installed path.
 
