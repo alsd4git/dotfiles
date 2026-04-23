@@ -320,6 +320,33 @@ function Install-GitIgnore {
     }
 }
 
+function Install-GitDefaults {
+    if (-not (Test-CommandExists git)) {
+        Write-Warning "git not found; skipping global Git defaults."
+        return
+    }
+
+    $defaults = @(
+        @{ Key = 'pull.rebase'; Value = 'true' }
+        @{ Key = 'rebase.autostash'; Value = 'true' }
+        @{ Key = 'core.editor'; Value = 'nano' }
+        @{ Key = 'init.defaultBranch'; Value = 'main' }
+        @{ Key = 'push.autoSetupRemote'; Value = 'true' }
+        @{ Key = 'fetch.prune'; Value = 'true' }
+        @{ Key = 'diff.colorMoved'; Value = 'zebra' }
+    )
+
+    Write-Section 'Git defaults'
+    foreach ($default in $defaults) {
+        if ($DryRun) {
+            Write-Info "Would set $($default.Key) = $($default.Value)"
+        } else {
+            git config --global $default.Key $default.Value
+            Write-Info "$($default.Key) = $($default.Value)"
+        }
+    }
+}
+
 function Get-BackupFiles {
     param([string]$RootPath)
 
@@ -799,9 +826,10 @@ foreach ($profileTarget in $PowerShellProfileTargets.Shared) {
     Install-Profile -Source $WindowsProfileSource -Target $profileTarget
 }
 foreach ($profileShimTarget in $PowerShellProfileTargets.Host) {
-    Install-ProfileShim -Target $profileShimTarget
+Install-ProfileShim -Target $profileShimTarget
 }
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
+Install-GitDefaults
 Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
 if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
