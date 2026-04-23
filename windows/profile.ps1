@@ -256,7 +256,9 @@ Set-Alias mini Set-Mini -Force
 Set-Alias tokyo Set-Tokyo -Force
 
 Set-Alias c Clear-Host -Force
-Set-Alias h Get-History -Force
+if (-not (Get-Command h -CommandType Alias -ErrorAction SilentlyContinue)) {
+    Set-Alias h Get-History
+}
 
 Remove-Item Alias:a,Alias:aa -Force -ErrorAction SilentlyContinue
 
