@@ -10,20 +10,16 @@
         'Microsoft.PowerShell'
         'Microsoft.WindowsTerminal'
         'OpenJS.NodeJS.LTS'
-    )
-
-    Scoop = @(
-        '7zip'
-        'bat'
-        'delta'
-        'eza'
-        'fd'
-        'fzf'
-        'jq'
-        'gsudo'
-        'ripgrep'
-        'zoxide'
-        'uv'
+        '7zip.7zip'
+        'sharkdp.bat'
+        'dandavison.delta'
+        'eza-community.eza'
+        'sharkdp.fd'
+        'junegunn.fzf'
+        'jqlang.jq'
+        'BurntSushi.ripgrep.MSVC'
+        'ajeetdsouza.zoxide'
+        'astral-sh.uv'
     )
 
     NpmGlobal = @(

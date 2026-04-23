@@ -5,9 +5,6 @@
     Winget = @(
     )
 
-    Scoop = @(
-    )
-
     NpmGlobal = @(
     )
 }

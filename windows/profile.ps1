@@ -135,23 +135,6 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.CommandNotFound) {
     }
 }
 
-if (Get-Module -ListAvailable -Name gsudoModule) {
-    try {
-        Import-Module gsudoModule -ErrorAction SilentlyContinue
-        Set-Alias sudo gsudo -Force
-    } catch {
-        # Optional module; ignore failures.
-    }
-}
-
-if ((Test-CommandExists gsudo) -and -not (Test-CommandExists sudo)) {
-    try {
-        Set-Alias sudo gsudo -Force
-    } catch {
-        # Optional executable; ignore failures.
-    }
-}
-
 #----------------------------------------------------------------
 # VARIABLES
 #----------------------------------------------------------------
@@ -579,181 +562,9 @@ function Get-WingetInstalledPackageIds {
     return $script:WingetInstalledPackageIds
 }
 
-function Get-ScoopAppRoots {
-    $roots = @()
-
-    foreach ($root in @(
-        $env:SCOOP
-        $env:SCOOP_GLOBAL
-        (Join-Path $HOME 'scoop')
-        (Join-Path $env:ProgramData 'scoop')
-    )) {
-        if ([string]::IsNullOrWhiteSpace($root)) {
-            continue
-        }
-
-        $appsRoot = Join-Path $root 'apps'
-        if (Test-Path -LiteralPath $appsRoot) {
-            $roots += $appsRoot
-        }
-    }
-
-    return @($roots | Sort-Object -Unique)
-}
-
-function Test-ScoopPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageName)
-
-    foreach ($appsRoot in Get-ScoopAppRoots) {
-        if (Test-Path -LiteralPath (Join-Path $appsRoot $PackageName)) {
-            return $true
-        }
-    }
-
-    return $false
-}
-
-function Get-NpmGlobalRoot {
-    if (-not (Test-CommandExists npm)) {
-        return $null
-    }
-
-    $root = & npm root -g 2>$null
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($root)) {
-        return $null
-    }
-
-    return $root.Trim()
-}
-
-function Test-NpmGlobalPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageName)
-
-    $root = Get-NpmGlobalRoot
-    if ([string]::IsNullOrWhiteSpace($root)) {
-        return $false
-    }
-
-    $packagePath = if ($PackageName -like '@*/*') {
-        Join-Path $root ($PackageName -replace '/', '\')
-    } else {
-        Join-Path $root $PackageName
-    }
-
-    return Test-Path -LiteralPath $packagePath
-}
-
-function Get-WindowsPackageComparison {
-    $manifests = @(Get-WindowsPackageManifestEntries)
-    if ($manifests.Count -eq 0) {
-        return @()
-    }
-
-    $comparison = @()
-
-    foreach ($manifest in $manifests) {
-        foreach ($section in @(
-            [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Data.Winget) }
-            [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Data.Scoop) }
-            [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
-        )) {
-            foreach ($packageEntry in $section.Packages) {
-                $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
-                $installed = $false
-
-                switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
-                    'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
-                }
-
-                $comparison += [pscustomobject]@{
-                    Manifest  = $manifest.Name
-                    Manager   = $section.Manager
-                    Package   = (Format-WindowsPackageEntry -Package $package)
-                    Installed = [bool]$installed
-                }
-            }
-        }
-    }
-
-    return $comparison
-}
-
-function pkgcmp {
-    $comparison = @(Get-WindowsPackageComparison)
-    if ($comparison.Count -eq 0) {
-        Write-Warning 'No curated Windows package manifest found.'
-        return
-    }
-
-    foreach ($manifestGroup in $comparison | Group-Object Manifest | Sort-Object Name) {
-        $manifestRows = @($manifestGroup.Group)
-        $installedCount = @($manifestRows | Where-Object Installed).Count
-        $missingCount = $manifestRows.Count - $installedCount
-
-        Write-Section $manifestGroup.Name
-        Write-Info "Installed: $installedCount/$($manifestRows.Count)"
-
-        foreach ($managerGroup in $manifestRows | Group-Object Manager | Sort-Object Name) {
-            $managerRows = @($managerGroup.Group)
-            $managerInstalledCount = @($managerRows | Where-Object Installed).Count
-            $managerMissingRows = @($managerRows | Where-Object { -not $_.Installed })
-
-            Write-Info "$($managerGroup.Name): $managerInstalledCount/$($managerRows.Count)"
-
-            if ($managerMissingRows.Count -eq 0) {
-                continue
-            }
-
-            Write-Info 'Missing:'
-            foreach ($row in $managerMissingRows) {
-                Write-Info " - $($row.Package)"
-            }
-        }
-
-        if ($missingCount -eq 0) {
-            Write-Info 'Missing: none'
-        }
-    }
-}
-
 #----------------------------------------------------------------
 # PACKAGE COMMANDS
 #----------------------------------------------------------------
-function Get-PackageManagerStatus {
-    $packageManagers = @(
-        [pscustomobject]@{ Name = 'winget'; Command = 'winget' }
-        [pscustomobject]@{ Name = 'scoop'; Command = 'scoop' }
-        [pscustomobject]@{ Name = 'npm'; Command = 'npm' }
-        [pscustomobject]@{ Name = 'corepack'; Command = 'corepack' }
-    )
-
-    foreach ($item in $packageManagers) {
-        $command = Get-Command $item.Command -ErrorAction SilentlyContinue
-        $source = $null
-        if ($command) {
-            if ($command.Source) {
-                $source = $command.Source
-            } elseif ($command.Path) {
-                $source = $command.Path
-            } else {
-                $source = $command.Definition
-            }
-        }
-
-        [pscustomobject]@{
-            Manager   = $item.Name
-            Available = [bool]$command
-            Source    = $source
-        }
-    }
-}
-
-function pkgmgr {
-    Get-PackageManagerStatus | Format-Table -AutoSize
-}
-
 function npmupg {
     if (-not (Test-CommandExists npm)) {
         Write-Warning 'npm not found.'
@@ -763,17 +574,6 @@ function npmupg {
     Write-Section 'npm global updates'
     npm outdated -g
     npm update -g
-}
-
-function scoopup {
-    if (-not (Test-CommandExists scoop)) {
-        Write-Warning 'scoop not found.'
-        return
-    }
-
-    Write-Section 'Scoop updates'
-    scoop status
-    scoop update *
 }
 
 function wingup {
