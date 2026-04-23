@@ -86,7 +86,7 @@
         "name": "Prompt dei comandi"
       },
       {
-        "commandline": "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\"",
+        "commandline": "pwsh.exe",
         "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
         "hidden": false,
         "icon": "ms-appx:///ProfileIcons/pwsh.png",
@@ -94,7 +94,7 @@
         "source": "Windows.Terminal.PowershellCore"
       },
       {
-        "commandline": "\"C:\\Program Files\\PowerShell\\7\\pwsh.exe\"",
+        "commandline": "pwsh.exe",
         "elevate": true,
         "guid": "{7e996804-6e4b-4694-9bf6-3ba94c41afb2}",
         "hidden": false,
