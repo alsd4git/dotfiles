@@ -49,9 +49,6 @@
         'fastfetch'
     )
 
-    Chocolatey = @(
-    )
-
     NpmGlobal = @(
     )
 }

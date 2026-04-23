@@ -5,7 +5,6 @@ param(
     [switch]$Force,
     [switch]$Minimal,
     [switch]$Elevated,
-    [switch]$ChocolateyOnly,
     [switch]$CleanBackups
 )
 
@@ -221,14 +220,11 @@ function Get-ForwardedArgs {
     if ($Force) { $argsOut += '-Force' }
     if ($Minimal) { $argsOut += '-Minimal' }
     if ($Elevated) { $argsOut += '-Elevated' }
-    if ($ChocolateyOnly) { $argsOut += '-ChocolateyOnly' }
     if ($CleanBackups) { $argsOut += '-CleanBackups' }
     return $argsOut
 }
 
 function Invoke-SelfElevated {
-    param([switch]$ChocolateyMode)
-
     if (Test-Administrator) {
         return
     }
@@ -241,13 +237,7 @@ function Invoke-SelfElevated {
         $PSCommandPath
     ) + (Get-ForwardedArgs)
 
-    if ($ChocolateyMode) {
-        if ($scriptArgs -notcontains '-ChocolateyOnly') {
-            $scriptArgs += '-ChocolateyOnly'
-        }
-    }
-
-    Write-Info "Chocolatey requires administrator privileges. Relaunching with UAC..."
+    Write-Info "Relaunching with UAC..."
     Start-Process -FilePath 'powershell.exe' -ArgumentList $scriptArgs -Verb RunAs -Wait
     exit 0
 }
@@ -348,33 +338,6 @@ function Ensure-Scoop {
     }
 
     Invoke-Expression (Invoke-RestMethod -Uri 'https://get.scoop.sh')
-}
-
-function Install-ChocolateyBootstrap {
-    if (Test-CommandExists choco) {
-        Write-Success "Chocolatey already installed."
-        return
-    }
-
-    if ($DryRun) {
-        Write-Highlight "Would install Chocolatey."
-        return
-    }
-
-    if (-not (Test-Administrator)) {
-        Invoke-SelfElevated -ChocolateyMode
-        return
-    }
-
-    Write-Highlight "Installing Chocolatey..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $script = Invoke-RestMethod -Uri 'https://community.chocolatey.org/install.ps1'
-    Invoke-Expression $script
-
-    $chocoBin = Join-Path $env:ProgramData 'chocolatey\bin'
-    if ((Test-Path -LiteralPath $chocoBin) -and ($env:Path -notlike "*$chocoBin*")) {
-        $env:Path = "$chocoBin;$env:Path"
-    }
 }
 
 function Resolve-WindowsPackageManifestPath {
@@ -581,21 +544,6 @@ function Test-ScoopPackageInstalled {
     return $false
 }
 
-function Test-ChocolateyPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageName)
-
-    if (-not (Test-CommandExists choco)) {
-        return $false
-    }
-
-    $lines = & choco list --local-only --limit-output --exact $PackageName 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $lines) {
-        return $false
-    }
-
-    return [bool]($lines | Where-Object { $_ -like "$PackageName|*" } | Select-Object -First 1)
-}
-
 function Get-NpmGlobalRoot {
     if (-not (Test-CommandExists npm)) {
         return $null
@@ -639,7 +587,6 @@ function Get-WindowsPackageComparison {
         foreach ($section in @(
             [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Data.Winget) }
             [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Data.Scoop) }
-            [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Data.Chocolatey) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
             foreach ($packageEntry in $section.Packages) {
@@ -649,7 +596,6 @@ function Get-WindowsPackageComparison {
                 switch ($section.Manager) {
                     'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
                     'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -691,7 +637,6 @@ function Install-WindowsPackageBaseline {
         foreach ($section in @(
             [pscustomobject]@{ Manager = 'Winget'; Command = 'winget'; Packages = @($manifest.Data.Winget) }
             [pscustomobject]@{ Manager = 'Scoop'; Command = 'scoop'; Packages = @($manifest.Data.Scoop) }
-            [pscustomobject]@{ Manager = 'Chocolatey'; Command = 'choco'; Packages = @($manifest.Data.Chocolatey) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Command = 'npm'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
             if ($section.Packages.Count -eq 0) {
@@ -712,7 +657,6 @@ function Install-WindowsPackageBaseline {
                 switch ($section.Manager) {
                     'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
                     'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -758,13 +702,6 @@ function Install-WindowsPackageBaseline {
                             Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
-                    'Chocolatey' {
-                        if (-not (Invoke-ChocolateyElevated -Arguments @('install', $package.Name, '-y'))) {
-                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
-                        } else {
-                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
-                        }
-                    }
                     'NpmGlobal' {
                         & npm install -g $package.Name
                         if ($LASTEXITCODE -eq 0) {
@@ -789,10 +726,10 @@ function Write-WindowsPackageManifestSummary {
 
     Write-Section 'Curated package manifests'
     foreach ($manifest in $Manifests) {
-        $total = @($manifest.Data.Winget).Count + @($manifest.Data.Scoop).Count + @($manifest.Data.Chocolatey).Count + @($manifest.Data.NpmGlobal).Count
+        $total = @($manifest.Data.Winget).Count + @($manifest.Data.Scoop).Count + @($manifest.Data.NpmGlobal).Count
         Write-Info "$($manifest.Name) ($total) -> $($manifest.Path)"
 
-        foreach ($sectionName in @('Winget', 'Scoop', 'Chocolatey', 'NpmGlobal')) {
+        foreach ($sectionName in @('Winget', 'Scoop', 'NpmGlobal')) {
             $items = @($manifest.Data.$sectionName)
             if ($items.Count -eq 0) {
                 continue
@@ -819,8 +756,6 @@ function Write-WindowsAliasSummary {
         'npmupg'
         'wingup'
         'scoopup'
-        'cupa'
-        'cinst'
         'rld'
         'rldz'
         'weather'
@@ -865,11 +800,6 @@ if (-not (Test-Path $WindowsProfileSource)) {
     throw "Missing Windows profile template at $WindowsProfileSource."
 }
 
-if ($ChocolateyOnly) {
-    Install-ChocolateyBootstrap
-    exit 0
-}
-
 Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Ensure-Directory -Path $WindowsConfigRoot
@@ -900,16 +830,13 @@ if ($CleanBackups) {
 Write-Section "Package managers"
 if (Test-CommandExists winget) { $wingetState = 'available' } else { $wingetState = 'not found' }
 if (Test-CommandExists scoop) { $scoopState = 'available' } else { $scoopState = 'not found' }
-if (Test-CommandExists choco) { $chocoState = 'available' } else { $chocoState = 'not found' }
 Write-Info "winget: $wingetState"
 Write-Info "scoop: $scoopState"
-Write-Info "choco: $chocoState"
 if (Test-CommandExists winget) {
     Write-Info "winget is assumed to come from App Installer; this script does not bootstrap it."
 } else {
     Write-Warning "winget not found; install App Installer if you want the Windows Store package manager."
 }
-Write-Info "Chocolatey is treated as legacy fallback only, not part of the public bootstrap."
 Write-Info "Elevation helper: $(if (Test-CommandExists gsudo) { 'gsudo detected' } elseif (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
 
 $manifests = @(Get-WindowsPackageManifestEntries)
@@ -935,9 +862,6 @@ if (-not $Minimal) {
         $coreManifests = @($manifests | Where-Object Name -eq 'Core')
         $optionalManifests = @($manifests | Where-Object Name -eq 'Optional')
         $privateManifests = @($manifests | Where-Object Name -eq 'Private')
-        $chocolateyPackageCount = @(
-            $manifests | ForEach-Object { @($_.Data.Chocolatey).Count }
-        ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
 
         if ($coreManifests.Count -gt 0) {
             if ($Force) {
@@ -968,7 +892,7 @@ if (-not $Minimal) {
         if ($privateManifests.Count -gt 0) {
             $privatePackageCount = @(
                 $privateManifests | ForEach-Object {
-                    @($_.Data.Winget).Count + @($_.Data.Scoop).Count + @($_.Data.Chocolatey).Count + @($_.Data.NpmGlobal).Count
+                    @($_.Data.Winget).Count + @($_.Data.Scoop).Count + @($_.Data.NpmGlobal).Count
                 }
             ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
 
@@ -984,21 +908,6 @@ if (-not $Minimal) {
                     Install-WindowsPackageBaseline -Manifests $privateManifests -ManifestNames @('Private')
                 }
             }
-        }
-
-        if ($chocolateyPackageCount -gt 0) {
-            if ($Force) {
-                $installChocolatey = $true
-            } else {
-                $reply = Read-Host "Install Chocolatey if missing for private/legacy packages? [y/N]"
-                $installChocolatey = $reply -match '^[Yy]$'
-            }
-
-            if ($installChocolatey) {
-                Install-ChocolateyBootstrap
-            }
-        } else {
-            Write-Info 'Chocolatey is deprecated in the public baseline and is not bootstrapped.'
         }
     }
 } else {
