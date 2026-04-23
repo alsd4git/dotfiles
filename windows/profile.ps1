@@ -613,21 +613,6 @@ function Test-ScoopPackageInstalled {
     return $false
 }
 
-function Test-ChocolateyPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageName)
-
-    if (-not (Test-CommandExists choco)) {
-        return $false
-    }
-
-    $lines = & choco list --local-only --limit-output --exact $PackageName 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $lines) {
-        return $false
-    }
-
-    return [bool]($lines | Where-Object { $_ -like "$PackageName|*" } | Select-Object -First 1)
-}
-
 function Get-NpmGlobalRoot {
     if (-not (Test-CommandExists npm)) {
         return $null
@@ -670,7 +655,6 @@ function Get-WindowsPackageComparison {
         foreach ($section in @(
             [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Data.Winget) }
             [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Data.Scoop) }
-            [pscustomobject]@{ Manager = 'Chocolatey'; Packages = @($manifest.Data.Chocolatey) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
             foreach ($packageEntry in $section.Packages) {
@@ -680,7 +664,6 @@ function Get-WindowsPackageComparison {
                 switch ($section.Manager) {
                     'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
                     'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
-                    'Chocolatey' { $installed = Test-ChocolateyPackageInstalled -PackageName $package.Name }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -742,7 +725,6 @@ function Get-PackageManagerStatus {
     $packageManagers = @(
         [pscustomobject]@{ Name = 'winget'; Command = 'winget' }
         [pscustomobject]@{ Name = 'scoop'; Command = 'scoop' }
-        [pscustomobject]@{ Name = 'choco'; Command = 'choco' }
         [pscustomobject]@{ Name = 'npm'; Command = 'npm' }
         [pscustomobject]@{ Name = 'corepack'; Command = 'corepack' }
     )
@@ -770,34 +752,6 @@ function Get-PackageManagerStatus {
 
 function pkgmgr {
     Get-PackageManagerStatus | Format-Table -AutoSize
-}
-
-function Get-ElevationRunner {
-    if (Test-CommandExists sudo) {
-        return 'sudo'
-    }
-
-    if (Test-CommandExists gsudo) {
-        return 'gsudo'
-    }
-
-    return $null
-}
-
-function Invoke-ChocolateyElevated {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
-    )
-
-    $elevationRunner = Get-ElevationRunner
-    if (-not $elevationRunner) {
-        Write-Warning 'sudo/gsudo not found.'
-        return $false
-    }
-
-    & $elevationRunner choco @Arguments
-    return ($LASTEXITCODE -eq 0)
 }
 
 function npmupg {
@@ -841,40 +795,6 @@ function rpx {
 
     $repoName = Split-Path -Leaf (Get-Location)
     repomix -o "$repoName-repomix.md" --style markdown --ignore '*.html'
-}
-
-function Install-ChocoPackage {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackageName
-    )
-
-    if (-not (Test-CommandExists choco)) {
-        Write-Warning 'Chocolatey not found.'
-        return
-    }
-
-    if (-not (Invoke-ChocolateyElevated -Arguments @('install', $PackageName))) {
-        Write-Warning "Chocolatey install failed for $PackageName."
-    }
-}
-
-Set-Alias cinst Install-ChocoPackage -Force
-
-function cupa {
-    if (-not (Test-CommandExists choco)) {
-        Write-Warning 'Chocolatey not found.'
-        return
-    }
-
-    Write-Section 'Chocolatey updates'
-    if (-not (Invoke-ChocolateyElevated -Arguments @('outdated'))) {
-        return
-    }
-
-    if (-not (Invoke-ChocolateyElevated -Arguments @('upgrade', 'all', '-y'))) {
-        Write-Warning 'Chocolatey upgrade failed.'
-    }
 }
 
 #----------------------------------------------------------------

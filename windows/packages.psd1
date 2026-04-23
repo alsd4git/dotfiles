@@ -26,9 +26,6 @@
         'uv'
     )
 
-    Chocolatey = @(
-    )
-
     NpmGlobal = @(
     )
 }

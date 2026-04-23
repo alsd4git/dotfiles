@@ -8,9 +8,6 @@
     Scoop = @(
     )
 
-    Chocolatey = @(
-    )
-
     NpmGlobal = @(
     )
 }

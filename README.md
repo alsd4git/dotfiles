@@ -44,7 +44,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * ⚙️ **Git Enhancements:** Useful Git aliases, functions (like `fzf` branch switching), and recommended global settings (`pull.rebase`, `rebase.autostash`, `core.editor`, `core.excludesfile`).
   * Examples: `gl` (pull current branch with rebase/autostash), `gp` (push current branch), `gsu` (set upstream), `gla`/`glaf` (last commit summary/full), `lg`/`lgr` (commits missing on origin/release).
 * 🔒 **Private Aliases:** Supports loading personal, untracked aliases from `~/.private_aliases`.
-* 🪟 **Windows Preview:** `install.ps1` bootstraps a small PowerShell profile and Windows package managers separately from the Bash/Zsh path.
+* 🪟 **Windows Preview:** `install.ps1` bootstraps a small PowerShell profile plus `winget`/`scoop`-based Windows manifests, separately from the Bash/Zsh path.
 
 ---
 
@@ -127,8 +127,6 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install.ps1
 ```
 
-If Chocolatey needs elevation, accept the UAC prompt when the script relaunches itself.
-
 The Windows installer backs up any conflicting profile or Git ignore file as `.bak.<timestamp>` before copying the shared version into place, and it also creates the optional local overlay directory used by the public profile loader.
 
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
@@ -139,9 +137,9 @@ There is also a tracked template at `windows/packages.private.example.psd1` that
 
 If you want to remove old Windows backup files later, run `.\install.ps1 -CleanBackups` and confirm the prompt, or add `-Force` to skip the confirmation.
 
-The Windows bootstrap assumes `winget` is already available through App Installer, installs `scoop` in a regular user shell when missing, and keeps `Chocolatey` only as a deprecated private/legacy fallback.
+The Windows bootstrap assumes `winget` is already available through App Installer and installs `scoop` in a regular user shell when missing.
 
-The Windows profile also exposes `a` to inspect commands, `aa` to print aliases, `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, `scoopup`, and `cupa` for Chocolatey.
+The Windows profile also exposes `a` to inspect commands, `aa` to print aliases, `pkgmgr` to inspect the installed managers, `pkgcmp` to compare the curated manifests against the current machine, plus update helpers like `npmupg`, `wingup`, and `scoopup`.
 
 The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` / `rldz` manually if you want to re-source the profile.
 
@@ -151,15 +149,12 @@ There are curated public manifests in `windows/packages.psd1` and `windows/packa
 - `scoop` for portable CLI utilities
 - `Bitwarden`, `Chrome`, `Quick Share`, `Telegram`, `Android Studio`, `Keyguard`, `RustDesk`, `Tailscale`, `Zen Browser`, `UniGetUI`, and the rest of the desktop apps you asked for live in the optional extras manifest
 - Cross-platform CLI tools that are equally useful on Windows now include `shellcheck`, `shfmt`, `yq`, `ast-grep`, `actionlint`, `pandoc`, `ffmpeg`, and `ExifTool`
-- `Chocolatey` is kept only as a legacy/private fallback lane, not as part of the public baseline
 - `NpmGlobal` remains intentionally empty so we do not encode machine-specific or personal globals into the repo
 - If a future app only exists through Microsoft Store, the Windows manifest already supports `Source = 'msstore'` on a Winget entry; for now we only use that when it is genuinely needed.
 
 The current Windows prompt theme is tracked in `windows/omp/tokyo.omp.json`, the minimal Windows Terminal settings live in `windows/terminal/settings.json`, and `JetBrainsMono Nerd Font` is part of the core `winget` baseline. The live prompt resolves the installed `oh-my-posh` theme folder once, preferring the AppX install location when available, and caches it locally under `~\.config\dotfiles\windows\omp.path`, so the profile stays simple while still adapting to the installed path.
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work. Use `-y` if you want to answer yes to all installer prompts without typing each confirmation.
-
-`cupa` always runs Chocolatey through `sudo` or `gsudo`; if neither elevation path is available, it stops instead of falling back to a non-elevated install.
 
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
 
@@ -229,7 +224,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 | --- | --- | --- |
 | macOS | Homebrew Bundle | Bootstraps Homebrew if missing, installs the manifest in `macos/Brewfile`, applies the recommended defaults in `macos/defaults.sh`, restores the Dock layout in `macos/dock.sh`, and updates shell startup files for `brew`, `fzf`, `zoxide`, `nvm`, and `swiftly` when relevant. |
 | Debian/Ubuntu | apt | Installs core packages, configures `gh` from the official repository, creates `bat`/`fd` shims when needed, and installs `swiftly` from the official tarball flow. |
-| Windows | winget / Scoop | Installs the PowerShell profile, bootstraps Scoop when missing, and uses winget for the public baseline, with Chocolatey kept only for private/legacy overlays. |
+| Windows | winget / Scoop | Installs the PowerShell profile, bootstraps Scoop when missing, and uses winget for the public baseline. |
 
 ---
 
@@ -245,7 +240,6 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **`bat` and `fd` look unfamiliar on Ubuntu:** `batcat` and `fdfind` are the packaged binary names; the installer creates `bat` and `fd` shims when it can write to `/usr/local/bin`.
 * **Prompt customization is not visible:** `oh-my-posh` only loads in interactive shells, so non-interactive sessions will not show the prompt theme.
 * **`winget` is missing on Windows:** Install App Installer from Microsoft, or continue with Scoop while treating Store-backed packages as unavailable until winget is restored.
-* **Chocolatey needs elevation:** Chocolatey is only kept for private/legacy overlays now; if you still use it there, the Windows installer relaunches with UAC when it needs admin rights, and `gsudo` remains the preferred elevation helper.
 * **Touch ID for `sudo`:** On macOS, the installer can only check whether Touch ID is already enabled for `sudo` and print a manual recovery hint if it is missing. The file to edit is `/etc/pam.d/sudo`, and the line to add is `auth       sufficient     pam_tid.so`.
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
