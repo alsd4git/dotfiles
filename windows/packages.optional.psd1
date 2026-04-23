@@ -16,7 +16,7 @@
         'LocalSend.LocalSend'
         'Meld.Meld'
         'MoritzBunkus.MKVToolNix'
-        'M2Team.NanaZip.Preview'
+        'M2Team.NanaZip'
         'MiniTool.PartitionWizard.Free'
         'Google.Chrome'
         'Google.QuickShare'
