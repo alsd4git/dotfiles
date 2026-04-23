@@ -101,13 +101,6 @@
         "icon": "ms-appx:///ProfileIcons/pwsh.png",
         "name": "PowerShell 7 Admin"
       },
-      {
-        "guid": "{2ece5bfe-50ed-5f3a-ab87-5cd4baafed2b}",
-        "hidden": false,
-        "name": "Git Bash",
-        "source": "Git",
-        "startingDirectory": "%USERPROFILE%"
-      }
     ]
   },
   "showTabsInTitlebar": true,
