@@ -129,6 +129,8 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 The Windows installer backs up any conflicting profile or Git ignore file as `.bak.<timestamp>` before copying the shared version into place, and it also creates the optional local overlay directory used by the public profile loader.
 
+It also applies the same recommended global Git defaults as the Bash/Zsh installer path, so Git behavior stays consistent across machines.
+
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
 
 The installer copies the curated Windows package baseline into `~\.config\dotfiles\windows\packages.psd1` and the optional extras into `~\.config\dotfiles\windows\packages.optional.psd1`, so the shared manifests stay available even after the repo is moved or not mounted.
