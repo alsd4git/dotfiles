@@ -100,7 +100,7 @@
         "hidden": false,
         "icon": "ms-appx:///ProfileIcons/pwsh.png",
         "name": "PowerShell 7 Admin"
-      },
+      }
     ]
   },
   "showTabsInTitlebar": true,
