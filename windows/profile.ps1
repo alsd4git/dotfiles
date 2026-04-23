@@ -137,7 +137,7 @@ if (Get-Module -ListAvailable -Name Microsoft.WinGet.CommandNotFound) {
 # VARIABLES
 #----------------------------------------------------------------
 function Resolve-OhMyPoshThemesPath {
-    $cachePath = Join-Path $HOME '.config\dotfiles\windows\omp.path'
+    $cachePath = Join-Path $env:LOCALAPPDATA 'dotfiles\windows\omp.path'
     $candidates = @()
 
     if (-not [string]::IsNullOrWhiteSpace($env:DOTFILES_WINDOWS_OMP_THEMES_PATH)) {
