@@ -553,6 +553,26 @@ function Get-NpmGlobalRoot {
     return $root.Trim()
 }
 
+function Resolve-TrafficMonitorConfigTargets {
+    $targets = @(
+        (Join-Path $HOME 'AppData\Local\TrafficMonitor\config.ini')
+    )
+
+    $packagesRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+    if (Test-Path -LiteralPath $packagesRoot) {
+        try {
+            $packageRoots = Get-ChildItem -LiteralPath $packagesRoot -Directory -Filter 'zhongyang219.TrafficMonitor.Full*' -ErrorAction SilentlyContinue
+            foreach ($packageRoot in $packageRoots) {
+                $targets += (Join-Path $packageRoot.FullName 'TrafficMonitor\config.ini')
+            }
+        } catch {
+            # Package discovery is best-effort only.
+        }
+    }
+
+    return @($targets | Select-Object -Unique)
+}
+
 function Test-NpmGlobalPackageInstalled {
     param([Parameter(Mandatory = $true)][string]$PackageName)
 
@@ -766,6 +786,7 @@ $WindowsProfileSource = Join-Path $RepoRoot 'windows/profile.ps1'
 $WindowsCorePackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
 $WindowsOptionalPackageManifest = Join-Path $RepoRoot 'windows/packages.optional.psd1'
 $WindowsPrivatePackageExample = Join-Path $RepoRoot 'windows/packages.private.example.psd1'
+$WindowsTrafficMonitorConfigSource = Join-Path $RepoRoot 'windows/trafficmonitor/config.ini'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $PowerShellProfileTargets = Get-WindowsPowerShellProfileTargets
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
@@ -799,6 +820,11 @@ if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
 }
 if (Test-Path -LiteralPath $WindowsTerminalSettingsSource) {
     Copy-WithBackup -Source $WindowsTerminalSettingsSource -Target $WindowsTerminalSettingsTarget
+}
+if (Test-Path -LiteralPath $WindowsTrafficMonitorConfigSource) {
+    foreach ($trafficMonitorConfigTarget in (Resolve-TrafficMonitorConfigTargets)) {
+        Copy-WithBackup -Source $WindowsTrafficMonitorConfigSource -Target $trafficMonitorConfigTarget
+    }
 }
 if (-not (Test-Path -LiteralPath $WindowsPrivatePackageTarget)) {
     if (Test-Path -LiteralPath $WindowsPrivatePackageExample) {
