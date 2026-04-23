@@ -683,21 +683,25 @@ function Write-WindowsPackageManifestSummary {
 }
 
 function Write-WindowsAliasSummary {
-    $commands = @(
-        'npmupg'
-        'wingup'
-        'rld'
-        'rldz'
-        'weather'
-        'myip'
+    $aliases = @(
+        [pscustomobject]@{ Name = 'l'; MapsTo = 'Invoke-ListDirectory (eza defaults)' }
+        [pscustomobject]@{ Name = 'la'; MapsTo = 'Invoke-ListDirectory -Force' }
+        [pscustomobject]@{ Name = 'll'; MapsTo = 'Invoke-ListDirectory -Force' }
+        [pscustomobject]@{ Name = 'lt'; MapsTo = 'Invoke-ListDirectory -Force -TotalSize' }
+        [pscustomobject]@{ Name = 'gl'; MapsTo = 'git pull --rebase --autostash' }
+        [pscustomobject]@{ Name = 'rld'; MapsTo = 'Reload the PowerShell profile' }
+        [pscustomobject]@{ Name = 'npmupg'; MapsTo = 'npm outdated -g && npm update -g' }
+        [pscustomobject]@{ Name = 'wingup'; MapsTo = 'winget upgrade && winget upgrade --all' }
     )
 
     Write-Section 'Quick aliases'
-    foreach ($commandName in $commands) {
-        if (Test-CommandExists $commandName) {
-            Write-Success $commandName
+    foreach ($alias in $aliases) {
+        $present = Test-CommandExists $alias.Name
+        $line = "$($alias.Name) -> $($alias.MapsTo)"
+        if ($present) {
+            Write-Success $line
         } else {
-            Write-Info $commandName
+            Write-Info $line
         }
     }
 }
@@ -834,4 +838,4 @@ if ($manifests.Count -gt 0) {
 Write-WindowsAliasSummary
 
 Write-Section "Complete"
-Write-Info "Open a new PowerShell session to load the updated profile, or run rld/rldz manually if you want to refresh in place."
+Write-Info "Open a new PowerShell session to load the updated profile, or run rld manually if you want to refresh in place."

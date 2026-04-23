@@ -141,7 +141,7 @@ The Windows bootstrap assumes `winget` is already available through App Installe
 
 The Windows profile also exposes `a` to inspect commands, `aa` to print aliases, plus update helpers like `npmupg` and `wingup`.
 
-The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` / `rldz` manually if you want to re-source the profile.
+The installer does not reload the active PowerShell session in place, which keeps the current prompt stable. Open a new PowerShell window after installation, or run `rld` manually if you want to re-source the profile.
 
 There are curated public manifests in `windows/packages.psd1` and `windows/packages.optional.psd1` that track the starter baseline by package manager:
 
@@ -247,7 +247,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Windows prompt assets:** `windows/omp/tokyo.omp.json` captures the current `oh-my-posh` theme, `windows/terminal/settings.json` captures the minimal Terminal defaults, and `JetBrainsMono Nerd Font` is bootstrapped through the core `winget` manifest. The live profile points to the installed theme path, prefers the AppX install location when present, and caches the resolved folder locally so the prompt stays straightforward.
 * **Windows Terminal cleanup:** The template intentionally leaves out machine-specific SSH and one-off profiles; keep those in a local overlay if you still want them.
 * **Windows reruns are safe:** `install.ps1` only installs missing packages after you confirm the prompt.
-* **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` or `rldz` to re-source the profile and refresh `oh-my-posh`.
+* **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` to re-source the profile and refresh `oh-my-posh`.
 
 ---
 
@@ -271,7 +271,7 @@ If you use Zsh, open a new interactive shell and confirm that `aa`, `l`, `gl`, a
   * `l`/`lt`/`ll`: Directory listings (use `eza` if installed, otherwise `ls`).
   * `mntlist`: Show mounted volumes (portable, does not shadow `mount`).
   * `myip`: Show public IP.
-  * `rld` / `rldz`: Reload the current PowerShell profile.
+  * `rld`: Reload the current PowerShell profile.
   * `brewup`: Update, upgrade and clean Homebrew (macOS).
 
 * Packages and repos:
