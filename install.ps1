@@ -251,6 +251,57 @@ function Install-Profile {
     Copy-WithBackup -Source $Source -Target $Target
 }
 
+function Install-ProfileShim {
+    param(
+        [string]$Target
+    )
+
+    Ensure-ParentDirectory -Path $Target
+
+    $shimContent = @'
+# Managed by dotfiles.
+# Keep this profile empty so the shared profile.ps1 loads once.
+'@
+
+    if (Test-Path -LiteralPath $Target) {
+        $existing = Get-Content -LiteralPath $Target -Raw -ErrorAction SilentlyContinue
+        if (-not [string]::IsNullOrWhiteSpace($existing) -and $existing.Trim() -eq $shimContent.Trim()) {
+            Write-Info "Already up to date: $Target"
+            return
+        }
+
+        Backup-Path -Path $Target
+    }
+
+    if ($DryRun) {
+        Write-Highlight "Would write profile shim -> $Target"
+    } else {
+        Set-Content -LiteralPath $Target -Value $shimContent -NoNewline
+        Write-Success "Wrote profile shim -> $Target"
+    }
+}
+
+function Get-WindowsPowerShellProfileTargets {
+    $documentsRoot = [Environment]::GetFolderPath('MyDocuments')
+    $profileRoots = @(
+        (Join-Path $documentsRoot 'PowerShell')
+        (Join-Path $documentsRoot 'WindowsPowerShell')
+    ) | Select-Object -Unique
+
+    $sharedTargets = @()
+    $hostTargets = @()
+
+    foreach ($profileRoot in $profileRoots) {
+        $sharedTargets += (Join-Path $profileRoot 'profile.ps1')
+        $hostTargets += (Join-Path $profileRoot 'Microsoft.PowerShell_profile.ps1')
+    }
+
+    return [pscustomobject]@{
+        Shared = @($sharedTargets | Select-Object -Unique)
+        Host   = @($hostTargets | Select-Object -Unique)
+    }
+}
+
 function Install-GitIgnore {
     param(
         [string]$Source,
@@ -716,7 +767,7 @@ $WindowsCorePackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
 $WindowsOptionalPackageManifest = Join-Path $RepoRoot 'windows/packages.optional.psd1'
 $WindowsPrivatePackageExample = Join-Path $RepoRoot 'windows/packages.private.example.psd1'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
-$PowerShellProfileTarget = $PROFILE.CurrentUserAllHosts
+$PowerShellProfileTargets = Get-WindowsPowerShellProfileTargets
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
 $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
 $WindowsTerminalSettingsSource = Join-Path $RepoRoot 'windows\terminal\settings.json'
@@ -728,13 +779,18 @@ $WindowsOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
 
 Write-Section "Windows dotfiles setup"
 Write-Info "Detected PowerShell edition: $($PSVersionTable.PSEdition)"
-Write-Info "Detected Windows PowerShell profile: $PowerShellProfileTarget"
+Write-Info "Keeping PowerShell 5 and 7 profiles in sync."
 
 if (-not (Test-Path $WindowsProfileSource)) {
     throw "Missing Windows profile template at $WindowsProfileSource."
 }
 
-Install-Profile -Source $WindowsProfileSource -Target $PowerShellProfileTarget
+foreach ($profileTarget in $PowerShellProfileTargets.Shared) {
+    Install-Profile -Source $WindowsProfileSource -Target $profileTarget
+}
+foreach ($profileShimTarget in $PowerShellProfileTargets.Host) {
+    Install-ProfileShim -Target $profileShimTarget
+}
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
