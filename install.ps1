@@ -319,27 +319,6 @@ function Remove-BackupFiles {
     }
 }
 
-function Ensure-Scoop {
-    if (Test-CommandExists scoop) {
-        Write-Success "Scoop already installed."
-        return
-    }
-
-    if ($DryRun) {
-        Write-Highlight "Would install Scoop."
-        return
-    }
-
-    Write-Highlight "Installing Scoop..."
-    try {
-        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-    } catch {
-        Write-Warning "Could not update execution policy for Scoop. Continuing with bootstrap."
-    }
-
-    Invoke-Expression (Invoke-RestMethod -Uri 'https://get.scoop.sh')
-}
-
 function Resolve-WindowsPackageManifestPath {
     param(
         [string[]]$EnvironmentVariables,
@@ -510,40 +489,6 @@ function Get-WingetInstalledPackageIds {
     return $script:WingetInstalledPackageIds
 }
 
-function Get-ScoopAppRoots {
-    $roots = @()
-
-    foreach ($root in @(
-        $env:SCOOP
-        $env:SCOOP_GLOBAL
-        (Join-Path $HOME 'scoop')
-        (Join-Path $env:ProgramData 'scoop')
-    )) {
-        if ([string]::IsNullOrWhiteSpace($root)) {
-            continue
-        }
-
-        $appsRoot = Join-Path $root 'apps'
-        if (Test-Path -LiteralPath $appsRoot) {
-            $roots += $appsRoot
-        }
-    }
-
-    return @($roots | Sort-Object -Unique)
-}
-
-function Test-ScoopPackageInstalled {
-    param([Parameter(Mandatory = $true)][string]$PackageName)
-
-    foreach ($appsRoot in Get-ScoopAppRoots) {
-        if (Test-Path -LiteralPath (Join-Path $appsRoot $PackageName)) {
-            return $true
-        }
-    }
-
-    return $false
-}
-
 function Get-NpmGlobalRoot {
     if (-not (Test-CommandExists npm)) {
         return $null
@@ -586,7 +531,6 @@ function Get-WindowsPackageComparison {
     foreach ($manifest in $Manifests) {
         foreach ($section in @(
             [pscustomobject]@{ Manager = 'Winget'; Packages = @($manifest.Data.Winget) }
-            [pscustomobject]@{ Manager = 'Scoop'; Packages = @($manifest.Data.Scoop) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
             foreach ($packageEntry in $section.Packages) {
@@ -595,7 +539,6 @@ function Get-WindowsPackageComparison {
 
                 switch ($section.Manager) {
                     'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -636,7 +579,6 @@ function Install-WindowsPackageBaseline {
 
         foreach ($section in @(
             [pscustomobject]@{ Manager = 'Winget'; Command = 'winget'; Packages = @($manifest.Data.Winget) }
-            [pscustomobject]@{ Manager = 'Scoop'; Command = 'scoop'; Packages = @($manifest.Data.Scoop) }
             [pscustomobject]@{ Manager = 'NpmGlobal'; Command = 'npm'; Packages = @($manifest.Data.NpmGlobal) }
         )) {
             if ($section.Packages.Count -eq 0) {
@@ -656,7 +598,6 @@ function Install-WindowsPackageBaseline {
 
                 switch ($section.Manager) {
                     'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
-                    'Scoop' { $installed = Test-ScoopPackageInstalled -PackageName $package.Name }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -694,14 +635,6 @@ function Install-WindowsPackageBaseline {
                             Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
                         }
                     }
-                    'Scoop' {
-                        & scoop install $package.Name
-                        if ($LASTEXITCODE -eq 0) {
-                            Write-Success "  installed: $(Format-WindowsPackageEntry -Package $package)"
-                        } else {
-                            Write-Warning "  failed: $(Format-WindowsPackageEntry -Package $package)"
-                        }
-                    }
                     'NpmGlobal' {
                         & npm install -g $package.Name
                         if ($LASTEXITCODE -eq 0) {
@@ -726,10 +659,10 @@ function Write-WindowsPackageManifestSummary {
 
     Write-Section 'Curated package manifests'
     foreach ($manifest in $Manifests) {
-        $total = @($manifest.Data.Winget).Count + @($manifest.Data.Scoop).Count + @($manifest.Data.NpmGlobal).Count
+        $total = @($manifest.Data.Winget).Count + @($manifest.Data.NpmGlobal).Count
         Write-Info "$($manifest.Name) ($total) -> $($manifest.Path)"
 
-        foreach ($sectionName in @('Winget', 'Scoop', 'NpmGlobal')) {
+        foreach ($sectionName in @('Winget', 'NpmGlobal')) {
             $items = @($manifest.Data.$sectionName)
             if ($items.Count -eq 0) {
                 continue
@@ -751,11 +684,8 @@ function Write-WindowsPackageManifestSummary {
 
 function Write-WindowsAliasSummary {
     $commands = @(
-        'pkgmgr'
-        'pkgcmp'
         'npmupg'
         'wingup'
-        'scoopup'
         'rld'
         'rldz'
         'weather'
@@ -829,15 +759,13 @@ if ($CleanBackups) {
 
 Write-Section "Package managers"
 if (Test-CommandExists winget) { $wingetState = 'available' } else { $wingetState = 'not found' }
-if (Test-CommandExists scoop) { $scoopState = 'available' } else { $scoopState = 'not found' }
 Write-Info "winget: $wingetState"
-Write-Info "scoop: $scoopState"
 if (Test-CommandExists winget) {
     Write-Info "winget is assumed to come from App Installer; this script does not bootstrap it."
 } else {
     Write-Warning "winget not found; install App Installer if you want the Windows Store package manager."
 }
-Write-Info "Elevation helper: $(if (Test-CommandExists gsudo) { 'gsudo detected' } elseif (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
+Write-Info "Elevation helper: $(if (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
 
 $manifests = @(Get-WindowsPackageManifestEntries)
 if ($manifests.Count -gt 0) {
@@ -846,18 +774,7 @@ if ($manifests.Count -gt 0) {
     Write-Warning 'Curated Windows package manifests not found.'
 }
 
-if (-not $Minimal) {
-    if ($Force) {
-        $installScoop = $true
-    } else {
-        $reply = Read-Host "Install Scoop if missing? [y/N]"
-        $installScoop = $reply -match '^[Yy]$'
-    }
-
-    if ($installScoop) {
-        Ensure-Scoop
-    }
-
+    if (-not $Minimal) {
     if ($manifests.Count -gt 0) {
         $coreManifests = @($manifests | Where-Object Name -eq 'Core')
         $optionalManifests = @($manifests | Where-Object Name -eq 'Optional')
@@ -892,7 +809,7 @@ if (-not $Minimal) {
         if ($privateManifests.Count -gt 0) {
             $privatePackageCount = @(
                 $privateManifests | ForEach-Object {
-                    @($_.Data.Winget).Count + @($_.Data.Scoop).Count + @($_.Data.NpmGlobal).Count
+                    @($_.Data.Winget).Count + @($_.Data.NpmGlobal).Count
                 }
             ) | Measure-Object -Sum | Select-Object -ExpandProperty Sum
 

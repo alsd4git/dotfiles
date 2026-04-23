@@ -43,10 +43,7 @@
         'Gyan.FFmpeg'
         'OliverBetz.ExifTool'
         'rhysd.actionlint'
-    )
-
-    Scoop = @(
-        'fastfetch'
+        'Fastfetch-cli.Fastfetch'
     )
 
     NpmGlobal = @(
