@@ -375,7 +375,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         action=$([[ $COPY_MODE == true ]] && echo "copy" || echo "link")
         echo "🧪 Would $action $dest → $src"
     elif $COPY_MODE; then
-        if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
             mv "$dest" "$dest.bak.$(date +%s)"
             echo "📦 Backed up $dest"
         fi
@@ -392,27 +392,6 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         echo "✅ Linked $dest → $src"
     fi
 done
-
-# Set up Git global ignore config
-if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
-    GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
-    if [ -f "$GIT_IGNORE_GLOBAL" ]; then
-        echo "🔧 Configuring Git global ignore path..."
-        git config --global core.excludesfile "$GIT_IGNORE_GLOBAL"
-    fi
-fi
-
-# Set up Git recommended defaults
-if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
-    echo "🔧 Configuring global Git behavior..."
-    git config --global pull.rebase true
-    git config --global rebase.autostash true
-    git config --global core.editor "nano"
-    git config --global init.defaultBranch main
-    git config --global push.autoSetupRemote true
-    git config --global fetch.prune true
-    git config --global diff.colorMoved zebra
-fi
 
 ### === Optional Tools Install ===
 if ! $MINIMAL_MODE && ! $DRY_RUN; then
@@ -670,6 +649,28 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 echo "❌ Unsupported OS. Install dependencies manually."
                 ;;
         esac
+    fi
+fi
+
+# Set up Git global ignore config and recommended defaults once git is available.
+if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
+    if command -v git >/dev/null 2>&1; then
+        GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
+        if [ -f "$GIT_IGNORE_GLOBAL" ]; then
+            echo "🔧 Configuring Git global ignore path..."
+            git config --global core.excludesfile "$GIT_IGNORE_GLOBAL"
+        fi
+
+        echo "🔧 Configuring global Git behavior..."
+        git config --global pull.rebase true
+        git config --global rebase.autostash true
+        git config --global core.editor "nano"
+        git config --global init.defaultBranch main
+        git config --global push.autoSetupRemote true
+        git config --global fetch.prune true
+        git config --global diff.colorMoved zebra
+    else
+        echo "⚠️  git not found; skipping global Git configuration for now."
     fi
 fi
 

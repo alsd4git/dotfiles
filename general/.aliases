@@ -72,8 +72,18 @@ alias brewup='brew update ; brew upgrade --greedy ; brew cleanup'
 alias noh='[[ ${SHELL##*/} == zsh ]] && : > ~/.zsh_history || : > ~/.bash_history'
 alias rld="echo -e 'reloading .bashrc\n' && . ~/.bashrc"
 alias rldz="echo -e 'reloading .zshrc\n' && source ~/.zshrc"
-alias update='sudo apt-get update && sudo apt-get upgrade -y'
 alias wget='wget -c'
+
+function update() {
+    if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+        brew update && brew upgrade --greedy && brew cleanup
+    elif command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update && sudo apt-get upgrade -y
+    else
+        echo "update: no supported package manager found."
+        return 1
+    fi
+}
 
 # ===== Docker Aliases =====
 # Pull latest tags for all local images (implemented as function in ~/.shell_functions)
