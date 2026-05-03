@@ -66,7 +66,8 @@ function netuse() {
     #        netuse --iface tailscale0 <command...>
     local iface="eth0"
     if [[ "$1" == "--iface" ]]; then
-        iface="$2"; shift 2
+        iface="$2"
+        shift 2
     fi
     if [[ $# -eq 0 ]]; then
         echo "Usage: netuse [--iface IFACE] <command...>"
@@ -78,15 +79,20 @@ function netuse() {
 
     _hu_bytes() {
         local b=$1
-        if (( b >= 1073741824 )); then printf "%d.%d GB" $((b/1073741824)) $(( (b%1073741824)*10/1073741824 ))
-        elif (( b >= 1048576 )); then printf "%d.%d MB" $((b/1048576)) $(( (b%1048576)*10/1048576 ))
-        elif (( b >= 1024 )); then printf "%d.%d KB" $((b/1024)) $(( (b%1024)*10/1024 ))
+        if ((b >= 1073741824)); then
+            printf "%d.%d GB" $((b / 1073741824)) $(((b % 1073741824) * 10 / 1073741824))
+        elif ((b >= 1048576)); then
+            printf "%d.%d MB" $((b / 1048576)) $(((b % 1048576) * 10 / 1048576))
+        elif ((b >= 1024)); then
+            printf "%d.%d KB" $((b / 1024)) $(((b % 1024) * 10 / 1024))
         else printf "%d B" "$b"; fi
     }
     _hu_speed() {
         local s=$1
-        if (( s >= 1048576 )); then printf "%d.%d MB/s" $((s/1048576)) $(( (s%1048576)*10/1048576 ))
-        elif (( s >= 1024 )); then printf "%d.%d KB/s" $((s/1024)) $(( (s%1024)*10/1024 ))
+        if ((s >= 1048576)); then
+            printf "%d.%d MB/s" $((s / 1048576)) $(((s % 1048576) * 10 / 1048576))
+        elif ((s >= 1024)); then
+            printf "%d.%d KB/s" $((s / 1024)) $(((s % 1024) * 10 / 1024))
         else printf "%d B/s" "$s"; fi
     }
     _get_rx() { awk -v i="$iface:" '$1==i{print $2}' /proc/net/dev; }
@@ -112,9 +118,12 @@ function netuse() {
     fifo=$(mktemp -u)
     mkfifo "$fifo"
 
-    ( eval "$cmd" 2>&1 | while IFS= read -r line; do
-        printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
-    done; echo "__DONE__" ) > "$fifo" &
+    (
+        eval "$cmd" 2>&1 | while IFS= read -r line; do
+            printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
+        done
+        echo "__DONE__"
+    ) >"$fifo" &
 
     # Open FIFO read-write so it never blocks on missing writer
     exec 3<>"$fifo"
@@ -136,13 +145,13 @@ function netuse() {
         local curr_rx curr_time dt
         curr_rx=$(_get_rx)
         curr_time=$(date +%s%N)
-        dt=$(( (curr_time - prev_time) / 1000000 ))
-        if (( dt > 0 )); then
+        dt=$(((curr_time - prev_time) / 1000000))
+        if ((dt > 0)); then
             local delta speed total elapsed
-            delta=$(( curr_rx - prev_rx ))
-            speed=$(( delta * 1000 / dt ))
-            total=$(( curr_rx - start_rx ))
-            elapsed=$(( $(date +%s) - start_time ))
+            delta=$((curr_rx - prev_rx))
+            speed=$((delta * 1000 / dt))
+            total=$((curr_rx - start_rx))
+            elapsed=$(($(date +%s) - start_time))
             printf "\r${yellow}[NET]${nc} ↓ %s  |  speed: %s  |  elapsed: %ds    " \
                 "$(_hu_bytes $total)" "$(_hu_speed $speed)" "$elapsed"
         fi
@@ -155,14 +164,14 @@ function netuse() {
     rm -f "$fifo"
 
     local total_rx total_time
-    total_rx=$(( $(_get_rx) - start_rx ))
-    total_time=$(( $(date +%s) - start_time ))
+    total_rx=$(($(_get_rx) - start_rx))
+    total_time=$(($(date +%s) - start_time))
     echo ""
     echo ""
     echo -e "${cyan}━━━ Riepilogo ━━━${nc}"
     echo -e "  Downloaded: $(_hu_bytes $total_rx)"
     echo -e "  Tempo: ${total_time}s"
-    if (( total_time > 0 )); then
+    if ((total_time > 0)); then
         echo -e "  Media: $(_hu_speed $((total_rx / total_time)))"
     fi
 }
