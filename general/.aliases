@@ -83,6 +83,8 @@ alias up_portainer_ce='docker pull portainer/portainer-ce:latest ; docker stop p
 alias up_portainer_be='docker pull portainer/portainer-ee:latest ; docker stop portainer ; docker rm portainer ; docker run --name portainer -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ee:latest --http-enabled'
 # One-shot container updates for all running containers using Watchtower, cleaning old images
 alias up_dockers_wt='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock nickfedor/watchtower --run-once --cleanup'
+# Same as above, with live network usage overlay (uses netuse from .functions)
+alias up_dockers_wt_netuse='netuse docker run --rm -v /var/run/docker.sock:/var/run/docker.sock nickfedor/watchtower --run-once --cleanup'
 
 # ===== Swift Aliases =====
 alias sb='swift build'
