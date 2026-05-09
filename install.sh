@@ -551,7 +551,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
                 if ! command -v oh-my-posh >/dev/null; then
                     echo "📥 Installing oh-my-posh..."
                     echo "   Note: piping install scripts is potentially unsafe. Review https://ohmyposh.dev before proceeding."
-                    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin
+                    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin -t ~/.cache/oh-my-posh/themes
                 fi
 
                 # fastfetch
