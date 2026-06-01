@@ -652,7 +652,7 @@ if ! $MINIMAL_MODE && ! $DRY_RUN; then
     fi
 fi
 
-# Set up Git global ignore config and recommended defaults once git is available.
+# Set up Git global ignore config and merge recommended defaults into the existing global config.
 if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
     if command -v git >/dev/null 2>&1; then
         GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
@@ -662,13 +662,33 @@ if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
         fi
 
         echo "🔧 Configuring global Git behavior..."
+        git config --global column.ui auto
+        # Show recently updated branches first.
+        git config --global branch.sort -committerdate
+        # Sort version-like tags naturally, e.g. v1.9 before v1.10.
+        git config --global tag.sort version:refname
         git config --global pull.rebase true
+        git config --global commit.verbose true
+        git config --global rebase.autosquash true
         git config --global rebase.autostash true
+        # Keep sibling local branches pointing at rewritten commits when rebasing.
+        git config --global rebase.updateRefs true
         git config --global core.editor "nano"
         git config --global init.defaultBranch main
+        # Histogram usually gives clearer hunks for moved or refactored code.
+        git config --global diff.algorithm histogram
+        git config --global diff.colorMoved plain
+        git config --global diff.mnemonicPrefix true
+        git config --global diff.renames true
+        git config --global push.default simple
         git config --global push.autoSetupRemote true
+        git config --global push.followTags true
         git config --global fetch.prune true
-        git config --global diff.colorMoved zebra
+        git config --global fetch.pruneTags true
+        # Keep all remotes fresh when fetching from any remote.
+        git config --global fetch.all true
+        # Ask before automatically running a corrected command.
+        git config --global help.autocorrect prompt
     else
         echo "⚠️  git not found; skipping global Git configuration for now."
     fi

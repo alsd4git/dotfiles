@@ -41,7 +41,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
   * `oh-my-posh` integration for an informative prompt (interactive shells only).
   * Helpful aliases and functions for common tasks.
   * Discover aliases quickly: run `aa` to print a readable alias list (`nice_print_aliases`).
-* ⚙️ **Git Enhancements:** Useful Git aliases, functions (like `fzf` branch switching), and recommended global settings (`pull.rebase`, `rebase.autostash`, `core.editor`, `core.excludesfile`).
+* ⚙️ **Git Enhancements:** Useful Git aliases, functions (like `fzf` branch switching), and recommended global settings for branch/tag sorting, safer rebases, richer diffs, push/fetch hygiene, and `core.excludesfile`.
   * Examples: `gl` (pull current branch with rebase/autostash), `gp` (push current branch), `gsu` (set upstream), `gla`/`glaf` (last commit summary/full), `lg`/`lgr` (commits missing on origin/release).
 * 🔒 **Private Aliases:** Supports loading personal, untracked aliases from `~/.private_aliases`.
 * 🪟 **Windows Preview:** `install.ps1` bootstraps a small PowerShell profile plus `winget`-based Windows manifests, separately from the Bash/Zsh path.
@@ -175,7 +175,7 @@ The public profile loads those overlays last, so they can override the shared de
 * **Configures Global Git Ignore:**
   * Symlinks `git/global.gitignore` to `$HOME/.global.gitignore`.
   * Runs `git config --global core.excludesfile "$HOME/.global.gitignore"` to tell Git to use this file.
-* **Sets Git Defaults:** Configures recommended global Git settings: `pull.rebase = true`, `rebase.autostash = true`, `core.editor = nano`.
+* **Sets Git Defaults:** Merges recommended global Git settings into the existing user config without replacing the machine's `.gitconfig`. The baseline covers branch/tag sorting, rebase ergonomics, verbose commits, smarter diffs, push/fetch hygiene, `core.editor = nano`, and `init.defaultBranch = main`.
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).
   * On macOS, the tool manifest lives in `macos/Brewfile`, the baseline defaults live in `macos/defaults.sh`, and the saved Dock layout lives in `macos/dock.sh`.
@@ -250,6 +250,12 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Windows Terminal cleanup:** The template intentionally leaves out machine-specific SSH and one-off profiles; keep those in a local overlay if you still want them.
 * **Windows reruns are safe:** `install.ps1` only installs missing packages after you confirm the prompt.
 * **Prompt refresh:** If the shell prompt looks stale after a run, use `rld` to re-source the profile and refresh `oh-my-posh`.
+
+---
+
+## 📚 Sources and Inspiration
+
+* Git defaults: [How Core Git Developers Configure Git](https://blog.gitbutler.com/how-git-core-devs-configure-git) by Scott Chacon. The installer adopts the broadly useful settings from the article, while leaving personal conflict-resolution memory (`rerere`), repository-size-specific options such as `core.fsmonitor` and `core.untrackedCache`, plus version-sensitive conflict marker defaults such as `merge.conflictStyle = zdiff3`, out of the global baseline.
 
 ---
 
