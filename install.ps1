@@ -326,25 +326,40 @@ function Install-GitDefaults {
         return
     }
 
-    $defaults = @(
-        @{ Key = 'pull.rebase'; Value = 'true' }
-        @{ Key = 'rebase.autostash'; Value = 'true' }
-        @{ Key = 'core.editor'; Value = 'nano' }
-        @{ Key = 'init.defaultBranch'; Value = 'main' }
-        @{ Key = 'push.autoSetupRemote'; Value = 'true' }
-        @{ Key = 'fetch.prune'; Value = 'true' }
-        @{ Key = 'diff.colorMoved'; Value = 'zebra' }
-    )
-
     Write-Section 'Git defaults'
-    foreach ($default in $defaults) {
-        if ($DryRun) {
-            Write-Info "Would set $($default.Key) = $($default.Value)"
-        } else {
-            git config --global $default.Key $default.Value
-            Write-Info "$($default.Key) = $($default.Value)"
-        }
+    if ($DryRun) {
+        Write-Info "Would merge recommended Git defaults into global config."
+        return
     }
+
+    git config --global column.ui auto
+    # Show recently updated branches first.
+    git config --global branch.sort -committerdate
+    # Sort version-like tags naturally, e.g. v1.9 before v1.10.
+    git config --global tag.sort version:refname
+    git config --global pull.rebase true
+    git config --global commit.verbose true
+    git config --global rebase.autosquash true
+    git config --global rebase.autostash true
+    # Keep sibling local branches pointing at rewritten commits when rebasing.
+    git config --global rebase.updateRefs true
+    git config --global core.editor nano
+    git config --global init.defaultBranch main
+    # Histogram usually gives clearer hunks for moved or refactored code.
+    git config --global diff.algorithm histogram
+    git config --global diff.colorMoved plain
+    git config --global diff.mnemonicPrefix true
+    git config --global diff.renames true
+    git config --global push.default simple
+    git config --global push.autoSetupRemote true
+    git config --global push.followTags true
+    git config --global fetch.prune true
+    git config --global fetch.pruneTags true
+    # Keep all remotes fresh when fetching from any remote.
+    git config --global fetch.all true
+    # Ask before automatically running a corrected command.
+    git config --global help.autocorrect prompt
+    Write-Info "Merged recommended Git defaults into global config."
 }
 
 function Get-BackupFiles {
@@ -826,7 +841,7 @@ foreach ($profileTarget in $PowerShellProfileTargets.Shared) {
     Install-Profile -Source $WindowsProfileSource -Target $profileTarget
 }
 foreach ($profileShimTarget in $PowerShellProfileTargets.Host) {
-Install-ProfileShim -Target $profileShimTarget
+    Install-ProfileShim -Target $profileShimTarget
 }
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Install-GitDefaults
