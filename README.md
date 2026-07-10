@@ -112,8 +112,10 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * `./install.sh --copy` or `-c`: Copy files instead of creating symlinks (backs up existing files).
 * `./install.sh --force` or `-f`: Skip all prompts, assumes yes to optional installs and backup cleaning.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
+* `./install.sh --skip-tools`: Skip optional package managers and tool installation while keeping the normal dotfile and Git setup.
+* `./install.sh --brew-upgrade`: On macOS, upgrade the packages tracked by `macos/Brewfile`; the default bootstrap only installs missing packages.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
-* `./install.sh --uninstall`: Remove symlinks and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
+* `./install.sh --uninstall`: Remove symlinks, restore untouched Git defaults captured on first install, and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
 * `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME` (or preview removals in dry-run mode).
 
 ---
@@ -176,6 +178,7 @@ The public profile loads those overlays last, so they can override the shared de
   * Symlinks `git/global.gitignore` to `$HOME/.global.gitignore`.
   * Runs `git config --global core.excludesfile "$HOME/.global.gitignore"` to tell Git to use this file.
 * **Sets Git Defaults:** Merges recommended global Git settings into the existing user config without replacing the machine's `.gitconfig`. The baseline covers branch/tag sorting, rebase ergonomics, verbose commits, smarter diffs, push/fetch hygiene, `core.editor = nano`, and `init.defaultBranch = main`.
+  * The first install saves the previous values for these keys under `~/.config/dotfiles/installer-state`. `--uninstall` restores them unless a setting was changed after installation, in which case it leaves the newer value untouched.
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).
   * On macOS, the tool manifest lives in `macos/Brewfile`, the baseline defaults live in `macos/defaults.sh`, and the saved Dock layout lives in `macos/dock.sh`.
@@ -184,6 +187,7 @@ The public profile loads those overlays last, so they can override the shared de
   * Ensures `~/.local/bin` is on `PATH` (if the directory exists) so user-installed tools like `uv` and `swiftly` are available.
   * On Linux, `swiftly` is installed from the official Swift.org tarball flow and initialized with `--skip-install` to avoid installing a Swift toolchain by default.
   * On Linux, `swiftly` requires `gpg` for signature verification; the installer ensures `gnupg` is installed.
+  * On macOS, `brew bundle install` runs with `--no-upgrade` by default. Use `--brew-upgrade` to update managed dependencies, or Homebrew's `HOMEBREW_BUNDLE_BREW_SKIP`, `HOMEBREW_BUNDLE_CASK_SKIP`, `HOMEBREW_BUNDLE_MAS_SKIP`, and `HOMEBREW_BUNDLE_TAP_SKIP` environment variables for per-machine exclusions.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
 * **macOS Dock Layout:** The installer can also restore the saved Dock apps/folders from `macos/dock.sh` using `dockutil`.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
@@ -197,6 +201,8 @@ The public profile loads those overlays last, so they can override the shared de
   * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
 * **Optional Python Tooling:** Installs `uv` (Python tool and package manager). Optionally offers to install CPython 3.13 managed by `uv` with `python`/`python3` defaults (does not change your system `python`).
 * **Optional Swift Tooling:** Installs `swiftly` (Swift toolchain manager). Optionally offers to install the latest stable Swift toolchain via `swiftly`.
+
+Run `./scripts/health-check.sh --strict` after a standard installation to verify the managed shell files and global Git ignore configuration.
 
 ---
 
@@ -245,6 +251,7 @@ Other Linux distributions are not covered by the installer. You can adapt the sc
 * **Stats.app is blocked by Gatekeeper:** If Stats is installed via Homebrew but still refuses to open, run `sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/`.
 * **Inventory sync:** The companion `list-macOS-apps` repo can help snapshot installed Mac apps before you expand or prune `macos/Brewfile`.
 * **Warp on macOS:** Keep Warp outside `macos/Brewfile` and install/update it manually, because its built-in updater is less conflict-prone than managing the app through Homebrew.
+* **Homebrew ownership:** `brewup` updates formulae and standard casks. Use `brewupall` only when you intentionally want to include `:latest` and self-updating casks. Do not add `brew bundle cleanup` to the installer: it removes packages that are not in the Brewfile.
 * **Windows package baseline:** The public starter inventory lives in `windows/packages.psd1` and `windows/packages.optional.psd1`; treat them as curated baselines, not a dump of every installed Windows app.
 * **Windows package sources:** Use `winget` for GUI apps and for the CLI tools that are available there. Store-only apps that do not resolve reliably in `winget` should stay manual instead of making the bootstrap more fragile; `PC Manager` is one of those edge cases on some machines.
 * **Windows prompt assets:** the prompt uses the upstream `tokyo.omp.json` shipped with the `JanDeDobbeleer.OhMyPosh` package, `windows/terminal/settings.json` captures the minimal Terminal defaults, and `JetBrainsMono Nerd Font` is bootstrapped through the core `winget` manifest. The live profile points to the installed theme path, prefers the AppX install location when present, and caches the resolved folder under `AppData\Local` so the prompt stays straightforward.

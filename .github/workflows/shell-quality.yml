@@ -6,6 +6,12 @@ on:
       - master
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_install:
+        description: Run the full Linux installer, including optional tool bootstrap
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   lint-and-format:
@@ -106,3 +112,74 @@ jobs:
             type gl >/dev/null
             command -v codex-smoke >/dev/null
           '
+
+  installer-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install and uninstall without changing pre-existing Git settings
+        env:
+          HOME: ${{ runner.temp }}/dotfiles-lifecycle-home
+          SHELL: /bin/bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+          git config --global pull.rebase false
+          git config --global core.editor vim
+
+          ./install.sh --skip-tools --force
+          test "$(git config --global --get pull.rebase)" = true
+          test "$(git config --global --get core.editor)" = nano
+          test -L "$HOME/.shell_aliases"
+
+          ./install.sh --uninstall
+          test "$(git config --global --get pull.rebase)" = false
+          test "$(git config --global --get core.editor)" = vim
+          ! git config --global --get core.excludesfile >/dev/null 2>&1
+          test ! -e "$HOME/.shell_aliases"
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell sources and run the minimal dry-run
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sources = @('install.ps1', 'windows/profile.ps1')
+          foreach ($source in $sources) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $source),
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | Format-List | Out-String | Write-Error
+              exit 1
+            }
+          }
+
+          Import-PowerShellDataFile -Path windows/packages.psd1 | Out-Null
+          ./install.ps1 -DryRun -Minimal
+
+  full-install:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_install == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run the full Linux installer
+        env:
+          HOME: ${{ runner.temp }}/dotfiles-full-install-home
+          SHELL: /bin/bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+          ./install.sh --all --force

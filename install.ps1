@@ -4,7 +4,6 @@ param(
     [Alias('y')]
     [switch]$Force,
     [switch]$Minimal,
-    [switch]$Elevated,
     [switch]$CleanBackups
 )
 
@@ -35,12 +34,6 @@ function Write-Highlight {
 function Test-CommandExists {
     param([string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
-}
-
-function Test-Administrator {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 function Test-IsWindows {
@@ -212,34 +205,6 @@ function Copy-WithBackup {
         Copy-Item -LiteralPath $Source -Destination $Target -Force
         Write-Success "Copied $Source -> $Target"
     }
-}
-
-function Get-ForwardedArgs {
-    $argsOut = @()
-    if ($DryRun) { $argsOut += '-DryRun' }
-    if ($Force) { $argsOut += '-Force' }
-    if ($Minimal) { $argsOut += '-Minimal' }
-    if ($Elevated) { $argsOut += '-Elevated' }
-    if ($CleanBackups) { $argsOut += '-CleanBackups' }
-    return $argsOut
-}
-
-function Invoke-SelfElevated {
-    if (Test-Administrator) {
-        return
-    }
-
-    $scriptArgs = @(
-        '-NoProfile'
-        '-ExecutionPolicy'
-        'Bypass'
-        '-File'
-        $PSCommandPath
-    ) + (Get-ForwardedArgs)
-
-    Write-Info "Relaunching with UAC..."
-    Start-Process -FilePath 'powershell.exe' -ArgumentList $scriptArgs -Verb RunAs -Wait
-    exit 0
 }
 
 function Install-Profile {
@@ -883,8 +848,6 @@ if (Test-CommandExists winget) {
 } else {
     Write-Warning "winget not found; install App Installer if you want the Windows Store package manager."
 }
-Write-Info "Elevation helper: $(if (Test-CommandExists sudo) { 'sudo detected' } else { 'UAC runas' })"
-
 $manifests = @(Get-WindowsPackageManifestEntries)
 if ($manifests.Count -gt 0) {
     Write-WindowsPackageManifestSummary -Manifests $manifests
@@ -892,7 +855,7 @@ if ($manifests.Count -gt 0) {
     Write-Warning 'Curated Windows package manifests not found.'
 }
 
-    if (-not $Minimal) {
+if (-not $Minimal) {
     if ($manifests.Count -gt 0) {
         $coreManifests = @($manifests | Where-Object Name -eq 'Core')
         $optionalManifests = @($manifests | Where-Object Name -eq 'Optional')

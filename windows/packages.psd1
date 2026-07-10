@@ -9,6 +9,7 @@
         'DEVCOM.JetBrainsMonoNerdFont'
         'Microsoft.PowerShell'
         'Microsoft.WindowsTerminal'
+        'GNU.Nano'
         'OpenJS.NodeJS.LTS'
         '7zip.7zip'
         'sharkdp.bat'
