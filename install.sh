@@ -14,6 +14,7 @@ SKIP_GIT_CONFIG=false
 UNINSTALL_MODE=false
 SKIP_TOOLS=false
 BREW_UPGRADE=false
+SYNC_MODE=false
 for arg in "$@"; do
     case "$arg" in
         -dr | --dry-run)
@@ -38,6 +39,9 @@ for arg in "$@"; do
             ;;
         --brew-upgrade)
             BREW_UPGRADE=true
+            ;;
+        --sync)
+            SYNC_MODE=true
             ;;
         -h | --help)
             SHOW_HELP=true
@@ -64,6 +68,7 @@ if $SHOW_HELP; then
     echo "  -m,  --minimal         Install only core dotfiles (no extras or tools)"
     echo "      --skip-tools        Skip optional package managers and tool installation"
     echo "      --brew-upgrade      Upgrade Brewfile dependencies during macOS installation"
+    echo "      --sync              Reconcile dotfiles, shell setup, and Git defaults without tool installs or prompts"
     echo "  -cb, --clean-backups   Remove existing .bak.* files in \$HOME"
     echo "  -a,  --all             Automatically install all optional tools"
     echo "      --uninstall        Remove links and revert shell rc additions"
@@ -81,6 +86,11 @@ if $MINIMAL_MODE; then
     SKIP_GIT_CONFIG=true
     SKIP_FETCH=true
     SKIP_TOOLS=true
+fi
+
+if $SYNC_MODE; then
+    SKIP_TOOLS=true
+    SKIP_FETCH=true
 fi
 
 ### === Defaults & Constants ===
@@ -117,6 +127,7 @@ DOTFILES_HOME="$BASEDIR"
 MACOS_BREWFILE="$DOTFILES_HOME/macos/Brewfile"
 MACOS_DOCK_SCRIPT="$DOTFILES_HOME/macos/dock.sh"
 MACOS_DEFAULTS_SCRIPT="$DOTFILES_HOME/macos/defaults.sh"
+GIT_DEFAULTS_FILE="$DOTFILES_HOME/git/defaults.conf"
 GIT_CONFIG_STATE_DIR="$HOME/.config/dotfiles/installer-state"
 GIT_CONFIG_STATE_FILE="$GIT_CONFIG_STATE_DIR/git-config.before"
 
@@ -340,6 +351,35 @@ snapshot_git_config_value() {
     done < <(git config --global --get-all "$setting_key" 2>/dev/null || true)
 }
 
+git_config_setting_id() {
+    printf '%s' "$1" | tr '[:upper:].' '[:lower:]-'
+}
+
+for_each_git_default() {
+    local callback="$1"
+    shift
+    local setting_key
+    local setting_value
+    local callback_failed=false
+
+    while IFS='=' read -r setting_key setting_value; do
+        if [ -z "$setting_key" ] || [[ "$setting_key" == \#* ]]; then
+            continue
+        fi
+        if [ -z "$setting_value" ]; then
+            echo "❌ Invalid Git defaults entry: $setting_key" >&2
+            return 2
+        fi
+        if ! "$callback" "$@" "$setting_key" "$setting_value"; then
+            callback_failed=true
+        fi
+    done <"$GIT_DEFAULTS_FILE"
+
+    if $callback_failed; then
+        return 1
+    fi
+}
+
 snapshot_git_config_before_install() {
     if [ -f "$GIT_CONFIG_STATE_FILE" ]; then
         return
@@ -352,47 +392,33 @@ snapshot_git_config_before_install() {
 
     git config --file "$state_tmp" installer.version 1
     snapshot_git_config_value "$state_tmp" "core-excludesfile" "core.excludesfile"
-    snapshot_git_config_value "$state_tmp" "column-ui" "column.ui"
-    snapshot_git_config_value "$state_tmp" "branch-sort" "branch.sort"
-    snapshot_git_config_value "$state_tmp" "tag-sort" "tag.sort"
-    snapshot_git_config_value "$state_tmp" "pull-rebase" "pull.rebase"
-    snapshot_git_config_value "$state_tmp" "commit-verbose" "commit.verbose"
-    snapshot_git_config_value "$state_tmp" "rebase-autosquash" "rebase.autosquash"
-    snapshot_git_config_value "$state_tmp" "rebase-autostash" "rebase.autostash"
-    snapshot_git_config_value "$state_tmp" "rebase-updaterefs" "rebase.updateRefs"
-    snapshot_git_config_value "$state_tmp" "core-editor" "core.editor"
-    snapshot_git_config_value "$state_tmp" "init-defaultbranch" "init.defaultBranch"
-    snapshot_git_config_value "$state_tmp" "diff-algorithm" "diff.algorithm"
-    snapshot_git_config_value "$state_tmp" "diff-colormoved" "diff.colorMoved"
-    snapshot_git_config_value "$state_tmp" "diff-mnemonicprefix" "diff.mnemonicPrefix"
-    snapshot_git_config_value "$state_tmp" "diff-renames" "diff.renames"
-    snapshot_git_config_value "$state_tmp" "push-default" "push.default"
-    snapshot_git_config_value "$state_tmp" "push-autosetupremote" "push.autoSetupRemote"
-    snapshot_git_config_value "$state_tmp" "push-followtags" "push.followTags"
-    snapshot_git_config_value "$state_tmp" "fetch-prune" "fetch.prune"
-    snapshot_git_config_value "$state_tmp" "fetch-prunetags" "fetch.pruneTags"
-    snapshot_git_config_value "$state_tmp" "fetch-all" "fetch.all"
-    snapshot_git_config_value "$state_tmp" "help-autocorrect" "help.autocorrect"
+    for_each_git_default snapshot_git_config_value "$state_tmp"
 
     mv "$state_tmp" "$GIT_CONFIG_STATE_FILE"
 }
 
 configure_git_default() {
-    local setting_id="$1"
-    local setting_key="$2"
-    local setting_value="$3"
+    local setting_key="$1"
+    local setting_value="$2"
+    local setting_id
+    setting_id=$(git_config_setting_id "$setting_key")
 
     git config --global "$setting_key" "$setting_value"
     git config --file "$GIT_CONFIG_STATE_FILE" --replace-all "managed.$setting_id" "$setting_value"
 }
 
+configure_git_default_from_baseline() {
+    configure_git_default "$1" "$2"
+}
+
 restore_git_default() {
-    local setting_id="$1"
-    local setting_key="$2"
+    local setting_key="$1"
+    local setting_id
     local installed_value
     local current_value
     local snapshot_value
 
+    setting_id=$(git_config_setting_id "$setting_key")
     installed_value=$(git config --file "$GIT_CONFIG_STATE_FILE" --get "managed.$setting_id" 2>/dev/null || true)
     if [ -z "$installed_value" ]; then
         return
@@ -408,6 +434,10 @@ restore_git_default() {
     while IFS= read -r snapshot_value; do
         git config --global --add "$setting_key" "$snapshot_value"
     done < <(git config --file "$GIT_CONFIG_STATE_FILE" --get-all "snapshot.$setting_id" 2>/dev/null || true)
+}
+
+restore_git_default_from_baseline() {
+    restore_git_default "$1"
 }
 
 restore_git_config_before_install() {
@@ -427,28 +457,8 @@ restore_git_config_before_install() {
 
     local restore_failed=false
     echo "🔧 Restoring Git settings managed by the installer..."
-    restore_git_default "core-excludesfile" "core.excludesfile" || restore_failed=true
-    restore_git_default "column-ui" "column.ui" || restore_failed=true
-    restore_git_default "branch-sort" "branch.sort" || restore_failed=true
-    restore_git_default "tag-sort" "tag.sort" || restore_failed=true
-    restore_git_default "pull-rebase" "pull.rebase" || restore_failed=true
-    restore_git_default "commit-verbose" "commit.verbose" || restore_failed=true
-    restore_git_default "rebase-autosquash" "rebase.autosquash" || restore_failed=true
-    restore_git_default "rebase-autostash" "rebase.autostash" || restore_failed=true
-    restore_git_default "rebase-updaterefs" "rebase.updateRefs" || restore_failed=true
-    restore_git_default "core-editor" "core.editor" || restore_failed=true
-    restore_git_default "init-defaultbranch" "init.defaultBranch" || restore_failed=true
-    restore_git_default "diff-algorithm" "diff.algorithm" || restore_failed=true
-    restore_git_default "diff-colormoved" "diff.colorMoved" || restore_failed=true
-    restore_git_default "diff-mnemonicprefix" "diff.mnemonicPrefix" || restore_failed=true
-    restore_git_default "diff-renames" "diff.renames" || restore_failed=true
-    restore_git_default "push-default" "push.default" || restore_failed=true
-    restore_git_default "push-autosetupremote" "push.autoSetupRemote" || restore_failed=true
-    restore_git_default "push-followtags" "push.followTags" || restore_failed=true
-    restore_git_default "fetch-prune" "fetch.prune" || restore_failed=true
-    restore_git_default "fetch-prunetags" "fetch.pruneTags" || restore_failed=true
-    restore_git_default "fetch-all" "fetch.all" || restore_failed=true
-    restore_git_default "help-autocorrect" "help.autocorrect" || restore_failed=true
+    restore_git_default "core.excludesfile" || restore_failed=true
+    for_each_git_default restore_git_default_from_baseline || restore_failed=true
 
     if ! $restore_failed; then
         rm -f "$GIT_CONFIG_STATE_FILE"
@@ -805,37 +815,11 @@ if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
         GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
         if [ -f "$GIT_IGNORE_GLOBAL" ]; then
             echo "🔧 Configuring Git global ignore path..."
-            configure_git_default "core-excludesfile" "core.excludesfile" "$GIT_IGNORE_GLOBAL"
+            configure_git_default "core.excludesfile" "$GIT_IGNORE_GLOBAL"
         fi
 
         echo "🔧 Configuring global Git behavior..."
-        configure_git_default "column-ui" "column.ui" "auto"
-        # Show recently updated branches first.
-        configure_git_default "branch-sort" "branch.sort" "-committerdate"
-        # Sort version-like tags naturally, e.g. v1.9 before v1.10.
-        configure_git_default "tag-sort" "tag.sort" "version:refname"
-        configure_git_default "pull-rebase" "pull.rebase" "true"
-        configure_git_default "commit-verbose" "commit.verbose" "true"
-        configure_git_default "rebase-autosquash" "rebase.autosquash" "true"
-        configure_git_default "rebase-autostash" "rebase.autostash" "true"
-        # Keep sibling local branches pointing at rewritten commits when rebasing.
-        configure_git_default "rebase-updaterefs" "rebase.updateRefs" "true"
-        configure_git_default "core-editor" "core.editor" "nano"
-        configure_git_default "init-defaultbranch" "init.defaultBranch" "main"
-        # Histogram usually gives clearer hunks for moved or refactored code.
-        configure_git_default "diff-algorithm" "diff.algorithm" "histogram"
-        configure_git_default "diff-colormoved" "diff.colorMoved" "plain"
-        configure_git_default "diff-mnemonicprefix" "diff.mnemonicPrefix" "true"
-        configure_git_default "diff-renames" "diff.renames" "true"
-        configure_git_default "push-default" "push.default" "simple"
-        configure_git_default "push-autosetupremote" "push.autoSetupRemote" "true"
-        configure_git_default "push-followtags" "push.followTags" "true"
-        configure_git_default "fetch-prune" "fetch.prune" "true"
-        configure_git_default "fetch-prunetags" "fetch.pruneTags" "true"
-        # Keep all remotes fresh when fetching from any remote.
-        configure_git_default "fetch-all" "fetch.all" "true"
-        # Ask before automatically running a corrected command.
-        configure_git_default "help-autocorrect" "help.autocorrect" "prompt"
+        for_each_git_default configure_git_default_from_baseline
     else
         echo "⚠️  git not found; skipping global Git configuration for now."
     fi

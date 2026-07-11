@@ -40,6 +40,31 @@ function Test-IsWindows {
     return $env:OS -eq 'Windows_NT'
 }
 
+function Get-GitDefaults {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Missing Git defaults manifest at $Path."
+    }
+
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $entry = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($entry) -or $entry.StartsWith('#')) {
+            continue
+        }
+
+        $separator = $entry.IndexOf('=')
+        if ($separator -lt 1) {
+            throw "Invalid Git defaults entry: $line"
+        }
+
+        [pscustomobject]@{
+            Key   = $entry.Substring(0, $separator)
+            Value = $entry.Substring($separator + 1)
+        }
+    }
+}
+
 function Resolve-WindowsPackageEntry {
     param(
         [Parameter(Mandatory = $true)]
@@ -286,44 +311,23 @@ function Install-GitIgnore {
 }
 
 function Install-GitDefaults {
+    param([Parameter(Mandatory = $true)][string]$DefaultsPath)
+
     if (-not (Test-CommandExists git)) {
         Write-Warning "git not found; skipping global Git defaults."
         return
     }
 
     Write-Section 'Git defaults'
+    $defaults = @(Get-GitDefaults -Path $DefaultsPath)
     if ($DryRun) {
         Write-Info "Would merge recommended Git defaults into global config."
         return
     }
 
-    git config --global column.ui auto
-    # Show recently updated branches first.
-    git config --global branch.sort -committerdate
-    # Sort version-like tags naturally, e.g. v1.9 before v1.10.
-    git config --global tag.sort version:refname
-    git config --global pull.rebase true
-    git config --global commit.verbose true
-    git config --global rebase.autosquash true
-    git config --global rebase.autostash true
-    # Keep sibling local branches pointing at rewritten commits when rebasing.
-    git config --global rebase.updateRefs true
-    git config --global core.editor nano
-    git config --global init.defaultBranch main
-    # Histogram usually gives clearer hunks for moved or refactored code.
-    git config --global diff.algorithm histogram
-    git config --global diff.colorMoved plain
-    git config --global diff.mnemonicPrefix true
-    git config --global diff.renames true
-    git config --global push.default simple
-    git config --global push.autoSetupRemote true
-    git config --global push.followTags true
-    git config --global fetch.prune true
-    git config --global fetch.pruneTags true
-    # Keep all remotes fresh when fetching from any remote.
-    git config --global fetch.all true
-    # Ask before automatically running a corrected command.
-    git config --global help.autocorrect prompt
+    foreach ($default in $defaults) {
+        git config --global $default.Key $default.Value
+    }
     Write-Info "Merged recommended Git defaults into global config."
 }
 
@@ -784,6 +788,7 @@ $WindowsOptionalPackageManifest = Join-Path $RepoRoot 'windows/packages.optional
 $WindowsPrivatePackageExample = Join-Path $RepoRoot 'windows/packages.private.example.psd1'
 $WindowsTrafficMonitorConfigSource = Join-Path $RepoRoot 'windows/trafficmonitor/config.ini'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
+$GitDefaultsSource = Join-Path $RepoRoot 'git/defaults.conf'
 $PowerShellProfileTargets = Get-WindowsPowerShellProfileTargets
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
 $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
@@ -809,7 +814,7 @@ foreach ($profileShimTarget in $PowerShellProfileTargets.Host) {
     Install-ProfileShim -Target $profileShimTarget
 }
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
-Install-GitDefaults
+Install-GitDefaults -DefaultsPath $GitDefaultsSource
 Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
 if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
