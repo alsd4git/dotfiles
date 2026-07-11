@@ -133,6 +133,7 @@ jobs:
           test "$(git config --global --get pull.rebase)" = true
           test "$(git config --global --get core.editor)" = nano
           test -L "$HOME/.shell_aliases"
+          ./scripts/health-check.sh --strict
 
           ./install.sh --uninstall
           test "$(git config --global --get pull.rebase)" = false

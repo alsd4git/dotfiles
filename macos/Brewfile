@@ -2,6 +2,7 @@
 # Keep this list public and curated from the current Mac inventory.
 
 tap "jandedobbeleer/oh-my-posh"
+tap "darrylmorley/whatcable"
 tap "oven-sh/bun"
 tap "steipete/tap"
 
@@ -96,6 +97,7 @@ cask "upscayl"
 cask "wailbrew"
 cask "visual-studio-code"
 cask "wave"
+cask "whatcable"
 cask "zen"
 mas "Amphetamine", id: 937984704
 mas "Bitwarden", id: 1352778147

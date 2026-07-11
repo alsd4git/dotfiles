@@ -113,6 +113,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * `./install.sh --force` or `-f`: Skip all prompts, assumes yes to optional installs and backup cleaning.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --skip-tools`: Skip optional package managers and tool installation while keeping the normal dotfile and Git setup.
+* `./install.sh --sync`: Reconcile dotfiles, shell setup, and Git defaults without installing tools or adding optional startup commands.
 * `./install.sh --brew-upgrade`: On macOS, upgrade the packages tracked by `macos/Brewfile`; the default bootstrap only installs missing packages.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
 * `./install.sh --uninstall`: Remove symlinks, restore untouched Git defaults captured on first install, and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
@@ -177,7 +178,7 @@ The public profile loads those overlays last, so they can override the shared de
 * **Configures Global Git Ignore:**
   * Symlinks `git/global.gitignore` to `$HOME/.global.gitignore`.
   * Runs `git config --global core.excludesfile "$HOME/.global.gitignore"` to tell Git to use this file.
-* **Sets Git Defaults:** Merges recommended global Git settings into the existing user config without replacing the machine's `.gitconfig`. The baseline covers branch/tag sorting, rebase ergonomics, verbose commits, smarter diffs, push/fetch hygiene, `core.editor = nano`, and `init.defaultBranch = main`.
+* **Sets Git Defaults:** Merges the shared [`git/defaults.conf`](git/defaults.conf) baseline into the existing user config without replacing the machine's `.gitconfig`. It covers branch/tag sorting, rebase ergonomics, verbose commits, smarter diffs, push/fetch hygiene, `core.editor = nano`, and `init.defaultBranch = main`.
   * The first install saves the previous values for these keys under `~/.config/dotfiles/installer-state`. `--uninstall` restores them unless a setting was changed after installation, in which case it leaves the newer value untouched.
 * **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).

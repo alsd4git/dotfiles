@@ -10,6 +10,8 @@ elif [ -n "${1:-}" ]; then
     exit 2
 fi
 
+repo_root=$(cd "$(dirname "$0")/.." && pwd)
+git_defaults_file="$repo_root/git/defaults.conf"
 missing=0
 
 check_file() {
@@ -48,6 +50,33 @@ else
     if $strict; then
         missing=1
     fi
+fi
+
+if [ ! -f "$git_defaults_file" ]; then
+    printf 'missing: Git defaults manifest at %s\n' "$git_defaults_file" >&2
+    exit 2
+fi
+
+if command -v git >/dev/null 2>&1; then
+    while IFS='=' read -r setting_key setting_value; do
+        if [ -z "$setting_key" ] || [[ "$setting_key" == \#* ]]; then
+            continue
+        fi
+        if [ -z "$setting_value" ]; then
+            printf 'invalid: Git defaults entry %s\n' "$setting_key" >&2
+            exit 2
+        fi
+
+        actual_value=$(git config --global --get "$setting_key" 2>/dev/null || true)
+        if [ "$actual_value" = "$setting_value" ]; then
+            printf 'ok: git %s\n' "$setting_key"
+        else
+            printf 'warning: git %s is %s, expected %s\n' "$setting_key" "${actual_value:-unset}" "$setting_value" >&2
+            if $strict; then
+                missing=1
+            fi
+        fi
+    done <"$git_defaults_file"
 fi
 
 exit "$missing"
