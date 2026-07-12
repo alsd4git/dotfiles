@@ -1,7 +1,6 @@
 # Homebrew manifest for macOS machines bootstrapped by this repo.
 # Keep this list public and curated from the current Mac inventory.
 
-tap "jandedobbeleer/oh-my-posh"
 tap "darrylmorley/whatcable"
 tap "oven-sh/bun"
 tap "steipete/tap"

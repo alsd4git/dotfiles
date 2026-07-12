@@ -114,6 +114,7 @@ My personal dotfiles collection, designed for consistency across macOS and Debia
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --skip-tools`: Skip optional package managers and tool installation while keeping the normal dotfile and Git setup.
 * `./install.sh --sync`: Reconcile dotfiles, shell setup, and Git defaults without installing tools or adding optional startup commands.
+* `./install.sh --trust-brew-taps`: On macOS, explicitly trust every third-party tap declared in `macos/Brewfile` before installing packages.
 * `./install.sh --brew-upgrade`: On macOS, upgrade the packages tracked by `macos/Brewfile`; the default bootstrap only installs missing packages.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
 * `./install.sh --uninstall`: Remove symlinks, restore untouched Git defaults captured on first install, and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
@@ -129,6 +130,8 @@ The Windows path is intentionally smaller and currently focuses on PowerShell pr
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install.ps1
 ```
+
+Use `.\install.ps1 -Sync` to reconcile profiles and Git defaults without installing packages. Use `.\install.ps1 -RestoreGitDefaults` to restore the Git values saved before the first install; settings changed after installation are preserved.
 
 The Windows installer backs up any conflicting profile or Git ignore file as `.bak.<timestamp>` before copying the shared version into place, and it also creates the optional local overlay directory used by the public profile loader.
 
@@ -189,6 +192,7 @@ The public profile loads those overlays last, so they can override the shared de
   * On Linux, `swiftly` is installed from the official Swift.org tarball flow and initialized with `--skip-install` to avoid installing a Swift toolchain by default.
   * On Linux, `swiftly` requires `gpg` for signature verification; the installer ensures `gnupg` is installed.
   * On macOS, `brew bundle install` runs with `--no-upgrade` by default. Use `--brew-upgrade` to update managed dependencies, or Homebrew's `HOMEBREW_BUNDLE_BREW_SKIP`, `HOMEBREW_BUNDLE_CASK_SKIP`, `HOMEBREW_BUNDLE_MAS_SKIP`, and `HOMEBREW_BUNDLE_TAP_SKIP` environment variables for per-machine exclusions.
+  * Fresh Homebrew installations that enforce tap trust need `--trust-brew-taps` when the Brewfile contains third-party taps. The flag is deliberately explicit because it grants those taps permission to run their formulae and casks.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
 * **macOS Dock Layout:** The installer can also restore the saved Dock apps/folders from `macos/dock.sh` using `dockutil`.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.

@@ -169,6 +169,22 @@ jobs:
           Import-PowerShellDataFile -Path windows/packages.psd1 | Out-Null
           ./install.ps1 -DryRun -Minimal
 
+          $testHome = Join-Path $env:RUNNER_TEMP 'dotfiles-windows-lifecycle'
+          $env:HOME = $testHome
+          $env:GIT_CONFIG_GLOBAL = Join-Path $testHome 'gitconfig'
+          New-Item -ItemType Directory -Path $testHome -Force | Out-Null
+          git config --global diff.colorMoved zebra
+
+          ./install.ps1 -Sync
+          if ((git config --global --get diff.colorMoved) -ne 'plain') {
+            throw 'Sync did not apply the shared Git defaults.'
+          }
+
+          ./install.ps1 -RestoreGitDefaults
+          if ((git config --global --get diff.colorMoved) -ne 'zebra') {
+            throw 'RestoreGitDefaults did not restore the previous Git setting.'
+          }
+
   full-install:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_install == 'true'
     runs-on: ubuntu-latest
