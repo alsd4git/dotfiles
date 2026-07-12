@@ -381,6 +381,15 @@ snapshot_git_config_value() {
     done < <(git config --global --get-all "$setting_key" 2>/dev/null || true)
 }
 
+snapshot_git_default_from_baseline() {
+    local state_file="$1"
+    local setting_key="$2"
+    local setting_id
+
+    setting_id=$(git_config_setting_id "$setting_key")
+    snapshot_git_config_value "$state_file" "$setting_id" "$setting_key"
+}
+
 git_config_setting_id() {
     printf '%s' "$1" | tr '[:upper:].' '[:lower:]-'
 }
@@ -422,7 +431,7 @@ snapshot_git_config_before_install() {
 
     git config --file "$state_tmp" installer.version 1
     snapshot_git_config_value "$state_tmp" "core-excludesfile" "core.excludesfile"
-    for_each_git_default snapshot_git_config_value "$state_tmp"
+    for_each_git_default snapshot_git_default_from_baseline "$state_tmp"
 
     mv "$state_tmp" "$GIT_CONFIG_STATE_FILE"
 }
