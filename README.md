@@ -2,6 +2,10 @@
 
 My personal dotfiles collection, designed for consistency across macOS and Debian/Ubuntu systems using Bash or Zsh, with a separate Windows PowerShell preview path.
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ---
 
 ## ✨ Features
