@@ -4,7 +4,9 @@ param(
     [Alias('y')]
     [switch]$Force,
     [switch]$Minimal,
-    [switch]$CleanBackups
+    [switch]$CleanBackups,
+    [switch]$Sync,
+    [switch]$RestoreGitDefaults
 )
 
 Set-StrictMode -Version Latest
@@ -148,6 +150,125 @@ function Ensure-Directory {
         Write-Info "Would create directory $Path"
     } else {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    }
+}
+
+function Get-GitConfigValues {
+    param([Parameter(Mandatory = $true)][string]$Key)
+
+    return @(
+        git config --global --get-all $Key 2>$null |
+            ForEach-Object { [string]$_ }
+    )
+}
+
+function Get-StateValues {
+    param(
+        [Parameter(Mandatory = $true)][object]$Section,
+        [Parameter(Mandatory = $true)][string]$Key
+    )
+
+    $property = $Section.PSObject.Properties[$Key]
+    if ($null -eq $property) {
+        return @()
+    }
+
+    return @($property.Value | ForEach-Object { [string]$_ })
+}
+
+function Test-StringSequence {
+    param(
+        [string[]]$Actual,
+        [string[]]$Expected
+    )
+
+    if ($Actual.Count -ne $Expected.Count) {
+        return $false
+    }
+
+    for ($index = 0; $index -lt $Actual.Count; $index += 1) {
+        if ($Actual[$index] -ne $Expected[$index]) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Save-GitConfigState {
+    param(
+        [Parameter(Mandatory = $true)][string]$DefaultsPath,
+        [Parameter(Mandatory = $true)][string]$IgnoreTarget,
+        [Parameter(Mandatory = $true)][string]$StatePath
+    )
+
+    if (-not (Test-CommandExists git) -or (Test-Path -LiteralPath $StatePath)) {
+        return
+    }
+
+    Ensure-Directory -Path (Split-Path -Parent $StatePath)
+    $snapshot = [ordered]@{}
+    $managed = [ordered]@{ 'core.excludesfile' = @($IgnoreTarget) }
+    $keys = @('core.excludesfile')
+
+    foreach ($default in Get-GitDefaults -Path $DefaultsPath) {
+        $keys += $default.Key
+        $managed[$default.Key] = @($default.Value)
+    }
+
+    foreach ($key in $keys) {
+        $snapshot[$key] = @(Get-GitConfigValues -Key $key)
+    }
+
+    [pscustomobject]@{
+        Version  = 1
+        Snapshot = [pscustomobject]$snapshot
+        Managed  = [pscustomobject]$managed
+    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $StatePath -Encoding utf8
+}
+
+function Restore-GitConfigState {
+    param([Parameter(Mandatory = $true)][string]$StatePath)
+
+    if (-not (Test-Path -LiteralPath $StatePath)) {
+        Write-Info 'No saved Git defaults found.'
+        return
+    }
+
+    if ($DryRun) {
+        Write-Info 'Would restore Git defaults managed by this installer.'
+        return
+    }
+
+    if (-not (Test-CommandExists git)) {
+        Write-Warning 'git not found; leaving installer-managed Git defaults in place.'
+        return
+    }
+
+    $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
+    if ($state.Version -ne 1 -or $null -eq $state.Snapshot -or $null -eq $state.Managed) {
+        throw "Invalid Git defaults state at $StatePath."
+    }
+
+    $restoreFailed = $false
+    foreach ($managedProperty in $state.Managed.PSObject.Properties) {
+        $key = $managedProperty.Name
+        $expected = Get-StateValues -Section $state.Managed -Key $key
+        $current = Get-GitConfigValues -Key $key
+        if (-not (Test-StringSequence -Actual $current -Expected $expected)) {
+            Write-Warning "Keeping Git setting $key because it changed after installation."
+            $restoreFailed = $true
+            continue
+        }
+
+        git config --global --unset-all $key 2>$null
+        foreach ($value in Get-StateValues -Section $state.Snapshot -Key $key) {
+            git config --global --add $key $value
+        }
+    }
+
+    if (-not $restoreFailed) {
+        Remove-Item -LiteralPath $StatePath -Force
     }
 }
 
@@ -781,6 +902,14 @@ if (-not (Test-IsWindows)) {
     throw "install.ps1 is intended for Windows."
 }
 
+if ($Sync -and ($Minimal -or $Force -or $CleanBackups)) {
+    throw '-Sync cannot be combined with -Minimal, -Force, or -CleanBackups.'
+}
+
+if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) {
+    throw '-RestoreGitDefaults cannot be combined with installation options.'
+}
+
 $RepoRoot = Split-Path -Parent $PSCommandPath
 $WindowsProfileSource = Join-Path $RepoRoot 'windows/profile.ps1'
 $WindowsCorePackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
@@ -789,6 +918,7 @@ $WindowsPrivatePackageExample = Join-Path $RepoRoot 'windows/packages.private.ex
 $WindowsTrafficMonitorConfigSource = Join-Path $RepoRoot 'windows/trafficmonitor/config.ini'
 $GitIgnoreSource = Join-Path $RepoRoot 'git/global.gitignore'
 $GitDefaultsSource = Join-Path $RepoRoot 'git/defaults.conf'
+$GitConfigStatePath = Join-Path $HOME '.config\dotfiles\installer-state\git-config.before.windows.json'
 $PowerShellProfileTargets = Get-WindowsPowerShellProfileTargets
 $GitIgnoreTarget = Join-Path $HOME '.gitignore_global'
 $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
@@ -803,6 +933,12 @@ Write-Section "Windows dotfiles setup"
 Write-Info "Detected PowerShell edition: $($PSVersionTable.PSEdition)"
 Write-Info "Keeping PowerShell 5 and 7 profiles in sync."
 
+if ($RestoreGitDefaults) {
+    Write-Section 'Restore Git defaults'
+    Restore-GitConfigState -StatePath $GitConfigStatePath
+    exit 0
+}
+
 if (-not (Test-Path $WindowsProfileSource)) {
     throw "Missing Windows profile template at $WindowsProfileSource."
 }
@@ -812,6 +948,9 @@ foreach ($profileTarget in $PowerShellProfileTargets.Shared) {
 }
 foreach ($profileShimTarget in $PowerShellProfileTargets.Host) {
     Install-ProfileShim -Target $profileShimTarget
+}
+if (-not $DryRun) {
+    Save-GitConfigState -DefaultsPath $GitDefaultsSource -IgnoreTarget $GitIgnoreTarget -StatePath $GitConfigStatePath
 }
 Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Install-GitDefaults -DefaultsPath $GitDefaultsSource
@@ -860,7 +999,7 @@ if ($manifests.Count -gt 0) {
     Write-Warning 'Curated Windows package manifests not found.'
 }
 
-if (-not $Minimal) {
+if (-not $Minimal -and -not $Sync) {
     if ($manifests.Count -gt 0) {
         $coreManifests = @($manifests | Where-Object Name -eq 'Core')
         $optionalManifests = @($manifests | Where-Object Name -eq 'Optional')
@@ -914,7 +1053,7 @@ if (-not $Minimal) {
         }
     }
 } else {
-    Write-Info "Minimal mode: skipping package manager bootstrap."
+    Write-Info "Minimal or sync mode: skipping package manager bootstrap."
 }
 
 Write-WindowsAliasSummary

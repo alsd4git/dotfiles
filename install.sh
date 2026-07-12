@@ -15,6 +15,7 @@ UNINSTALL_MODE=false
 SKIP_TOOLS=false
 BREW_UPGRADE=false
 SYNC_MODE=false
+TRUST_BREW_TAPS=false
 for arg in "$@"; do
     case "$arg" in
         -dr | --dry-run)
@@ -43,6 +44,9 @@ for arg in "$@"; do
         --sync)
             SYNC_MODE=true
             ;;
+        --trust-brew-taps)
+            TRUST_BREW_TAPS=true
+            ;;
         -h | --help)
             SHOW_HELP=true
             ;;
@@ -53,7 +57,8 @@ for arg in "$@"; do
             UNINSTALL_MODE=true
             ;;
         *)
-            echo "❓ Unknown argument: $arg"
+            echo "❌ Unknown argument: $arg" >&2
+            exit 2
             ;;
     esac
 done
@@ -69,11 +74,22 @@ if $SHOW_HELP; then
     echo "      --skip-tools        Skip optional package managers and tool installation"
     echo "      --brew-upgrade      Upgrade Brewfile dependencies during macOS installation"
     echo "      --sync              Reconcile dotfiles, shell setup, and Git defaults without tool installs or prompts"
+    echo "      --trust-brew-taps   Explicitly trust every third-party tap declared in the Brewfile"
     echo "  -cb, --clean-backups   Remove existing .bak.* files in \$HOME"
     echo "  -a,  --all             Automatically install all optional tools"
     echo "      --uninstall        Remove links and revert shell rc additions"
     echo "  -h,  --help            Show this help message"
     exit 0
+fi
+
+if $SYNC_MODE && { $MINIMAL_MODE || $INSTALL_ALL || $FORCE_MODE || $BREW_UPGRADE || $CLEAN_BACKUPS || $TRUST_BREW_TAPS; }; then
+    echo "❌ --sync cannot be combined with --minimal, --all, --force, --brew-upgrade, --clean-backups, or --trust-brew-taps." >&2
+    exit 2
+fi
+
+if $UNINSTALL_MODE && { $COPY_MODE || $MINIMAL_MODE || $SKIP_TOOLS || $BREW_UPGRADE || $INSTALL_ALL || $SYNC_MODE || $TRUST_BREW_TAPS; }; then
+    echo "❌ --uninstall cannot be combined with installation-only options." >&2
+    exit 2
 fi
 
 if $FORCE_MODE; then
@@ -157,6 +173,11 @@ REQUIRED_TOOLS=(nano docker swift git)
 ### === Detect Environment ===
 OS="$(uname -s)"
 SHELL_NAME=$(basename "$SHELL")
+
+if $TRUST_BREW_TAPS && [ "$OS" != "Darwin" ]; then
+    echo "❌ --trust-brew-taps is only available on macOS." >&2
+    exit 2
+fi
 
 printf "\n🔍 Detected OS: %s\n" "$OS"
 printf "🔍 Detected Shell: %s\n" "$SHELL_NAME"
@@ -323,6 +344,15 @@ latest_nvm_tag() {
         | sed 's/\^{}//' \
         | sort -V \
         | tail -n1
+}
+
+trust_brewfile_taps() {
+    local tap
+
+    while IFS= read -r tap; do
+        echo "🔐 Trusting Homebrew tap: $tap"
+        brew trust --tap "$tap"
+    done < <(sed -nE 's/^[[:space:]]*tap[[:space:]]+"([^"]+)".*/\1/p' "$MACOS_BREWFILE")
 }
 
 apply_rc_lines() {
@@ -578,6 +608,11 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                         apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[1]}"
                         apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[1]}"
                     fi
+                fi
+
+                if $TRUST_BREW_TAPS; then
+                    phase_banner "Homebrew tap trust"
+                    trust_brewfile_taps
                 fi
 
                 phase_banner "Homebrew Bundle"
