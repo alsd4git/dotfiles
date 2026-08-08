@@ -25,14 +25,33 @@ check_file() {
     fi
 }
 
-check_file "$HOME/.shell_aliases"
-check_file "$HOME/.shell_functions"
-check_file "$HOME/.history_settings"
-check_file "$HOME/.omp_init"
-check_file "$HOME/.nanorc"
-check_file "$HOME/.git_aliases"
-check_file "$HOME/.git_functions"
-check_file "$HOME/.global.gitignore"
+check_managed_file() {
+    local path="$1"
+    local expected_target="$2"
+
+    check_file "$path"
+    if [ -L "$path" ]; then
+        local actual_target
+        actual_target=$(readlink "$path")
+        if [ "$actual_target" = "$expected_target" ]; then
+            printf 'ok: %s -> %s\n' "$path" "$expected_target"
+        else
+            printf 'warning: %s points to %s, expected %s\n' "$path" "$actual_target" "$expected_target" >&2
+            if $strict; then
+                missing=1
+            fi
+        fi
+    fi
+}
+
+check_managed_file "$HOME/.shell_aliases" "$repo_root/general/.aliases"
+check_managed_file "$HOME/.shell_functions" "$repo_root/general/.functions"
+check_managed_file "$HOME/.history_settings" "$repo_root/general/.history_settings"
+check_managed_file "$HOME/.omp_init" "$repo_root/general/.omp_init"
+check_managed_file "$HOME/.nanorc" "$repo_root/nano/.nanorc"
+check_managed_file "$HOME/.git_aliases" "$repo_root/git/.git_aliases"
+check_managed_file "$HOME/.git_functions" "$repo_root/git/.git_functions"
+check_managed_file "$HOME/.global.gitignore" "$repo_root/git/global.gitignore"
 
 if command -v git >/dev/null 2>&1; then
     expected_ignore="$HOME/.global.gitignore"

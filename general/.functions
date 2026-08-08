@@ -61,16 +61,39 @@ function nbk() {
 
 # ===== Network Monitoring =====
 function netuse() {
-    # Run any command while showing live network traffic on a given interface.
-    # Usage: netuse <command...>                  (defaults to eth0)
+    # Linux-only network monitor.  Commands are kept as an argument array so
+    # spaces and shell metacharacters retain their normal meaning.
+    # Usage: netuse <command...>                  (default route interface)
     #        netuse --iface tailscale0 <command...>
-    local iface="eth0"
-    if [[ "$1" == "--iface" ]]; then
+    if [[ "$(uname -s 2>/dev/null)" != "Linux" ]] || [ ! -r /proc/net/dev ]; then
+        echo "netuse is currently supported on Linux only (requires /proc/net/dev)." >&2
+        return 1
+    fi
+
+    local iface=""
+    if (($# > 0)) && [[ "$1" == "--iface" ]]; then
+        if (($# < 2)) || [[ -z "$2" ]]; then
+            echo "Usage: netuse [--iface IFACE] <command...>" >&2
+            return 1
+        fi
         iface="$2"
         shift 2
     fi
     if [[ $# -eq 0 ]]; then
         echo "Usage: netuse [--iface IFACE] <command...>"
+        return 1
+    fi
+
+    if [[ -z "$iface" ]]; then
+        if command -v ip >/dev/null 2>&1; then
+            iface=$(ip route show default 2>/dev/null | awk 'NR == 1 { print $5; exit }')
+        fi
+        if [[ -z "$iface" ]]; then
+            iface=$(awk '$2 == "00000000" { print $1; exit }' /proc/net/route)
+        fi
+    fi
+    if [[ -z "$iface" ]] || ! awk -v i="$iface:" '$1 == i { found = 1 } END { exit !found }' /proc/net/dev; then
+        echo "netuse: interface not found or no default route: ${iface:-<none>}" >&2
         return 1
     fi
 
@@ -95,7 +118,7 @@ function netuse() {
             printf "%d.%d KB/s" $((s / 1024)) $(((s % 1024) * 10 / 1024))
         else printf "%d B/s" "$s"; fi
     }
-    _get_rx() { awk -v i="$iface:" '$1==i{print $2}' /proc/net/dev; }
+    _get_rx() { awk -v i="$iface:" '$1 == i { print $2; exit }' /proc/net/dev; }
 
     local start_rx start_time
     start_rx=$(_get_rx)
@@ -105,32 +128,27 @@ function netuse() {
     echo -e "${dim}Interface: $iface | Refresh: ${interval}s${nc}"
     echo ""
 
-    # Expand alias if first argument is one
-    local cmd="$*"
-    if type -t "$1" 2>/dev/null | grep -q '^alias$'; then
-        local alias_val
-        alias_val=$(alias "$1" 2>/dev/null | sed "s/^alias [^=]*='//;s/'$//")
-        shift
-        cmd="$alias_val $*"
+    local tmpdir fifo cmd_pid
+    tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/netuse.XXXXXX") || return 1
+    fifo="$tmpdir/output"
+    if ! mkfifo "$fifo"; then
+        rmdir "$tmpdir" 2>/dev/null || true
+        return 1
     fi
 
-    local fifo
-    fifo=$(mktemp -u)
-    mkfifo "$fifo"
-
     (
-        eval "$cmd" 2>&1 | while IFS= read -r line; do
+        "$@" 2>&1 | while IFS= read -r line; do
             printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
         done
         echo "__DONE__"
     ) >"$fifo" &
+    cmd_pid=$!
 
-    # Open FIFO read-write so it never blocks on missing writer
-    exec 3<>"$fifo"
+    exec 3<"$fifo"
 
     local prev_rx prev_time
     prev_rx=$(_get_rx)
-    prev_time=$(date +%s%N)
+    prev_time=$(date +%s)
     local running=true
 
     while $running; do
@@ -144,12 +162,15 @@ function netuse() {
 
         local curr_rx curr_time dt
         curr_rx=$(_get_rx)
-        curr_time=$(date +%s%N)
-        dt=$(((curr_time - prev_time) / 1000000))
+        curr_time=$(date +%s)
+        dt=$((curr_time - prev_time))
         if ((dt > 0)); then
             local delta speed total elapsed
             delta=$((curr_rx - prev_rx))
-            speed=$((delta * 1000 / dt))
+            if ((delta < 0)); then
+                delta=0
+            fi
+            speed=$((delta / dt))
             total=$((curr_rx - start_rx))
             elapsed=$(($(date +%s) - start_time))
             printf "\r${yellow}[NET]${nc} ↓ %s  |  speed: %s  |  elapsed: %ds    " \
@@ -160,8 +181,9 @@ function netuse() {
     done
 
     exec 3<&-
-    wait 2>/dev/null
-    rm -f "$fifo"
+    wait "$cmd_pid" 2>/dev/null || true
+    rm -f -- "$fifo"
+    rmdir "$tmpdir" 2>/dev/null || true
 
     local total_rx total_time
     total_rx=$(($(_get_rx) - start_rx))

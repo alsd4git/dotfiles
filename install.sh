@@ -69,13 +69,13 @@ if $SHOW_HELP; then
     echo "Options:"
     echo "  -dr, --dry-run         Run in dry mode (no files modified)"
     echo "  -c,  --copy            Copy files instead of symlinking"
-    echo "  -f,  --force           Skip prompts and force all actions"
+    echo "  -f,  --force           Skip prompts and force optional installs (does not clean backups)"
     echo "  -m,  --minimal         Install only core dotfiles (no extras or tools)"
     echo "      --skip-tools        Skip optional package managers and tool installation"
     echo "      --brew-upgrade      Upgrade Brewfile dependencies during macOS installation"
     echo "      --sync              Reconcile dotfiles, shell setup, and Git defaults without tool installs or prompts"
     echo "      --trust-brew-taps   Explicitly trust every third-party tap declared in the Brewfile"
-    echo "  -cb, --clean-backups   Remove existing .bak.* files in \$HOME"
+    echo "  -cb, --clean-backups   Offer to remove backups created by this installer"
     echo "  -a,  --all             Automatically install all optional tools"
     echo "      --uninstall        Remove links and revert shell rc additions"
     echo "  -h,  --help            Show this help message"
@@ -94,7 +94,6 @@ fi
 
 if $FORCE_MODE; then
     INSTALL_ALL=true
-    CLEAN_BACKUPS=true
 fi
 
 if $MINIMAL_MODE; then
@@ -111,6 +110,12 @@ fi
 
 ### === Defaults & Constants ===
 UV_PYTHON_VERSION='3.13'
+NVM_VERSION="${DOTFILES_NVM_VERSION:-v0.40.4}"
+
+if [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "❌ DOTFILES_NVM_VERSION must be a semantic version tag such as v0.40.4." >&2
+    exit 2
+fi
 
 COMMON_RC_LINES=(
     "[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
@@ -146,6 +151,7 @@ MACOS_DEFAULTS_SCRIPT="$DOTFILES_HOME/macos/defaults.sh"
 GIT_DEFAULTS_FILE="$DOTFILES_HOME/git/defaults.conf"
 GIT_CONFIG_STATE_DIR="$HOME/.config/dotfiles/installer-state"
 GIT_CONFIG_STATE_FILE="$GIT_CONFIG_STATE_DIR/git-config.before"
+BACKUP_MANIFEST="$GIT_CONFIG_STATE_DIR/backups.list"
 
 SYMLINK_KEYS=(
     "$HOME/.shell_aliases"
@@ -197,6 +203,53 @@ add_to_rc_if_not_present() {
     fi
 }
 
+record_backup() {
+    local backup_path="$1"
+
+    mkdir -p "$GIT_CONFIG_STATE_DIR"
+    touch "$BACKUP_MANIFEST"
+    if ! grep -Fqx -- "$backup_path" "$BACKUP_MANIFEST"; then
+        printf '%s\n' "$backup_path" >>"$BACKUP_MANIFEST"
+    fi
+}
+
+backup_existing_path() {
+    local path="$1"
+    local backup_path
+    local counter=0
+
+    backup_path="${path}.bak.$(date +%s)"
+
+    while [ -e "$backup_path" ] || [ -L "$backup_path" ]; do
+        counter=$((counter + 1))
+        backup_path="${path}.bak.$(date +%s).$counter"
+    done
+
+    mv -- "$path" "$backup_path"
+    record_backup "$backup_path"
+    printf '%s\n' "$backup_path"
+}
+
+run_remote_script() {
+    local url="$1"
+    shift
+    local script status
+
+    script=$(mktemp "${TMPDIR:-/tmp}/dotfiles-download.XXXXXX")
+    if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$script" "$url"; then
+        rm -f "$script"
+        return 1
+    fi
+
+    if bash "$script" "$@"; then
+        status=0
+    else
+        status=$?
+    fi
+    rm -f "$script"
+    return "$status"
+}
+
 remove_from_rc_if_present() {
     local rc_file="${1/#\~/$HOME}"
     local line_to_remove="$2"
@@ -240,6 +293,48 @@ install_optional_apt_package() {
         else
             echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
         fi
+    fi
+}
+
+install_eza_from_apt_repository() {
+    local key_url="https://raw.githubusercontent.com/eza-community/eza/main/deb.asc"
+    local keyring="/etc/apt/keyrings/gierens.gpg"
+    local source_file="/etc/apt/sources.list.d/gierens.list"
+    local architecture key_tmp
+
+    if apt_package_installed eza; then
+        echo "✅ eza already installed"
+        return 0
+    fi
+
+    architecture=$(dpkg --print-architecture 2>/dev/null || true)
+    if [ -z "$architecture" ]; then
+        echo "⚠️  Cannot determine the Debian architecture; skipping eza."
+        return 0
+    fi
+
+    echo "📥 Configuring the official eza apt repository..."
+    key_tmp=$(mktemp "${TMPDIR:-/tmp}/eza-key.XXXXXX")
+    if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$key_tmp" "$key_url"; then
+        rm -f "$key_tmp"
+        echo "⚠️  Could not download the eza repository key; skipping eza."
+        return 0
+    fi
+
+    if ! sudo mkdir -p "$(dirname "$keyring")" || ! sudo gpg --dearmor --yes --output "$keyring" "$key_tmp"; then
+        rm -f "$key_tmp"
+        echo "⚠️  Could not install the eza repository key; skipping eza."
+        return 0
+    fi
+    rm -f "$key_tmp"
+    sudo chmod 0644 "$keyring"
+
+    printf 'deb [arch=%s signed-by=%s] http://deb.gierens.de stable main\n' \
+        "$architecture" "$keyring" | sudo tee "$source_file" >/dev/null
+    sudo chmod 0644 "$source_file"
+    sudo apt update
+    if ! sudo apt install -y eza; then
+        echo "⚠️  eza is unavailable from the official repository; skipping it."
     fi
 }
 
@@ -335,15 +430,6 @@ install_uv_python_version() {
     echo "⚠️  uv default executables require preview mode; falling back to Python $UV_PYTHON_VERSION without default executables."
     uv python install "$UV_PYTHON_VERSION" || true
     ensure_local_bin_on_path
-}
-
-# Get the latest nvm tag from GitHub (falls back silently on failure)
-latest_nvm_tag() {
-    git ls-remote --tags https://github.com/nvm-sh/nvm.git 2>/dev/null \
-        | awk -F/ '/refs\/tags\/v[0-9]/{print $3}' \
-        | sed 's/\^{}//' \
-        | sort -V \
-        | tail -n1
 }
 
 trust_brewfile_taps() {
@@ -566,16 +652,16 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         echo "🧪 Would $action $dest → $src"
     elif $COPY_MODE; then
         if [ -e "$dest" ] || [ -L "$dest" ]; then
-            mv "$dest" "$dest.bak.$(date +%s)"
-            echo "📦 Backed up $dest"
+            backup_path=$(backup_existing_path "$dest")
+            echo "📦 Backed up $dest -> $backup_path"
         fi
         cp -a "$src" "$dest"
         echo "📄 Copied $src → $dest"
     else
-        if [ -e "$dest" ]; then
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
             if [ ! -L "$dest" ] || [ "$(readlink "$dest")" != "$src" ]; then
-                mv "$dest" "$dest.bak.$(date +%s)"
-                echo "📦 Backed up existing $dest"
+                backup_path=$(backup_existing_path "$dest")
+                echo "📦 Backed up existing $dest -> $backup_path"
             fi
         fi
         ln -sf "$src" "$dest"
@@ -606,7 +692,10 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 if ! command -v brew >/dev/null; then
                     echo "🍺 Homebrew not found. Installing..."
-                    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                    if ! run_remote_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"; then
+                        echo "❌ Homebrew installation failed." >&2
+                        exit 1
+                    fi
                     # Initialize Homebrew in current session and future shells
                     if [ -x /opt/homebrew/bin/brew ]; then
                         eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -737,21 +826,14 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 # eza
                 if ! command -v eza >/dev/null; then
-                    echo "📥 Installing eza (apt or manual)..."
-                    if ! sudo apt install -y eza; then
-                        arch=$(dpkg --print-architecture 2>/dev/null || echo amd64)
-                        echo "   apt eza unavailable; attempting manual .deb for $arch"
-                        curl -LO "https://github.com/eza-community/eza/releases/latest/download/eza_${arch}.deb"
-                        sudo dpkg -i "eza_${arch}.deb" || true
-                        rm -f "eza_${arch}.deb"
-                    fi
+                    install_eza_from_apt_repository
                 fi
 
                 # oh-my-posh
                 if ! command -v oh-my-posh >/dev/null; then
                     echo "📥 Installing oh-my-posh..."
-                    echo "   Note: piping install scripts is potentially unsafe. Review https://ohmyposh.dev before proceeding."
-                    curl -s https://ohmyposh.dev/install.sh | bash -s -- -d ~/.local/bin -t ~/.cache/oh-my-posh/themes
+                    echo "   Downloading the official installer over HTTPS before execution."
+                    run_remote_script "https://ohmyposh.dev/install.sh" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"
                 fi
 
                 # fastfetch
@@ -777,8 +859,8 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 # uv (Python tool)
                 if ! command -v uv >/dev/null 2>&1; then
                     echo "📥 Installing uv (Python tooling)..."
-                    echo "   Note: piping install scripts is potentially unsafe. Review https://astral.sh/uv before proceeding."
-                    curl -LsSf https://astral.sh/uv/install.sh | sh
+                    echo "   Downloading the official installer over HTTPS before execution."
+                    run_remote_script "https://astral.sh/uv/install.sh"
                 else
                     echo "✅ uv already installed"
                 fi
@@ -873,8 +955,7 @@ fi
 if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
     if $FORCE_MODE; then want_nvm="y"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
     if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
-        NVM_TAG=$(latest_nvm_tag || true)
-        if [ -z "${NVM_TAG:-}" ]; then NVM_TAG="v0.39.7"; fi
+        NVM_TAG="$NVM_VERSION"
 
         if [ -d "$HOME/.nvm/.git" ]; then
             echo "🔄 Updating existing nvm to $NVM_TAG..."
@@ -882,8 +963,8 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
             git -C "$HOME/.nvm" checkout "$NVM_TAG" || true
         else
             echo "📦 Installing nvm ($NVM_TAG)..."
-            # Use official installer pinned to the resolved tag
-            curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" | bash
+            # Use the official installer pinned to the selected release tag.
+            run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh"
         fi
 
         # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
@@ -1016,12 +1097,21 @@ if [[ "$SHELL_NAME" == "bash" ]]; then
 fi
 
 if $CLEAN_BACKUPS; then
-    echo -e "\n🧹 Looking for backup files to remove in $HOME..."
+    echo -e "\n🧹 Looking for installer-created backup files to remove..."
     BACKUPS=()
-    for file in "$HOME"/*.bak.*; do
-        [ -e "$file" ] || continue
-        BACKUPS+=("$file")
-    done
+    if [ -f "$BACKUP_MANIFEST" ]; then
+        while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            # Ignore tampered/out-of-scope manifest entries and stale paths.
+            case "$file" in
+                "$HOME"/*.bak.*)
+                    if [ -e "$file" ] || [ -L "$file" ]; then
+                        BACKUPS+=("$file")
+                    fi
+                    ;;
+            esac
+        done <"$BACKUP_MANIFEST"
+    fi
 
     if [ ${#BACKUPS[@]} -eq 0 ]; then
         echo "✅ No backup files found."
@@ -1047,6 +1137,7 @@ if $CLEAN_BACKUPS; then
                     echo "🗑️  Removing $file"
                     rm -f "$file"
                 done
+                : >"$BACKUP_MANIFEST"
                 echo "✅ Done cleaning up backups."
             else
                 echo "❌ Skipped backup cleanup."
