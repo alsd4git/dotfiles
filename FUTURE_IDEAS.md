@@ -14,6 +14,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - CI already includes a clean-home uninstall lifecycle smoke test.
 - CI validates macOS defaults and Dock dry-runs on a macOS runner.
 - The manual full-install workflow has a timeout and uploads its log artifact for diagnosis.
+- The current macOS inventory was reviewed with `list-macOS-apps`; machine-specific and manual apps were intentionally not promoted into the public Brewfile.
 
 ## Active Backlog
 
@@ -24,7 +25,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P2 | planned | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
 | P2 | delivered | CI | Add a manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
-| P2 | planned | macOS / Inventory | Use `list-macOS-apps` snapshots to curate and expand `macos/Brewfile` with conservative casks and App Store entries. |
+| P2 | delivered | macOS / Inventory | Review `list-macOS-apps` snapshots before promoting conservative casks and App Store entries into `macos/Brewfile`. |
 | P2 | planned | Windows / PowerShell | Expand the curated Windows manifest only when a package has a clear public baseline value and does not pull in machine-specific globals. |
 | P2 | planned | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
 | P2 | planned | Python (uv) | Add a prompt to install `pipx` via `uv tool` and suggest common global tools such as `pre-commit`. |

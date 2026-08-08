@@ -1,5 +1,7 @@
 # Homebrew manifest for macOS machines bootstrapped by this repo.
 # Keep this list public and curated from the current Mac inventory.
+# Refresh with ../list-macOS-apps/list-installed-apps.sh, then promote only
+# stable tools with clear cross-machine value; leave personal/manual apps out.
 
 tap "darrylmorley/whatcable"
 tap "oven-sh/bun"

@@ -129,6 +129,20 @@ MIT. See [LICENSE](LICENSE).
 
 The Windows path is intentionally smaller and currently focuses on PowerShell profile setup plus package manager bootstrap.
 
+### Refreshing the macOS inventory
+
+The companion `list-macOS-apps` tool can produce a current snapshot without changing this repository:
+
+```bash
+mkdir -p /tmp/macos-inventory
+../list-macOS-apps/list-installed-apps.sh \
+  --with-formulae \
+  --export-json \
+  --output-dir /tmp/macos-inventory
+```
+
+Use the snapshot to review `macos/Brewfile`, but promote only stable, cross-machine tools. Manual applications, beta builds, browsers, personal services, and machine-specific SDKs should remain outside the public manifest unless they have an explicit baseline role.
+
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install.ps1
