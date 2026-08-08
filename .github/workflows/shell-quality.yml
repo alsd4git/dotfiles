@@ -3,6 +3,7 @@ name: Shell Quality
 on:
   push:
     branches:
+      - main
       - master
   pull_request:
   workflow_dispatch:
@@ -114,6 +115,9 @@ jobs:
             type l >/dev/null
             type gl >/dev/null
             command -v codex-smoke >/dev/null
+            ! netuse >/dev/null 2>&1
+            ! netuse --iface definitely-not-an-interface true >/dev/null 2>&1
+            netuse --iface lo printf "%s\\n" "hello world" >/dev/null
           '
 
   installer-lifecycle:
@@ -131,8 +135,16 @@ jobs:
           mkdir -p "$HOME"
           git config --global pull.rebase false
           git config --global core.editor vim
+          printf 'keep me\n' >"$HOME/foreign.bak.999"
+          printf 'legacy\n' >"$HOME/.shell_aliases"
 
           ./install.sh --skip-tools --force
+          test -f "$HOME/foreign.bak.999"
+          tracked_backup="$(find "$HOME" -maxdepth 1 -name '.shell_aliases.bak.*' -print -quit)"
+          test -n "$tracked_backup"
+          ./install.sh --clean-backups --force --skip-tools
+          test -f "$HOME/foreign.bak.999"
+          test ! -e "$tracked_backup"
           test "$(git config --global --get pull.rebase)" = true
           test "$(git config --global --get core.editor)" = nano
           test -L "$HOME/.shell_aliases"
@@ -141,7 +153,7 @@ jobs:
           ./install.sh --uninstall
           test "$(git config --global --get pull.rebase)" = false
           test "$(git config --global --get core.editor)" = vim
-          ! git config --global --get core.excludesfile >/dev/null 2>&1
+          if git config --global --get core.excludesfile >/dev/null 2>&1; then exit 1; fi
           test ! -e "$HOME/.shell_aliases"
 
   windows-smoke:

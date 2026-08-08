@@ -64,8 +64,6 @@ MIT. See [LICENSE](LICENSE).
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
 ├── windows/       # Minimal PowerShell profile for Windows
-│   ├── omp/
-│   │   └── tokyo.omp.json
 │   ├── packages.optional.psd1
 │   ├── packages.private.example.psd1
 │   ├── packages.psd1
@@ -114,7 +112,7 @@ MIT. See [LICENSE](LICENSE).
 * `./install.sh --help` or `-h`: Show help message.
 * `./install.sh --dry-run` or `-dr`: Show what would be done without making changes (no file writes, no deletions, no global Git config changes).
 * `./install.sh --copy` or `-c`: Copy files instead of creating symlinks (backs up existing files).
-* `./install.sh --force` or `-f`: Skip all prompts, assumes yes to optional installs and backup cleaning.
+* `./install.sh --force` or `-f`: Skip all prompts and assume yes to optional installs. Backup cleanup remains opt-in.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --skip-tools`: Skip optional package managers and tool installation while keeping the normal dotfile and Git setup.
 * `./install.sh --sync`: Reconcile dotfiles, shell setup, and Git defaults without installing tools or adding optional startup commands.
@@ -122,7 +120,7 @@ MIT. See [LICENSE](LICENSE).
 * `./install.sh --brew-upgrade`: On macOS, upgrade the packages tracked by `macos/Brewfile`; the default bootstrap only installs missing packages.
 * `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
 * `./install.sh --uninstall`: Remove symlinks, restore untouched Git defaults captured on first install, and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
-* `./install.sh --clean-backups` or `-cb`: Offer to remove old `.bak.*` files created by this script in `$HOME` (or preview removals in dry-run mode).
+* `./install.sh --clean-backups` or `-cb`: Offer to remove `.bak.*` files recorded as created by this installer (or preview removals in dry-run mode). Backups from other programs are never selected.
 
 ---
 
@@ -197,6 +195,8 @@ The public profile loads those overlays last, so they can override the shared de
   * On Linux, `swiftly` requires `gpg` for signature verification; the installer ensures `gnupg` is installed.
   * On macOS, `brew bundle install` runs with `--no-upgrade` by default. Use `--brew-upgrade` to update managed dependencies, or Homebrew's `HOMEBREW_BUNDLE_BREW_SKIP`, `HOMEBREW_BUNDLE_CASK_SKIP`, `HOMEBREW_BUNDLE_MAS_SKIP`, and `HOMEBREW_BUNDLE_TAP_SKIP` environment variables for per-machine exclusions.
   * Fresh Homebrew installations that enforce tap trust need `--trust-brew-taps` when the Brewfile contains third-party taps. The flag is deliberately explicit because it grants those taps permission to run their formulae and casks.
+  * Linux installs configure eza's official signed apt repository (`deb.gierens.de`) using the upstream GPG key; the installer does not download an unverified `latest` release `.deb`. The official Homebrew, Oh My Posh, uv, and nvm bootstrap scripts are downloaded over HTTPS to a temporary file before execution; nvm is downloaded from the selected release tag.
+  * Bootstrap version policy: `nvm` is pinned by default to `v0.40.4` (override with `DOTFILES_NVM_VERSION`); Homebrew, Oh My Posh, and uv intentionally follow their official bootstrap channels because they do not provide a stable distro package in this installer. Review those upstream channels before running optional installation on a new machine.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
 * **macOS Dock Layout:** The installer can also restore the saved Dock apps/folders from `macos/dock.sh` using `dockutil`.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
@@ -204,7 +204,7 @@ The public profile loads those overlays last, so they can override the shared de
 * **fzf & zoxide Initialization:** If installed, `zoxide` is initialized for your shell; `fzf` keybindings/completions are sourced when available.
 * **Swiftly Env:** On Linux, the installer adds a line to your shell rc to source `~/.local/share/swiftly/env.sh` (if present) so `swiftly` and installed toolchains are on `PATH`.
 * **PATH Cleanup:** The installer appends a snippet to remove duplicate entries from `PATH` while preserving order.
-* **Optional Node Tooling:** Offers to install or update `nvm` (Node Version Manager) to the latest released tag. If installed, your shell will source `~/.nvm/nvm.sh` automatically.
+* **Optional Node Tooling:** Offers to install or update `nvm` (Node Version Manager) to the pinned `v0.40.4` release. Set `DOTFILES_NVM_VERSION` explicitly when you want a different reviewed release. If installed, your shell will source `~/.nvm/nvm.sh` automatically.
   * If no Node is active via `nvm`, you can install the latest LTS and set it as default.
   * If a Node version is already active via `nvm`, the installer offers to switch to the latest LTS and set it as default, with a warning that global npm packages are per-version and won’t move automatically. To migrate them later, run: `nvm reinstall-packages <previous_version>`.
   * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
@@ -220,7 +220,7 @@ Run `./scripts/health-check.sh --strict` after a standard installation to verify
 * **Legacy Installer:** The `old_setup.sh` script uses a simple copy-and-backup method. It's kept for historical purposes but **`install.sh` is the recommended method**.
 * **Zsh Default:** If you use Zsh, ensure it's set as your default login shell: `chsh -s $(which zsh)`
 * **Private Aliases:** You can create a `~/.private_aliases` file to store personal aliases you don't want to commit to Git. The main alias file (`general/.aliases`) will automatically source it if it exists.
-* **Backups:** Old configuration files backed up by the script will have names like `~/.bashrc.bak.1678886400`. You can manually remove them (`rm ~/*.bak.*`) or use the `./install.sh --clean-backups` option.
+* **Backups:** Old configuration files backed up by the script will have names like `~/.bashrc.bak.1678886400`. The installer records these paths in its state directory; `./install.sh --clean-backups` only considers that manifest, so backups from other programs are left untouched.
 * **System Info:** The script can run `fastfetch` on startup if available. If `fastfetch` is not found, it falls back to trying `screenfetch`. Note that the installer only attempts to install `fastfetch`, not `screenfetch`.
 
 ---

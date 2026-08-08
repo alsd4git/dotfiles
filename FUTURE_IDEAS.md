@@ -9,6 +9,9 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - macOS now has a Brewfile manifest plus a small recommended defaults script wired into the installer.
 - Windows now has curated public package baselines in `windows/packages.psd1` and `windows/packages.optional.psd1`, plus installer output that summarizes them.
 - Windows package bootstrap is now idempotent and only installs missing baseline entries after confirmation.
+- The shell-quality workflow runs for pushes to `main` (and keeps `master` compatibility).
+- Installer backup cleanup is explicit and limited to backups recorded by the installer; `--force` no longer deletes files.
+- CI already includes a clean-home uninstall lifecycle smoke test.
 
 ## Active Backlog
 
@@ -26,9 +29,9 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P3 | planned | Swift (swiftly) | Add a helper to list and switch toolchains, plus an optional prompt for a specific version or channel. |
 | P3 | planned | Environment & Tools | Consider `direnv`, `pre-commit`, or `starship` as optional additions if they keep the config lean. |
 | P3 | planned | Windows / PowerShell | Add profile aliases/functions that match the reference Windows workflow without forcing Bash parity. |
-| P3 | planned | Windows / PowerShell | Add a clean Windows smoke test in CI once the PowerShell setup stabilizes. |
+| P3 | delivered | Windows / PowerShell | Add a clean Windows smoke test in CI once the PowerShell setup stabilizes. |
 | P3 | maybe | macOS / Brewfile UX | Add an interactive cask picker before `brew bundle install` so you can keep everything selected by default and prune with arrows/checkboxes only when needed. |
-| P3 | maybe | CI | Add an uninstall smoke test that installs, uninstalls, and asserts no managed files remain. |
+| P3 | delivered | CI | Add an uninstall smoke test that installs, uninstalls, and asserts no managed files remain. |
 | P3 | maybe | CLI Utilities | Evaluate `lazygit`, `tmux`/`zellij`, `yq`, `httpie`/`curlie`, `duf`/`dust`, `tldr`, and `tree`/`broot`. |
 | P3 | maybe | Zsh Plugins | Evaluate `zsh-autosuggestions` and `zsh-syntax-highlighting` only if startup cost stays low. |
 | P3 | maybe | Security & Keys | Guided SSH key generation plus `gh auth login`, and optional GPG signing setup. |
