@@ -46,7 +46,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
     exit 1
 fi
 
-if ! command -v dockutil >/dev/null 2>&1; then
+if ! $DRY_RUN && ! command -v dockutil >/dev/null 2>&1; then
     echo "❌ dockutil not found. Install Homebrew packages first." >&2
     exit 1
 fi

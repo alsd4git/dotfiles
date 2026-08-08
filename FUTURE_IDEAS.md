@@ -12,6 +12,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - The shell-quality workflow runs for pushes to `main` (and keeps `master` compatibility).
 - Installer backup cleanup is explicit and limited to backups recorded by the installer; `--force` no longer deletes files.
 - CI already includes a clean-home uninstall lifecycle smoke test.
+- CI validates macOS defaults and Dock dry-runs on a macOS runner.
 
 ## Active Backlog
 

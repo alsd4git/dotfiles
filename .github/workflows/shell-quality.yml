@@ -71,6 +71,18 @@ jobs:
           mkdir -p "$HOME"
           ./install.sh --dry-run --minimal
 
+  macos-dry-run:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate macOS defaults and Dock dry-runs
+        run: |
+          set -euo pipefail
+          ./macos/defaults.sh --dry-run --restart
+          ./macos/dock.sh --dry-run --restart
+
   smoke-install:
     runs-on: ubuntu-latest
     strategy:
