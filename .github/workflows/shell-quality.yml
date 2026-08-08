@@ -220,6 +220,7 @@ jobs:
   full-install:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_install == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -231,4 +232,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME"
-          ./install.sh --all --force
+          ./install.sh --all --force 2>&1 | tee "$RUNNER_TEMP/dotfiles-full-install.log"
+
+      - name: Upload full-install log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotfiles-full-install-log
+          path: ${{ runner.temp }}/dotfiles-full-install.log
+          if-no-files-found: warn

@@ -13,6 +13,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - Installer backup cleanup is explicit and limited to backups recorded by the installer; `--force` no longer deletes files.
 - CI already includes a clean-home uninstall lifecycle smoke test.
 - CI validates macOS defaults and Dock dry-runs on a macOS runner.
+- The manual full-install workflow has a timeout and uploads its log artifact for diagnosis.
 
 ## Active Backlog
 
@@ -22,7 +23,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P1 | planned | PATH & Shell Robustness | Auto-clean legacy PATH de-dup lines inserted by older installer versions during upgrade. |
 | P2 | planned | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
-| P2 | planned | CI | Add a scheduled or manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
+| P2 | delivered | CI | Add a manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
 | P2 | planned | macOS / Inventory | Use `list-macOS-apps` snapshots to curate and expand `macos/Brewfile` with conservative casks and App Store entries. |
 | P2 | planned | Windows / PowerShell | Expand the curated Windows manifest only when a package has a clear public baseline value and does not pull in machine-specific globals. |
 | P2 | planned | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
