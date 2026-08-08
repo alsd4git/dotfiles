@@ -150,8 +150,14 @@ jobs:
           git config --global core.pager less
           printf 'keep me\n' >"$HOME/foreign.bak.999"
           printf 'legacy\n' >"$HOME/.shell_aliases"
+          # shellcheck disable=SC2016
+          printf '# Remove duplicates from PATH\nexport PATH=$(echo "$PATH" | tr ":" "\\n" | awk "!seen[\\$0]++" | paste -sd:)\n' >"$HOME/.bashrc"
 
           ./install.sh --skip-tools --force
+          if grep -Fq '# Remove duplicates from PATH' "$HOME/.bashrc"; then exit 1; fi
+          # shellcheck disable=SC2016
+          if grep -Fq 'export PATH=$(echo "$PATH" | tr ":" "\\n" | awk "!seen[\\$0]++" | paste -sd:)' "$HOME/.bashrc"; then exit 1; fi
+          grep -Fq '# PATH de-dup (dotfiles installer)' "$HOME/.bashrc"
           test -f "$HOME/foreign.bak.999"
           tracked_backup="$(find "$HOME" -maxdepth 1 -name '.shell_aliases.bak.*' -print -quit)"
           test -n "$tracked_backup"

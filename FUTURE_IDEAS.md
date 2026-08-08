@@ -16,13 +16,14 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - The manual full-install workflow has a timeout and uploads its log artifact for diagnosis.
 - The current macOS inventory was reviewed with `list-macOS-apps`; machine-specific and manual apps were intentionally not promoted into the public Brewfile.
 - Delta configuration is now an explicit opt-in with conservative Git state restoration.
+- Legacy PATH de-duplication lines are migrated automatically during shell startup updates.
 
 ## Active Backlog
 
 | Priority | Status | Area | Idea |
 | --- | --- | --- | --- |
 | P1 | delivered | Git & Diffing | Make `delta` the default pager with a sane theme and side-by-side settings, gated behind an opt-in prompt. |
-| P1 | planned | PATH & Shell Robustness | Auto-clean legacy PATH de-dup lines inserted by older installer versions during upgrade. |
+| P1 | delivered | PATH & Shell Robustness | Auto-clean legacy PATH de-dup lines inserted by older installer versions during upgrade. |
 | P2 | planned | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
 | P2 | planned | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
 | P2 | delivered | CI | Add a manual full-install smoke test on clean Ubuntu to cover optional tool branches. |

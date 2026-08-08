@@ -142,6 +142,8 @@ HOMEBREW_RC_LINES=(
 
 PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
 BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
+LEGACY_PATH_DEDUP_MARKER='# Remove duplicates from PATH'
+LEGACY_PATH_DEDUP_LINE='export PATH=$(echo "$PATH" | tr ":" "\n" | awk "!seen[\$0]++" | paste -sd:)'
 
 DELTA_GIT_DEFAULTS=(
     "core.pager=delta"
@@ -274,6 +276,13 @@ remove_from_rc_if_present() {
             mv "$tmp_file" "$rc_file"
         fi
     fi
+}
+
+cleanup_legacy_path_dedup() {
+    local rc_file="$1"
+
+    remove_from_rc_if_present "$rc_file" "$LEGACY_PATH_DEDUP_MARKER"
+    remove_from_rc_if_present "$rc_file" "$LEGACY_PATH_DEDUP_LINE"
 }
 
 apt_package_installed() {
@@ -1105,6 +1114,7 @@ configure_shell_rc() {
     fi
 
     apply_rc_lines add "$rc_file" "${COMMON_RC_LINES[@]}"
+    cleanup_legacy_path_dedup "$rc_file"
     add_to_rc_if_not_present "$rc_file" "$PATH_DEDUP_MARKER"
     add_to_rc_if_not_present "$rc_file" "$path_dedup_line"
 
