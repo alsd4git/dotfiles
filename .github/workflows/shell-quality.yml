@@ -147,6 +147,7 @@ jobs:
           mkdir -p "$HOME"
           git config --global pull.rebase false
           git config --global core.editor vim
+          git config --global core.pager less
           printf 'keep me\n' >"$HOME/foreign.bak.999"
           printf 'legacy\n' >"$HOME/.shell_aliases"
 
@@ -159,12 +160,14 @@ jobs:
           test ! -e "$tracked_backup"
           test "$(git config --global --get pull.rebase)" = true
           test "$(git config --global --get core.editor)" = nano
+          test "$(git config --global --get core.pager)" = less
           test -L "$HOME/.shell_aliases"
           ./scripts/health-check.sh --strict
 
           ./install.sh --uninstall
           test "$(git config --global --get pull.rebase)" = false
           test "$(git config --global --get core.editor)" = vim
+          test "$(git config --global --get core.pager)" = less
           if git config --global --get core.excludesfile >/dev/null 2>&1; then exit 1; fi
           test ! -e "$HOME/.shell_aliases"
 

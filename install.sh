@@ -16,6 +16,7 @@ SKIP_TOOLS=false
 BREW_UPGRADE=false
 SYNC_MODE=false
 TRUST_BREW_TAPS=false
+OPTIONAL_INSTALL_APPROVED=false
 for arg in "$@"; do
     case "$arg" in
         -dr | --dry-run)
@@ -141,6 +142,15 @@ HOMEBREW_RC_LINES=(
 
 PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
 BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
+
+DELTA_GIT_DEFAULTS=(
+    "core.pager=delta"
+    "interactive.diffFilter=delta --color-only"
+    "delta.navigate=true"
+    "delta.dark=true"
+    "delta.side-by-side=true"
+    "delta.line-numbers=true"
+)
 
 ### === Define dotfiles ===
 BASEDIR=$(cd "$(dirname "$0")" && pwd)
@@ -467,6 +477,19 @@ snapshot_git_config_value() {
     done < <(git config --global --get-all "$setting_key" 2>/dev/null || true)
 }
 
+snapshot_git_config_key_if_missing() {
+    local state_file="$1"
+    local setting_key="$2"
+    local setting_id
+
+    setting_id=$(git_config_setting_id "$setting_key")
+    if git config --file "$state_file" --get-all "snapshot.$setting_id" >/dev/null 2>&1; then
+        return
+    fi
+
+    snapshot_git_config_value "$state_file" "$setting_id" "$setting_key"
+}
+
 snapshot_git_default_from_baseline() {
     local state_file="$1"
     local setting_key="$2"
@@ -536,6 +559,23 @@ configure_git_default_from_baseline() {
     configure_git_default "$1" "$2"
 }
 
+configure_delta_git() {
+    local setting_entry setting_key setting_value
+
+    if ! command -v delta >/dev/null 2>&1; then
+        return 0
+    fi
+
+    snapshot_git_config_before_install
+    for setting_entry in "${DELTA_GIT_DEFAULTS[@]}"; do
+        IFS='=' read -r setting_key setting_value <<<"$setting_entry"
+        snapshot_git_config_key_if_missing "$GIT_CONFIG_STATE_FILE" "$setting_key"
+        configure_git_default "$setting_key" "$setting_value"
+    done
+
+    echo "✅ Configured Git to use delta with navigation, side-by-side output, and line numbers."
+}
+
 restore_git_default() {
     local setting_key="$1"
     local setting_id
@@ -584,6 +624,11 @@ restore_git_config_before_install() {
     echo "🔧 Restoring Git settings managed by the installer..."
     restore_git_default "core.excludesfile" || restore_failed=true
     for_each_git_default restore_git_default_from_baseline || restore_failed=true
+    local delta_entry delta_key
+    for delta_entry in "${DELTA_GIT_DEFAULTS[@]}"; do
+        delta_key="${delta_entry%%=*}"
+        restore_git_default "$delta_key" || restore_failed=true
+    done
 
     if ! $restore_failed; then
         rm -f "$GIT_CONFIG_STATE_FILE"
@@ -682,6 +727,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
     fi
 
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
+        OPTIONAL_INSTALL_APPROVED=true
         echo -e "\n📦 Installing tools..."
 
         case "$OS" in
@@ -948,6 +994,13 @@ if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
         for_each_git_default configure_git_default_from_baseline
     else
         echo "⚠️  git not found; skipping global Git configuration for now."
+    fi
+fi
+
+if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $FORCE_MODE && ! $INSTALL_ALL && command -v delta >/dev/null 2>&1; then
+    read -r -p $'\n🎨 Configure delta as the Git pager with side-by-side diffs? [y/N]: ' configure_delta
+    if [[ "$configure_delta" =~ ^[Yy]$ ]]; then
+        configure_delta_git
     fi
 fi
 
