@@ -13,6 +13,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+$windowsPackageModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPackages.psm1'
+Import-Module -Name $windowsPackageModule -Force
+
 function Write-Section {
     param([string]$Message)
     Write-Host "`n🪟 $Message" -ForegroundColor Cyan
@@ -65,65 +68,6 @@ function Get-GitDefaults {
             Value = $entry.Substring($separator + 1)
         }
     }
-}
-
-function Resolve-WindowsPackageEntry {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object]$PackageEntry,
-        [Parameter(Mandatory = $true)]
-        [string]$Manager
-    )
-
-    if ($PackageEntry -is [string]) {
-        return [pscustomobject]@{
-            Name   = $PackageEntry
-            Id     = $PackageEntry
-            Source = if ($Manager -eq 'Winget') { 'winget' } else { $null }
-        }
-    }
-
-    $entry = if ($PackageEntry -is [hashtable]) { [pscustomobject]$PackageEntry } else { $PackageEntry }
-    $id = $entry.Id
-    if ([string]::IsNullOrWhiteSpace($id)) {
-        $id = $entry.PackageId
-    }
-    if ([string]::IsNullOrWhiteSpace($id)) {
-        $id = $entry.Name
-    }
-
-    $name = $entry.Name
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        $name = $entry.DisplayName
-    }
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        $name = $id
-    }
-
-    $source = $entry.Source
-    if ($Manager -eq 'Winget' -and [string]::IsNullOrWhiteSpace($source)) {
-        $source = 'winget'
-    }
-
-    return [pscustomobject]@{
-        Name   = $name
-        Id     = $id
-        Source = $source
-    }
-}
-
-function Format-WindowsPackageEntry {
-    param([object]$Package)
-
-    if ($null -eq $Package) {
-        return ''
-    }
-
-    if ([string]::IsNullOrWhiteSpace($Package.Source) -or $Package.Source -eq 'winget') {
-        return $Package.Name
-    }
-
-    return "$($Package.Name) [$($Package.Source):$($Package.Id)]"
 }
 
 function Ensure-ParentDirectory {
@@ -502,31 +446,6 @@ function Remove-BackupFiles {
     }
 }
 
-function Resolve-WindowsPackageManifestPath {
-    param(
-        [string[]]$EnvironmentVariables,
-        [string]$LocalPath,
-        [string]$SourcePath
-    )
-
-    foreach ($environmentVariable in $EnvironmentVariables) {
-        $environmentValue = [Environment]::GetEnvironmentVariable($environmentVariable)
-        if (-not [string]::IsNullOrWhiteSpace($environmentValue) -and (Test-Path -LiteralPath $environmentValue)) {
-            return $environmentValue
-        }
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($SourcePath) -and (Test-Path -LiteralPath $SourcePath)) {
-        return $SourcePath
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($LocalPath) -and (Test-Path -LiteralPath $LocalPath)) {
-        return $LocalPath
-    }
-
-    return $null
-}
-
 function Resolve-WindowsTerminalSettingsPath {
     $packageRoots = @(
         Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
@@ -561,115 +480,7 @@ function Get-WindowsPackageManifestEntries {
     $repoRoot = Split-Path -Parent $PSCommandPath
     $windowsRoot = Join-Path $repoRoot 'windows'
     $localRoot = Join-Path $HOME '.config\dotfiles\windows'
-
-    $manifestSpecs = @(
-        [pscustomobject]@{
-            Name       = 'Core'
-            Env        = @('DOTFILES_WINDOWS_PACKAGE_MANIFEST', 'DOTFILES_WINDOWS_PACKAGE_CORE_MANIFEST')
-            LocalPath  = Join-Path $localRoot 'packages.psd1'
-            SourcePath = Join-Path $windowsRoot 'packages.psd1'
-        }
-        [pscustomobject]@{
-            Name       = 'Optional'
-            Env        = @('DOTFILES_WINDOWS_PACKAGE_OPTIONAL_MANIFEST')
-            LocalPath  = Join-Path $localRoot 'packages.optional.psd1'
-            SourcePath = Join-Path $windowsRoot 'packages.optional.psd1'
-        }
-        [pscustomobject]@{
-            Name       = 'Private'
-            Env        = @('DOTFILES_WINDOWS_PACKAGE_PRIVATE_MANIFEST')
-            LocalPath  = Join-Path $localRoot 'packages.private.psd1'
-            SourcePath = $null
-        }
-    )
-
-    $manifests = @()
-
-    foreach ($spec in $manifestSpecs) {
-        $resolvedPath = Resolve-WindowsPackageManifestPath -EnvironmentVariables $spec.Env -LocalPath $spec.LocalPath -SourcePath $spec.SourcePath
-        if ([string]::IsNullOrWhiteSpace($resolvedPath)) {
-            continue
-        }
-
-        try {
-            $data = Import-PowerShellDataFile -LiteralPath $resolvedPath
-        } catch {
-            Write-Warning "Unable to load $($spec.Name) package manifest: $resolvedPath"
-            continue
-        }
-
-        $manifests += [pscustomobject]@{
-            Name = $spec.Name
-            Path = $resolvedPath
-            Data = $data
-        }
-    }
-
-    return $manifests
-}
-
-function Test-WingetPackageInstalled {
-    param(
-        [Parameter(Mandatory = $true)][string]$PackageId,
-        [string]$Source = 'winget'
-    )
-
-    $sourceName = if ([string]::IsNullOrWhiteSpace($Source)) { 'winget' } else { $Source }
-
-    if ($sourceName -eq 'winget') {
-        $installedIds = Get-WingetInstalledPackageIds
-        if (@($installedIds) -contains $PackageId) {
-            return $true
-        }
-    }
-
-    if (-not (Test-CommandExists winget)) {
-        return $false
-    }
-
-    & winget list --id $PackageId --exact --source $sourceName --accept-source-agreements *> $null
-    if ($LASTEXITCODE -eq 0) {
-        if ($sourceName -eq 'winget') {
-            $installedIds = Get-WingetInstalledPackageIds
-            $script:WingetInstalledPackageIds = @($installedIds + $PackageId | Sort-Object -Unique)
-        }
-        return $true
-    }
-
-    return $false
-}
-
-function Get-WingetInstalledPackageIds {
-    if (-not (Test-CommandExists winget)) {
-        return @()
-    }
-
-    if (Get-Variable -Scope Script -Name WingetInstalledPackageIds -ErrorAction SilentlyContinue) {
-        return $script:WingetInstalledPackageIds
-    }
-
-    $tempFile = Join-Path $env:TEMP "dotfiles-winget-export-$PID.json"
-    if (Test-Path -LiteralPath $tempFile) {
-        Remove-Item -LiteralPath $tempFile -Force
-    }
-
-    & winget export -o $tempFile --source winget --include-versions --accept-source-agreements *> $null
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $tempFile)) {
-        $script:WingetInstalledPackageIds = @()
-        return @()
-    }
-
-    try {
-        $export = Get-Content -LiteralPath $tempFile -Raw | ConvertFrom-Json
-        $ids = $export.Sources.Packages.PackageIdentifier | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        $script:WingetInstalledPackageIds = @($ids | Sort-Object -Unique)
-    } catch {
-        $script:WingetInstalledPackageIds = @()
-    } finally {
-        Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
-    }
-
-    return $script:WingetInstalledPackageIds
+    return @(Dotfiles.WindowsPackages\Get-WindowsPackageManifestEntries -WindowsRoot $windowsRoot -LocalRoot $localRoot)
 }
 
 function Get-NpmGlobalRoot {
@@ -912,6 +723,7 @@ if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) 
 
 $RepoRoot = Split-Path -Parent $PSCommandPath
 $WindowsProfileSource = Join-Path $RepoRoot 'windows/profile.ps1'
+$WindowsPackageModuleSource = Join-Path $RepoRoot 'windows/Dotfiles.WindowsPackages.psm1'
 $WindowsCorePackageManifest = Join-Path $RepoRoot 'windows/packages.psd1'
 $WindowsOptionalPackageManifest = Join-Path $RepoRoot 'windows/packages.optional.psd1'
 $WindowsPrivatePackageExample = Join-Path $RepoRoot 'windows/packages.private.example.psd1'
@@ -925,6 +737,7 @@ $WindowsConfigRoot = Join-Path $HOME '.config\dotfiles\windows'
 $WindowsTerminalSettingsSource = Join-Path $RepoRoot 'windows\terminal\settings.json'
 $WindowsTerminalSettingsTarget = Resolve-WindowsTerminalSettingsPath
 $WindowsCorePackageTarget = Join-Path $WindowsConfigRoot 'packages.psd1'
+$WindowsPackageModuleTarget = Join-Path $WindowsConfigRoot 'Dotfiles.WindowsPackages.psm1'
 $WindowsOptionalPackageTarget = Join-Path $WindowsConfigRoot 'packages.optional.psd1'
 $WindowsPrivatePackageTarget = Join-Path $WindowsConfigRoot 'packages.private.psd1'
 $WindowsOverlayDir = Join-Path $HOME '.config\dotfiles\windows\profile.d'
@@ -942,6 +755,9 @@ if ($RestoreGitDefaults) {
 if (-not (Test-Path $WindowsProfileSource)) {
     throw "Missing Windows profile template at $WindowsProfileSource."
 }
+if (-not (Test-Path $WindowsPackageModuleSource)) {
+    throw "Missing Windows package module at $WindowsPackageModuleSource."
+}
 
 foreach ($profileTarget in $PowerShellProfileTargets.Shared) {
     Install-Profile -Source $WindowsProfileSource -Target $profileTarget
@@ -956,6 +772,7 @@ Install-GitIgnore -Source $GitIgnoreSource -Target $GitIgnoreTarget
 Install-GitDefaults -DefaultsPath $GitDefaultsSource
 Ensure-Directory -Path $WindowsConfigRoot
 Copy-WithBackup -Source $WindowsCorePackageManifest -Target $WindowsCorePackageTarget
+Copy-WithBackup -Source $WindowsPackageModuleSource -Target $WindowsPackageModuleTarget
 if (Test-Path -LiteralPath $WindowsOptionalPackageManifest) {
     Copy-WithBackup -Source $WindowsOptionalPackageManifest -Target $WindowsOptionalPackageTarget
 }

@@ -166,7 +166,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $sources = @('install.ps1', 'windows/profile.ps1')
+          $sources = @('install.ps1', 'windows/profile.ps1', 'windows/Dotfiles.WindowsPackages.psm1')
           foreach ($source in $sources) {
             $tokens = $null
             $errors = $null
@@ -182,6 +182,11 @@ jobs:
           }
 
           Import-PowerShellDataFile -Path windows/packages.psd1 | Out-Null
+          Import-Module (Resolve-Path windows/Dotfiles.WindowsPackages.psm1) -Force
+          $entry = Resolve-WindowsPackageEntry -PackageEntry 'eza-community.eza' -Manager Winget
+          if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
+            throw 'Shared package entry normalization failed.'
+          }
           ./install.ps1 -DryRun -Minimal
 
           $testHome = Join-Path $env:RUNNER_TEMP 'dotfiles-windows-lifecycle'

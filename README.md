@@ -64,6 +64,7 @@ MIT. See [LICENSE](LICENSE).
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
 ├── windows/       # Minimal PowerShell profile for Windows
+│   ├── Dotfiles.WindowsPackages.psm1
 │   ├── packages.optional.psd1
 │   ├── packages.private.example.psd1
 │   ├── packages.psd1
@@ -142,6 +143,8 @@ It also applies the same recommended global Git defaults as the Bash/Zsh install
 There is also a tracked example at `windows/profile.local.example.ps1` you can copy or adapt for local-only tweaks.
 
 The installer copies the curated Windows package baseline into `~\.config\dotfiles\windows\packages.psd1` and the optional extras into `~\.config\dotfiles\windows\packages.optional.psd1`, so the shared manifests stay available even after the repo is moved or not mounted.
+
+Winget manifest normalization, manifest discovery, and installed-package detection live in `windows/Dotfiles.WindowsPackages.psm1`; the installer and copied profile both use that module to keep package state interpretation consistent.
 
 There is also a tracked template at `windows/packages.private.example.psd1` that can be copied to `~\.config\dotfiles\windows\packages.private.psd1` for local-only package entries.
 
