@@ -63,6 +63,10 @@ MIT. See [LICENSE](LICENSE).
 │   ├── dock.sh
 │   └── defaults.sh
 ├── nano/          # Nano text editor configuration
+├── scripts/       # Installer health checks and tool manifest
+│   ├── health-check.sh
+│   ├── tool-health-check.sh
+│   └── tool-health.json
 ├── windows/       # Minimal PowerShell profile for Windows
 │   ├── Dotfiles.WindowsPackages.psm1
 │   ├── packages.optional.psd1
@@ -228,8 +232,11 @@ The public profile loads those overlays last, so they can override the shared de
   * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
 * **Optional Python Tooling:** Installs `uv` (Python tool and package manager). Optionally offers to install CPython 3.13 managed by `uv` with `python`/`python3` defaults (does not change your system `python`).
 * **Optional Swift Tooling:** Installs `swiftly` (Swift toolchain manager). Optionally offers to install the latest stable Swift toolchain via `swiftly`.
+* **GitHub CLI Authentication:** After optional tools are approved, if `gh` is installed and not authenticated, the installer offers an interactive [`gh auth login`](https://cli.github.com/manual/gh_auth_login). It never starts authentication in `--force`, `--all`, `--minimal`, `--sync`, dry-run, or non-interactive runs. After a successful login it prints optional commands for [`gh auth setup-git`](https://cli.github.com/manual/gh_auth_setup-git) and SSH/GPG signing-key setup.
 
 Run `./scripts/health-check.sh --strict` after a standard installation to verify the managed shell files and global Git ignore configuration.
+
+Run `./scripts/tool-health-check.sh` to inspect the availability and reported versions of the curated Git, JSON, editor, GitHub, Python, and Swift tools. Add `--strict` when missing optional tools or failed version commands should fail the check.
 
 ---
 
@@ -301,6 +308,7 @@ After installation, a quick smoke check is:
 ```bash
 command -v git nano fzf zoxide uv swiftly gh
 git config --global --get core.excludesfile
+./scripts/tool-health-check.sh
 ```
 
 If you use Zsh, open a new interactive shell and confirm that `aa`, `l`, `gl`, and `myip` are available.

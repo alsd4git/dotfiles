@@ -379,6 +379,39 @@ report_macos_sudo_touch_id_status() {
     echo "   3. Test with: sudo -k && sudo -v"
 }
 
+offer_github_authentication() {
+    if ! command -v gh >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if gh auth status --hostname github.com >/dev/null 2>&1; then
+        echo "✅ GitHub CLI is already authenticated on github.com"
+        return 0
+    fi
+
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        echo "ℹ️  gh is not authenticated. Run 'gh auth login' from an interactive shell when ready."
+        return 0
+    fi
+
+    local configure_gh_auth
+    read -r -p $'\n🐙 Authenticate GitHub CLI with gh auth login? [y/N]: ' configure_gh_auth || return 0
+    if [[ ! "$configure_gh_auth" =~ ^[Yy]$ ]]; then
+        echo "ℹ️  Skipping GitHub CLI authentication. Run 'gh auth login' later when ready."
+        return 0
+    fi
+
+    if gh auth login; then
+        echo "✅ GitHub CLI authentication completed."
+        echo "ℹ️  Configure Git to use gh credentials with: gh auth setup-git"
+        echo "ℹ️  Add an SSH authentication key with: gh ssh-key add ~/.ssh/<key>.pub --type authentication"
+        echo "ℹ️  Add an SSH signing key with: gh ssh-key add ~/.ssh/<key>.pub --type signing"
+        echo "ℹ️  Add a GPG signing key with: gh gpg-key add <public-key-file>"
+    else
+        echo "⚠️  GitHub CLI authentication was not completed; you can retry with: gh auth login"
+    fi
+}
+
 ensure_macos_xcode_tools() {
     local developer_dir xcode_version xcode_line
 
@@ -731,7 +764,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
         if [[ "$OS" == "Darwin" ]]; then
             read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings + Dock layout)? [y/N]: ' do_install
         else
-            read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly)? [y/N]: ' do_install
+            read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly, gh)? [y/N]: ' do_install
         fi
     fi
 
@@ -1011,6 +1044,10 @@ if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN 
     if [[ "$configure_delta" =~ ^[Yy]$ ]]; then
         configure_delta_git
     fi
+fi
+
+if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $FORCE_MODE && ! $INSTALL_ALL; then
+    offer_github_authentication
 fi
 
 ### === Optional NVM Install ===

@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "git", "command": "git", "version_args": ["--version"], "required": true},
+    {"name": "jq", "command": "jq", "version_args": ["--version"], "required": true},
+    {"name": "nano", "command": "nano", "version_args": ["--version"], "required": false},
+    {"name": "gh", "command": "gh", "version_args": ["--version"], "required": false},
+    {"name": "uv", "command": "uv", "version_args": ["--version"], "required": false},
+    {"name": "swiftly", "command": "swiftly", "version_args": ["--version"], "required": false}
+  ]
+}

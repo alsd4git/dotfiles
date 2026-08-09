@@ -33,6 +33,8 @@ jobs:
         run: |
           shellcheck -x \
             install.sh \
+            scripts/health-check.sh \
+            scripts/tool-health-check.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -47,6 +49,8 @@ jobs:
         run: |
           shfmt -d -i 4 -ci -bn \
             install.sh \
+            scripts/health-check.sh \
+            scripts/tool-health-check.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -70,6 +74,20 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME"
           ./install.sh --dry-run --minimal
+
+  tool-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Check curated tool versions
+        run: ./scripts/tool-health-check.sh
 
   macos-dry-run:
     runs-on: macos-latest
