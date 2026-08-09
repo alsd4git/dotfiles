@@ -19,6 +19,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - Legacy PATH de-duplication lines are migrated automatically during shell startup updates.
 - The installer now offers interactive `gh auth login` only when explicitly approved, with SSH/GPG setup hints.
 - `scripts/tool-health-check.sh` validates the curated tool manifest with `jq` and reports versions.
+- nvm upgrades now offer an explicit migration of global npm packages from the previous Node version.
 
 ## Active Backlog
 
@@ -31,7 +32,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P2 | delivered | CI | Add a manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
 | P2 | delivered | macOS / Inventory | Review `list-macOS-apps` snapshots before promoting conservative casks and App Store entries into `macos/Brewfile`. |
 | P2 | planned | Windows / PowerShell | Expand the curated Windows manifest only when a package has a clear public baseline value and does not pull in machine-specific globals. |
-| P2 | planned | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
+| P2 | delivered | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
 | P2 | planned | Python (uv) | Add a prompt to install `pipx` via `uv tool` and suggest common global tools such as `pre-commit`. |
 | P3 | planned | Swift (swiftly) | Add a helper to list and switch toolchains, plus an optional prompt for a specific version or channel. |
 | P3 | planned | Environment & Tools | Consider `direnv`, `pre-commit`, or `starship` as optional additions if they keep the config lean. |

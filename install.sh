@@ -412,6 +412,37 @@ offer_github_authentication() {
     fi
 }
 
+offer_nvm_global_package_migration() {
+    local previous_node="$1"
+    local target_node migrate_packages
+
+    target_node="$(nvm version current 2>/dev/null || echo none)"
+    if [ "$target_node" = "$previous_node" ] || [ "$target_node" = "none" ] || [ "$target_node" = "system" ]; then
+        return 0
+    fi
+
+    echo "ℹ️  Global npm packages are scoped to each nvm Node version."
+    echo "   Current target: $target_node"
+    echo "   Source version: $previous_node"
+
+    if $FORCE_MODE || $INSTALL_ALL || [ ! -t 0 ] || [ ! -t 1 ]; then
+        echo "ℹ️  Skipping package migration in non-interactive/automatic mode."
+        echo "   Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
+        return 0
+    fi
+
+    read -r -p $'📦 Migrate global npm packages to the new Node version with nvm reinstall-packages? [y/N]: ' migrate_packages || return 0
+    if [[ "$migrate_packages" =~ ^[Yy]$ ]]; then
+        if nvm reinstall-packages "$previous_node"; then
+            echo "✅ Global npm packages migrated from $previous_node to $target_node"
+        else
+            echo "⚠️  Global npm package migration failed; retry with: nvm use $target_node && nvm reinstall-packages $previous_node"
+        fi
+    else
+        echo "ℹ️  Skipping package migration. Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
+    fi
+}
+
 ensure_macos_xcode_tools() {
     local developer_dir xcode_version xcode_line
 
@@ -1089,7 +1120,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
             if $FORCE_MODE || $INSTALL_ALL; then
                 switch_to_lts="y"
             else
-                read -r -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'$'   Heads-up: global npm packages are per-Node-version and will not move automatically.\n'$'   You can later migrate with: nvm reinstall-packages '"$current_node"$'\n'$'   Proceed? [y/N]: ' switch_to_lts
+                read -r -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'$'   Global npm packages are per-Node-version; a migration prompt follows after a successful switch.\n'$'   Proceed? [y/N]: ' switch_to_lts
             fi
             if [[ "$switch_to_lts" =~ ^[Yy]$ ]]; then
                 prev_node="$current_node"
@@ -1098,7 +1129,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 nvm use --lts || true
                 # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
                 if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
-                echo "ℹ️  Tip: to copy your global packages, run: nvm reinstall-packages $prev_node"
+                offer_nvm_global_package_migration "$prev_node"
             fi
         else
             # No active Node via nvm → offer to install latest LTS and set default
