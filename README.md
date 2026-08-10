@@ -67,6 +67,8 @@ MIT. See [LICENSE](LICENSE).
 │   ├── health-check.sh
 │   ├── tool-health-check.sh
 │   └── tool-health.json
+├── tests/         # Isolated installer behavior tests with command stubs
+│   └── test-installer-functions.sh
 ├── windows/       # Minimal PowerShell profile for Windows
 │   ├── Dotfiles.WindowsPackages.psm1
 │   ├── packages.optional.psd1
@@ -219,6 +221,8 @@ The public profile loads those overlays last, so they can override the shared de
   * Fresh Homebrew installations that enforce tap trust need `--trust-brew-taps` when the Brewfile contains third-party taps. The flag is deliberately explicit because it grants those taps permission to run their formulae and casks.
   * Linux installs configure eza's official signed apt repository (`deb.gierens.de`) using the upstream GPG key; the installer does not download an unverified `latest` release `.deb`. The official Homebrew, Oh My Posh, uv, and nvm bootstrap scripts are downloaded over HTTPS to a temporary file before execution; nvm is downloaded from the selected release tag.
   * Bootstrap version policy: `nvm` is pinned by default to `v0.40.4` (override with `DOTFILES_NVM_VERSION`); Homebrew, Oh My Posh, and uv intentionally follow their official bootstrap channels because they do not provide a stable distro package in this installer. Review those upstream channels before running optional installation on a new machine.
+  * Optional bootstrap verification: `run_remote_script` accepts `--sha256`; provide `DOTFILES_HOMEBREW_INSTALL_SHA256`, `DOTFILES_OHMYPOSH_INSTALL_SHA256`, `DOTFILES_UV_INSTALL_SHA256`, or `DOTFILES_NVM_INSTALL_SHA256` to verify the downloaded installer before execution. `DOTFILES_SWIFTLY_INSTALL_SHA256` verifies the Swiftly archive, and `DOTFILES_EZA_KEY_SHA256` verifies the eza repository key, before use. These values are intentionally opt-in because the corresponding upstream channels are dynamic and do not publish one stable digest for the moving bootstrap URL.
+  * Supply-chain exceptions: eza follows the upstream signed APT repository flow (the repository key is fetched from the official eza source), while Homebrew, Oh My Posh, uv, Swiftly, and the pinned nvm installer remain upstream-controlled channels unless an operator supplies a digest. Prefer reviewing those upstream release/install pages before a new-machine bootstrap.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
 * **macOS Dock Layout:** The installer can also restore the saved Dock apps/folders from `macos/dock.sh` using `dockutil`.
 * **Checks for Dependencies:** Verifies if essential commands used by aliases/functions (like `docker`, `swift`, `git`, `nano`) are present and warns if not.
@@ -236,7 +240,7 @@ The public profile loads those overlays last, so they can override the shared de
 
 Run `./scripts/health-check.sh --strict` after a standard installation to verify the managed shell files and global Git ignore configuration.
 
-Run `./scripts/tool-health-check.sh` to inspect the availability and reported versions of the curated Git, JSON, editor, GitHub, Python, and Swift tools. Add `--strict` when missing optional tools or failed version commands should fail the check.
+Run `./scripts/tool-health-check.sh` to inspect the availability and reported versions of the curated Git, JSON, editor, GitHub, Python, and Swift tools. The check reports Swiftly separately when its binary is present but its user configuration is not initialized. Add `--strict` when missing optional tools or failed version commands should fail the check.
 
 ---
 

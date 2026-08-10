@@ -5,6 +5,6 @@
     {"name": "nano", "command": "nano", "version_args": ["--version"], "required": false},
     {"name": "gh", "command": "gh", "version_args": ["--version"], "required": false},
     {"name": "uv", "command": "uv", "version_args": ["--version"], "required": false},
-    {"name": "swiftly", "command": "swiftly", "version_args": ["--version"], "required": false}
+    {"name": "swiftly", "command": "swiftly", "version_args": ["--version"], "required": false, "configuration_probe": "swiftly"}
   ]
 }

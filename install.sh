@@ -17,6 +17,7 @@ BREW_UPGRADE=false
 SYNC_MODE=false
 TRUST_BREW_TAPS=false
 OPTIONAL_INSTALL_APPROVED=false
+TEST_FUNCTION="${DOTFILES_TEST_FUNCTION:-}"
 for arg in "$@"; do
     case "$arg" in
         -dr | --dry-run)
@@ -242,15 +243,68 @@ backup_existing_path() {
     printf '%s\n' "$backup_path"
 }
 
+calculate_sha256() {
+    local path="$1"
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$path" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$path" | awk '{print $1}'
+    else
+        return 1
+    fi
+}
+
+verify_sha256_file() {
+    local expected_sha256="$1"
+    local path="$2"
+    local actual_sha256
+
+    if [[ ! "$expected_sha256" =~ ^[[:xdigit:]]{64}$ ]]; then
+        echo "❌ Invalid SHA-256 digest for $path" >&2
+        return 2
+    fi
+    if ! actual_sha256=$(calculate_sha256 "$path"); then
+        echo "❌ No SHA-256 utility available; refusing to use $path" >&2
+        return 1
+    fi
+    if [ "$actual_sha256" != "$expected_sha256" ]; then
+        echo "❌ SHA-256 mismatch for $path" >&2
+        return 1
+    fi
+}
+
 run_remote_script() {
     local url="$1"
     shift
+    local expected_sha256=""
     local script status
+
+    if [ "${1:-}" = "--sha256" ]; then
+        if [ "$#" -lt 2 ]; then
+            echo "❌ --sha256 requires a SHA-256 digest for $url" >&2
+            return 2
+        fi
+        expected_sha256="$2"
+        shift 2
+        if [[ ! "$expected_sha256" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "❌ Invalid SHA-256 digest for $url" >&2
+            return 2
+        fi
+    fi
 
     script=$(mktemp "${TMPDIR:-/tmp}/dotfiles-download.XXXXXX")
     if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$script" "$url"; then
         rm -f "$script"
         return 1
+    fi
+
+    if [ -n "$expected_sha256" ]; then
+        if ! verify_sha256_file "$expected_sha256" "$script"; then
+            rm -f "$script"
+            return 1
+        fi
+        echo "🔐 Verified SHA-256 for $url"
     fi
 
     if bash "$script" "$@"; then
@@ -340,6 +394,15 @@ install_eza_from_apt_repository() {
         return 0
     fi
 
+    if [ -n "${DOTFILES_EZA_KEY_SHA256:-}" ]; then
+        if ! verify_sha256_file "$DOTFILES_EZA_KEY_SHA256" "$key_tmp"; then
+            rm -f "$key_tmp"
+            echo "⚠️  eza repository key verification failed; skipping eza."
+            return 0
+        fi
+        echo "🔐 Verified SHA-256 for the eza repository key"
+    fi
+
     if ! sudo mkdir -p "$(dirname "$keyring")" || ! sudo gpg --dearmor --yes --output "$keyring" "$key_tmp"; then
         rm -f "$key_tmp"
         echo "⚠️  Could not install the eza repository key; skipping eza."
@@ -389,7 +452,7 @@ offer_github_authentication() {
         return 0
     fi
 
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
+    if [ "${DOTFILES_TEST_INTERACTIVE:-false}" != true ] && { [ ! -t 0 ] || [ ! -t 1 ]; }; then
         echo "ℹ️  gh is not authenticated. Run 'gh auth login' from an interactive shell when ready."
         return 0
     fi
@@ -425,7 +488,7 @@ offer_nvm_global_package_migration() {
     echo "   Current target: $target_node"
     echo "   Source version: $previous_node"
 
-    if $FORCE_MODE || $INSTALL_ALL || [ ! -t 0 ] || [ ! -t 1 ]; then
+    if $FORCE_MODE || $INSTALL_ALL || { [ "${DOTFILES_TEST_INTERACTIVE:-false}" != true ] && { [ ! -t 0 ] || [ ! -t 1 ]; }; }; then
         echo "ℹ️  Skipping package migration in non-interactive/automatic mode."
         echo "   Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
         return 0
@@ -754,6 +817,25 @@ run_uninstall() {
     done
 }
 
+if [ -n "$TEST_FUNCTION" ]; then
+    case "$TEST_FUNCTION" in
+        gh-auth)
+            offer_github_authentication
+            ;;
+        nvm-migrate)
+            offer_nvm_global_package_migration "${DOTFILES_TEST_NVM_PREVIOUS:-v0.0.0}"
+            ;;
+        remote-script)
+            run_remote_script "${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" --sha256 "${DOTFILES_TEST_REMOTE_SHA256:-}"
+            ;;
+        *)
+            echo "❌ Unknown DOTFILES_TEST_FUNCTION: $TEST_FUNCTION" >&2
+            exit 2
+            ;;
+    esac
+    exit 0
+fi
+
 if $UNINSTALL_MODE; then
     run_uninstall
     echo -e "\n🚀 Uninstall complete."
@@ -811,7 +893,12 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 if ! command -v brew >/dev/null; then
                     echo "🍺 Homebrew not found. Installing..."
-                    if ! run_remote_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"; then
+                    if [ -n "${DOTFILES_HOMEBREW_INSTALL_SHA256:-}" ]; then
+                        brew_install_args=(--sha256 "$DOTFILES_HOMEBREW_INSTALL_SHA256")
+                    else
+                        brew_install_args=()
+                    fi
+                    if ! run_remote_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh" "${brew_install_args[@]}"; then
                         echo "❌ Homebrew installation failed." >&2
                         exit 1
                     fi
@@ -952,7 +1039,12 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 if ! command -v oh-my-posh >/dev/null; then
                     echo "📥 Installing oh-my-posh..."
                     echo "   Downloading the official installer over HTTPS before execution."
-                    run_remote_script "https://ohmyposh.dev/install.sh" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"
+                    if [ -n "${DOTFILES_OHMYPOSH_INSTALL_SHA256:-}" ]; then
+                        oh_my_posh_install_args=(--sha256 "$DOTFILES_OHMYPOSH_INSTALL_SHA256")
+                    else
+                        oh_my_posh_install_args=()
+                    fi
+                    run_remote_script "https://ohmyposh.dev/install.sh" "${oh_my_posh_install_args[@]}" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"
                 fi
 
                 # fastfetch
@@ -979,7 +1071,12 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 if ! command -v uv >/dev/null 2>&1; then
                     echo "📥 Installing uv (Python tooling)..."
                     echo "   Downloading the official installer over HTTPS before execution."
-                    run_remote_script "https://astral.sh/uv/install.sh"
+                    if [ -n "${DOTFILES_UV_INSTALL_SHA256:-}" ]; then
+                        uv_install_args=(--sha256 "$DOTFILES_UV_INSTALL_SHA256")
+                    else
+                        uv_install_args=()
+                    fi
+                    run_remote_script "https://astral.sh/uv/install.sh" "${uv_install_args[@]}"
                 else
                     echo "✅ uv already installed"
                 fi
@@ -1000,13 +1097,18 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                     fi
                     arch="$(uname -m)"
                     url="https://download.swift.org/swiftly/linux/swiftly-${arch}.tar.gz"
+                    swiftly_archive="swiftly-${arch}.tar.gz"
                     tmpdir="$(mktemp -d)"
                     if (
                         set -e
                         cd "$tmpdir"
                         echo "   ↪ Downloading $url"
                         curl -fLO "$url"
-                        tar zxf "swiftly-${arch}.tar.gz"
+                        if [ -n "${DOTFILES_SWIFTLY_INSTALL_SHA256:-}" ]; then
+                            verify_sha256_file "$DOTFILES_SWIFTLY_INSTALL_SHA256" "$swiftly_archive"
+                            echo "   ↪ Verified SHA-256 for $swiftly_archive"
+                        fi
+                        tar zxf "$swiftly_archive"
                         ./swiftly init --quiet-shell-followup --skip-install
                     ); then
                         env_file="$swiftly_env"
@@ -1094,7 +1196,12 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
         else
             echo "📦 Installing nvm ($NVM_TAG)..."
             # Use the official installer pinned to the selected release tag.
-            run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh"
+            if [ -n "${DOTFILES_NVM_INSTALL_SHA256:-}" ]; then
+                nvm_install_args=(--sha256 "$DOTFILES_NVM_INSTALL_SHA256")
+            else
+                nvm_install_args=()
+            fi
+            run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" "${nvm_install_args[@]}"
         fi
 
         # Ensure nvm is initialized for the current shell; avoid touching rc of other shells

@@ -24,6 +24,22 @@ if [ ! -f "$manifest" ] || ! jq empty "$manifest" >/dev/null 2>&1; then
     exit 2
 fi
 
+if ! jq -e '
+    type == "object"
+    and (.tools | type == "array" and length > 0)
+    and all(.tools[];
+        (.name | type == "string" and length > 0)
+        and (.command | type == "string" and length > 0)
+        and (.version_args | type == "array" and length > 0 and all(.[]; type == "string"))
+        and (.required | type == "boolean")
+        and ((.configuration_probe // "") | type == "string")
+    )
+    and (([.tools[].name] | unique | length) == (.tools | length))
+' "$manifest" >/dev/null 2>&1; then
+    echo "invalid: tool manifest schema at $manifest" >&2
+    exit 2
+fi
+
 while IFS= read -r tool_entry; do
     tool_name=$(jq -r '.name' <<<"$tool_entry")
     tool_command=$(jq -r '.command' <<<"$tool_entry")
@@ -39,6 +55,24 @@ while IFS= read -r tool_entry; do
             missing=1
         fi
         continue
+    fi
+
+    configuration_probe=$(jq -r '.configuration_probe // ""' <<<"$tool_entry")
+    if [ "$configuration_probe" = swiftly ]; then
+        swiftly_config=""
+        for swiftly_home in "${SWIFTLY_HOME_DIR:-}" "$HOME/.swiftly" "$HOME/.local/share/swiftly"; do
+            if [ -n "$swiftly_home" ] && [ -f "$swiftly_home/config.json" ]; then
+                swiftly_config="$swiftly_home/config.json"
+                break
+            fi
+        done
+        if [ -z "$swiftly_config" ]; then
+            printf 'warning: %s is installed but not initialized (missing swiftly config)\n' "$tool_name" >&2
+            if $strict; then
+                missing=1
+            fi
+            continue
+        fi
     fi
 
     if version_output=$("$tool_command" "${version_args[@]}" 2>&1); then

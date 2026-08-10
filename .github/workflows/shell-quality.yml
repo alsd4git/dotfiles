@@ -35,6 +35,7 @@ jobs:
             install.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
+            tests/test-installer-functions.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -51,6 +52,7 @@ jobs:
             install.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
+            tests/test-installer-functions.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -88,6 +90,15 @@ jobs:
 
       - name: Check curated tool versions
         run: ./scripts/tool-health-check.sh
+
+  installer-function-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test interactive installer functions with stubs
+        run: ./tests/test-installer-functions.sh
 
   macos-dry-run:
     runs-on: macos-latest
@@ -260,6 +271,8 @@ jobs:
           set -euo pipefail
           mkdir -p "$HOME"
           ./install.sh --all --force 2>&1 | tee "$RUNNER_TEMP/dotfiles-full-install.log"
+
+          ./scripts/tool-health-check.sh --strict 2>&1 | tee -a "$RUNNER_TEMP/dotfiles-full-install.log"
 
       - name: Upload full-install log
         if: always()
