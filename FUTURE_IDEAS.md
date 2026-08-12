@@ -30,29 +30,19 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - The supported Bash baseline is 3.2 and has a dedicated container smoke test.
 - Package classifications are centralized in `lib/tool-manifest.sh`; the installer exposes named platform-tools, Git, and NVM phases.
 
-## Active Backlog
+## Open Backlog
 
 | Priority | Status | Area | Idea |
 | --- | --- | --- | --- |
-| P1 | delivered | Git & Diffing | Make `delta` the default pager with a sane theme and side-by-side settings, gated behind an opt-in prompt. |
-| P1 | delivered | PATH & Shell Robustness | Auto-clean legacy PATH de-dup lines inserted by older installer versions during upgrade. |
-| P2 | delivered | GitHub CLI | Prompt to run `gh auth login` after installation and guide SSH/GPG setup. |
-| P2 | delivered | Docs & DX | Add a tiny `jq`-based health check script to verify tool availability and versions. |
-| P2 | delivered | CI | Add a manual full-install smoke test on clean Ubuntu to cover optional tool branches. |
-| P2 | delivered | macOS / Inventory | Review `list-macOS-apps` snapshots before promoting conservative casks and App Store entries into `macos/Brewfile`. |
 | P2 | planned | Windows / PowerShell | Expand the curated Windows manifest only when a package has a clear public baseline value and does not pull in machine-specific globals. |
-| P2 | delivered | Node (nvm) | Offer automatic global package migration with `nvm reinstall-packages <prev>` after a Node upgrade. |
 | P2 | planned | Python (uv) | Add a prompt to install `pipx` via `uv tool` and suggest common global tools such as `pre-commit`. |
 | P3 | planned | Swift (swiftly) | Add a helper to list and switch toolchains, plus an optional prompt for a specific version or channel. |
 | P3 | planned | Environment & Tools | Consider `direnv`, `pre-commit`, or `starship` as optional additions if they keep the config lean. |
 | P3 | planned | Windows / PowerShell | Add profile aliases/functions that match the reference Windows workflow without forcing Bash parity. |
-| P3 | delivered | Windows / PowerShell | Add a clean Windows smoke test in CI once the PowerShell setup stabilizes. |
 | P3 | maybe | macOS / Brewfile UX | Add an interactive cask picker before `brew bundle install` so you can keep everything selected by default and prune with arrows/checkboxes only when needed. |
-| P3 | delivered | CI | Add an uninstall smoke test that installs, uninstalls, and asserts no managed files remain. |
 | P3 | maybe | CLI Utilities | Evaluate `lazygit`, `tmux`/`zellij`, `yq`, `httpie`/`curlie`, `duf`/`dust`, `tldr`, and `tree`/`broot`. |
 | P3 | maybe | Zsh Plugins | Evaluate `zsh-autosuggestions` and `zsh-syntax-highlighting` only if startup cost stays low. |
 | P3 | maybe | Security & Keys | Guided SSH key generation plus `gh auth login`, and optional GPG signing setup. |
-| P2 | delivered | Installer Architecture | Expose explicit platform-tools, Git, and NVM phase functions while keeping `install.sh` as the stable entry point. |
 
 ## Notes
 
