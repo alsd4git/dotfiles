@@ -25,6 +25,10 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - `--yes` handles non-interactive confirmation, `--all` selects optional components, and legacy `--force` remains a compatibility alias.
 - Windows smoke assertions live in `tests/windows-smoke.ps1` instead of inline workflow YAML.
 - File/RC, Git state, platform helpers, and toolchain helpers are split into focused sourced modules; Ubuntu 24.04 container smoke tests cover Bash and Zsh lifecycle behavior.
+- The legacy installer lives under `archive/`; `install.sh` is the only supported entry point.
+- Required, optional, and advisory steps share one reporting policy, with cleanup and failure-path tests.
+- The supported Bash baseline is 3.2 and has a dedicated container smoke test.
+- Package classifications are centralized in `lib/tool-manifest.sh`; the installer exposes named platform-tools, Git, and NVM phases.
 
 ## Active Backlog
 
@@ -48,7 +52,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P3 | maybe | CLI Utilities | Evaluate `lazygit`, `tmux`/`zellij`, `yq`, `httpie`/`curlie`, `duf`/`dust`, `tldr`, and `tree`/`broot`. |
 | P3 | maybe | Zsh Plugins | Evaluate `zsh-autosuggestions` and `zsh-syntax-highlighting` only if startup cost stays low. |
 | P3 | maybe | Security & Keys | Guided SSH key generation plus `gh auth login`, and optional GPG signing setup. |
-| P2 | planned | Installer Architecture | Convert the remaining Darwin/Linux orchestration blocks into explicit phase functions only when failure-policy tests cover each phase; keep `install.sh` as the stable entry point. |
+| P2 | delivered | Installer Architecture | Expose explicit platform-tools, Git, and NVM phase functions while keeping `install.sh` as the stable entry point. |
 
 ## Notes
 

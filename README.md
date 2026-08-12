@@ -2,6 +2,8 @@
 
 My personal dotfiles collection, designed for consistency across macOS and Debian/Ubuntu systems using Bash or Zsh, with a separate Windows PowerShell preview path.
 
+The Unix installer requires Bash 3.2 or newer. CI exercises the macOS-compatible Bash 3.2 baseline as well as current Bash and Zsh on Ubuntu 24.04.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
@@ -56,6 +58,7 @@ MIT. See [LICENSE](LICENSE).
 
 ```sh
 .
+├── archive/       # Historical installers, not used by the supported workflow
 ├── general/       # Shared shell config (aliases, functions, history, prompt)
 ├── git/           # Git-specific aliases, functions, and global ignore
 ├── lib/           # Sourced installer modules (CLI, bootstrap policy, reporting)
@@ -83,7 +86,6 @@ MIT. See [LICENSE](LICENSE).
 │   └── profile.ps1
 ├── install.sh     # Recommended installation script
 ├── install.ps1    # Windows/PowerShell installer preview
-├── old_setup.sh   # DEPRECATED: Legacy copy-with-backup installer
 └── README.md      # This file
 ```
 
@@ -223,7 +225,7 @@ The public profile loads those overlays last, so they can override the shared de
   * On Linux, `swiftly` requires `gpg` for signature verification; the installer ensures `gnupg` is installed.
   * On macOS, `brew bundle install` runs with `--no-upgrade` by default. Use `--brew-upgrade` to update managed dependencies, or Homebrew's `HOMEBREW_BUNDLE_BREW_SKIP`, `HOMEBREW_BUNDLE_CASK_SKIP`, `HOMEBREW_BUNDLE_MAS_SKIP`, and `HOMEBREW_BUNDLE_TAP_SKIP` environment variables for per-machine exclusions.
   * Fresh Homebrew installations that enforce tap trust need `--trust-brew-taps` when the Brewfile contains third-party taps. The flag is deliberately explicit because it grants those taps permission to run their formulae and casks.
-  * Linux installs configure eza's official signed apt repository (`deb.gierens.de`) using the upstream GPG key; the installer does not download an unverified `latest` release `.deb`. The official Homebrew, Oh My Posh, uv, and nvm bootstrap scripts are downloaded over HTTPS to a temporary file before execution; nvm is downloaded from the selected release tag.
+  * Linux installs follow [eza's official Debian/Ubuntu instructions](https://github.com/eza-community/eza/blob/main/INSTALL.md): the upstream `deb.asc` key is stored in a dedicated `signed-by` keyring and the documented `http://deb.gierens.de` repository URL is preserved. Package integrity is enforced by APT signatures; the installer does not download an unverified `latest` release `.deb`.
   * Bootstrap policy is canonical in `lib/bootstrap-policy.sh`. Run `DOTFILES_TEST_FUNCTION=bootstrap-policy ./install.sh` to print the current inventory. `nvm` is pinned by default to `v0.40.4`; moving official channels are explicitly labeled `trusted-upstream-dynamic`.
   * Optional bootstrap verification: `run_remote_script` accepts `--sha256`; provide `DOTFILES_HOMEBREW_INSTALL_SHA256`, `DOTFILES_OHMYPOSH_INSTALL_SHA256`, `DOTFILES_UV_INSTALL_SHA256`, or `DOTFILES_NVM_INSTALL_SHA256` to verify the downloaded installer before execution. `DOTFILES_SWIFTLY_INSTALL_SHA256` verifies the Swiftly archive, and `DOTFILES_EZA_KEY_SHA256` verifies the eza repository key, before use. These values are intentionally opt-in because the corresponding upstream channels are dynamic and do not publish one stable digest for the moving bootstrap URL.
   * Supply-chain exceptions: eza follows the upstream signed APT repository flow (the repository key is fetched from the official eza source), while Homebrew, Oh My Posh, uv, Swiftly, and the pinned nvm installer remain upstream-controlled channels unless an operator supplies a digest. Prefer reviewing those upstream release/install pages before a new-machine bootstrap.
@@ -247,13 +249,15 @@ Run `./scripts/health-check.sh --strict` after a standard installation to verify
 
 For an isolated Linux lifecycle check, run `./tests/docker-ubuntu-smoke.sh`. It uses `ubuntu:24.04`, mounts the repository read-only, and validates install, shell loading, health checks, and uninstall for Bash and Zsh in disposable homes.
 
+The main workflow is organized into named platform-tools, Git, and NVM phases. Required, optional, and advisory operations use the shared reporting policy so failures remain visible in the final summary.
+
 Run `./scripts/tool-health-check.sh` to inspect the availability and reported versions of the curated Git, JSON, editor, GitHub, Python, and Swift tools. The check reports Swiftly separately when its binary is present but its user configuration is not initialized. Add `--strict` when missing optional tools or failed version commands should fail the check.
 
 ---
 
 ## 💬 Notes
 
-* **Legacy Installer:** The `old_setup.sh` script uses a simple copy-and-backup method. It's kept for historical purposes but **`install.sh` is the recommended method**.
+* **Legacy Installer:** `archive/old_setup.sh` is retained only for historical reference. It is not part of the supported installation workflow.
 * **Zsh Default:** If you use Zsh, ensure it's set as your default login shell: `chsh -s $(which zsh)`
 * **Private Aliases:** You can create a `~/.private_aliases` file to store personal aliases you don't want to commit to Git. The main alias file (`general/.aliases`) will automatically source it if it exists.
 * **Backups:** Old configuration files backed up by the script will have names like `~/.bashrc.bak.1678886400`. The installer records these paths in its state directory; `./install.sh --clean-backups` only considers that manifest, so backups from other programs are left untouched.
