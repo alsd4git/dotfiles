@@ -33,9 +33,17 @@ jobs:
         run: |
           shellcheck -x \
             install.sh \
+            lib/installer-cli.sh \
+            lib/bootstrap-policy.sh \
+            lib/installer-report.sh \
+            lib/installer-files.sh \
+            lib/installer-git.sh \
+            lib/installer-toolchains.sh \
+            lib/installer-platforms.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
+            tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -50,9 +58,17 @@ jobs:
         run: |
           shfmt -d -i 4 -ci -bn \
             install.sh \
+            lib/installer-cli.sh \
+            lib/bootstrap-policy.sh \
+            lib/installer-report.sh \
+            lib/installer-files.sh \
+            lib/installer-git.sh \
+            lib/installer-toolchains.sh \
+            lib/installer-platforms.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
+            tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
             old_setup.sh \
@@ -99,6 +115,16 @@ jobs:
 
       - name: Test interactive installer functions with stubs
         run: ./tests/test-installer-functions.sh
+
+  ubuntu-container-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test Bash and Zsh lifecycle in Ubuntu 24.04
+        run: ./tests/docker-ubuntu-smoke.sh
 
   macos-dry-run:
     runs-on: macos-latest
@@ -214,46 +240,7 @@ jobs:
 
       - name: Parse PowerShell sources and run the minimal dry-run
         shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $sources = @('install.ps1', 'windows/profile.ps1', 'windows/Dotfiles.WindowsPackages.psm1')
-          foreach ($source in $sources) {
-            $tokens = $null
-            $errors = $null
-            [void][System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $source),
-              [ref]$tokens,
-              [ref]$errors
-            )
-            if ($errors.Count -gt 0) {
-              $errors | Format-List | Out-String | Write-Error
-              exit 1
-            }
-          }
-
-          Import-PowerShellDataFile -Path windows/packages.psd1 | Out-Null
-          Import-Module (Resolve-Path windows/Dotfiles.WindowsPackages.psm1) -Force
-          $entry = Resolve-WindowsPackageEntry -PackageEntry 'eza-community.eza' -Manager Winget
-          if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
-            throw 'Shared package entry normalization failed.'
-          }
-          ./install.ps1 -DryRun -Minimal
-
-          $testHome = Join-Path $env:RUNNER_TEMP 'dotfiles-windows-lifecycle'
-          $env:HOME = $testHome
-          $env:GIT_CONFIG_GLOBAL = Join-Path $testHome 'gitconfig'
-          New-Item -ItemType Directory -Path $testHome -Force | Out-Null
-          git config --global diff.colorMoved zebra
-
-          ./install.ps1 -Sync
-          if ((git config --global --get diff.colorMoved) -ne 'plain') {
-            throw 'Sync did not apply the shared Git defaults.'
-          }
-
-          ./install.ps1 -RestoreGitDefaults
-          if ((git config --global --get diff.colorMoved) -ne 'zebra') {
-            throw 'RestoreGitDefaults did not restore the previous Git setting.'
-          }
+        run: ./tests/windows-smoke.ps1
 
   full-install:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.full_install == 'true'
@@ -270,7 +257,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME"
-          ./install.sh --all --force 2>&1 | tee "$RUNNER_TEMP/dotfiles-full-install.log"
+          ./install.sh --all --yes 2>&1 | tee "$RUNNER_TEMP/dotfiles-full-install.log"
 
           ./scripts/tool-health-check.sh --strict 2>&1 | tee -a "$RUNNER_TEMP/dotfiles-full-install.log"
 
