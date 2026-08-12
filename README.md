@@ -18,7 +18,7 @@ MIT. See [LICENSE](LICENSE).
   * Supports copy mode (`--copy`) instead of symlinking.
   * Offers minimal setup (`--minimal`) for core files only.
   * Provides dry-run (`--dry-run`) to preview changes.
-  * Includes force mode (`--force`) to skip prompts.
+  * Separates component selection (`--all`) from non-interactive confirmation (`--yes`).
   * Optional backup cleanup (`--clean-backups`).
 
 * 🛠️ **Optional Tool Installation:** Installs useful tools via a macOS Brewfile or apt (Debian/Ubuntu):
@@ -58,6 +58,7 @@ MIT. See [LICENSE](LICENSE).
 .
 ├── general/       # Shared shell config (aliases, functions, history, prompt)
 ├── git/           # Git-specific aliases, functions, and global ignore
+├── lib/           # Sourced installer modules (CLI, bootstrap policy, reporting)
 ├── macos/         # macOS Brewfile and system defaults
 │   ├── Brewfile
 │   ├── dock.sh
@@ -68,7 +69,9 @@ MIT. See [LICENSE](LICENSE).
 │   ├── tool-health-check.sh
 │   └── tool-health.json
 ├── tests/         # Isolated installer behavior tests with command stubs
-│   └── test-installer-functions.sh
+│   ├── test-installer-functions.sh
+│   ├── docker-ubuntu-smoke.sh
+│   └── windows-smoke.ps1
 ├── windows/       # Minimal PowerShell profile for Windows
 │   ├── Dotfiles.WindowsPackages.psm1
 │   ├── packages.optional.psd1
@@ -112,20 +115,21 @@ MIT. See [LICENSE](LICENSE).
     ./install.sh
     ```
 
-    * The script will guide you through the process, asking for confirmation before installing optional tools, recommended macOS defaults, and the saved Dock layout unless run with `-f` or `-a`.
+    * The script guides you through optional tools and platform settings. Use `--all --yes` for the full non-interactive selection.
 
 **Installer Options:**
 
 * `./install.sh --help` or `-h`: Show help message.
 * `./install.sh --dry-run` or `-dr`: Show what would be done without making changes (no file writes, no deletions, no global Git config changes).
 * `./install.sh --copy` or `-c`: Copy files instead of creating symlinks (backs up existing files).
-* `./install.sh --force` or `-f`: Skip all prompts and assume yes to optional installs. Backup cleanup remains opt-in.
+* `./install.sh --yes` or `-y`: Answer yes to prompts for the operations selected by the invocation.
+* `./install.sh --all` or `-a`: Select all optional components.
+* `./install.sh --force` or `-f`: Deprecated compatibility alias for `--all --yes`. Backup cleanup remains opt-in.
 * `./install.sh --minimal` or `-m`: Install only core dotfiles, skip optional tools and Git config.
 * `./install.sh --skip-tools`: Skip optional package managers and tool installation while keeping the normal dotfile and Git setup.
 * `./install.sh --sync`: Reconcile dotfiles, shell setup, and Git defaults without installing tools or adding optional startup commands.
 * `./install.sh --trust-brew-taps`: On macOS, explicitly trust every third-party tap declared in `macos/Brewfile` before installing packages.
 * `./install.sh --brew-upgrade`: On macOS, upgrade the packages tracked by `macos/Brewfile`; the default bootstrap only installs missing packages.
-* `./install.sh --all` or `-a`: Automatically install all optional tools without prompting.
 * `./install.sh --uninstall`: Remove symlinks, restore untouched Git defaults captured on first install, and revert shell rc additions this installer made, including Homebrew bootstrap entries on macOS (runs uninstall flow only, then exits).
 * `./install.sh --clean-backups` or `-cb`: Offer to remove `.bak.*` files recorded as created by this installer (or preview removals in dry-run mode). Backups from other programs are never selected.
 
@@ -208,8 +212,8 @@ The public profile loads those overlays last, so they can override the shared de
   * Runs `git config --global core.excludesfile "$HOME/.global.gitignore"` to tell Git to use this file.
 * **Sets Git Defaults:** Merges the shared [`git/defaults.conf`](git/defaults.conf) baseline into the existing user config without replacing the machine's `.gitconfig`. It covers branch/tag sorting, rebase ergonomics, verbose commits, smarter diffs, push/fetch hygiene, `core.editor = nano`, and `init.defaultBranch = main`.
   * The first install saves the previous values for these keys under `~/.config/dotfiles/installer-state`. `--uninstall` restores them unless a setting was changed after installation, in which case it leaves the newer value untouched.
-  * When optional tools are approved and `delta` is available, the installer offers an explicit opt-in for `core.pager`, interactive diff filtering, navigation, dark theme, side-by-side output, and line numbers. `--force`, `--all`, `--minimal`, `--sync`, and dry-run never enable it implicitly.
-* **Installs Optional Tools (if confirmed or `--all`/`--force`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
+  * When optional tools are approved and `delta` is available, the installer offers an explicit opt-in for `core.pager`, interactive diff filtering, navigation, dark theme, side-by-side output, and line numbers. Automatic, minimal, sync, and dry-run modes never enable it implicitly.
+* **Installs Optional Tools (if confirmed or selected with `--all`):** Uses `brew` (macOS) or `apt` (Debian/Ubuntu) to install tools listed in the Features section.
   * If Homebrew is missing on macOS, the installer bootstraps it and sets up shell env automatically (adds `eval "$(/opt/homebrew/bin/brew shellenv)"` or `eval "$(/usr/local/bin/brew shellenv)"` depending on install path).
   * On macOS, the tool manifest lives in `macos/Brewfile`, the baseline defaults live in `macos/defaults.sh`, and the saved Dock layout lives in `macos/dock.sh`.
   * On Ubuntu/Debian, the `bat` binary may be named `batcat`, and `fd` as `fdfind`. The installer creates shims (`/usr/local/bin/bat` and `/usr/local/bin/fd`) for a consistent experience.
@@ -220,7 +224,7 @@ The public profile loads those overlays last, so they can override the shared de
   * On macOS, `brew bundle install` runs with `--no-upgrade` by default. Use `--brew-upgrade` to update managed dependencies, or Homebrew's `HOMEBREW_BUNDLE_BREW_SKIP`, `HOMEBREW_BUNDLE_CASK_SKIP`, `HOMEBREW_BUNDLE_MAS_SKIP`, and `HOMEBREW_BUNDLE_TAP_SKIP` environment variables for per-machine exclusions.
   * Fresh Homebrew installations that enforce tap trust need `--trust-brew-taps` when the Brewfile contains third-party taps. The flag is deliberately explicit because it grants those taps permission to run their formulae and casks.
   * Linux installs configure eza's official signed apt repository (`deb.gierens.de`) using the upstream GPG key; the installer does not download an unverified `latest` release `.deb`. The official Homebrew, Oh My Posh, uv, and nvm bootstrap scripts are downloaded over HTTPS to a temporary file before execution; nvm is downloaded from the selected release tag.
-  * Bootstrap version policy: `nvm` is pinned by default to `v0.40.4` (override with `DOTFILES_NVM_VERSION`); Homebrew, Oh My Posh, and uv intentionally follow their official bootstrap channels because they do not provide a stable distro package in this installer. Review those upstream channels before running optional installation on a new machine.
+  * Bootstrap policy is canonical in `lib/bootstrap-policy.sh`. Run `DOTFILES_TEST_FUNCTION=bootstrap-policy ./install.sh` to print the current inventory. `nvm` is pinned by default to `v0.40.4`; moving official channels are explicitly labeled `trusted-upstream-dynamic`.
   * Optional bootstrap verification: `run_remote_script` accepts `--sha256`; provide `DOTFILES_HOMEBREW_INSTALL_SHA256`, `DOTFILES_OHMYPOSH_INSTALL_SHA256`, `DOTFILES_UV_INSTALL_SHA256`, or `DOTFILES_NVM_INSTALL_SHA256` to verify the downloaded installer before execution. `DOTFILES_SWIFTLY_INSTALL_SHA256` verifies the Swiftly archive, and `DOTFILES_EZA_KEY_SHA256` verifies the eza repository key, before use. These values are intentionally opt-in because the corresponding upstream channels are dynamic and do not publish one stable digest for the moving bootstrap URL.
   * Supply-chain exceptions: eza follows the upstream signed APT repository flow (the repository key is fetched from the official eza source), while Homebrew, Oh My Posh, uv, Swiftly, and the pinned nvm installer remain upstream-controlled channels unless an operator supplies a digest. Prefer reviewing those upstream release/install pages before a new-machine bootstrap.
 * **macOS Defaults:** On macOS, the installer can apply a small `defaults` baseline for typing, Finder, Dock, and screenshots.
@@ -233,13 +237,15 @@ The public profile loads those overlays last, so they can override the shared de
 * **Optional Node Tooling:** Offers to install or update `nvm` (Node Version Manager) to the pinned `v0.40.4` release. Set `DOTFILES_NVM_VERSION` explicitly when you want a different reviewed release. If installed, your shell will source `~/.nvm/nvm.sh` automatically.
   * nvm commands run through a narrow compatibility wrapper that temporarily disables Bash `nounset` while nvm executes, because nvm's internal functions can read an unset local variable under `set -u`. The installer restores strict mode immediately after each call.
   * If no Node is active via `nvm`, you can install the latest LTS and set it as default.
-  * If a Node version is already active via `nvm`, the installer offers to switch to the latest LTS and set it as default. After a successful switch it asks whether to migrate global npm packages with `nvm reinstall-packages <previous_version>` ([official nvm guidance](https://github.com/nvm-sh/nvm#copying-global-packages-from-previously-installed-version)); declining leaves the old environment untouched. Automatic modes (`--force`/`--all`) never migrate packages implicitly and print the command for later use.
+  * If a Node version is already active via `nvm`, the installer offers to switch to the latest LTS and set it as default. After a successful switch it asks whether to migrate global npm packages with `nvm reinstall-packages <previous_version>` ([official nvm guidance](https://github.com/nvm-sh/nvm#copying-global-packages-from-previously-installed-version)); declining leaves the old environment untouched. Automatic modes never migrate packages implicitly and print the command for later use.
   * If `corepack` is available, it is enabled after installing/switching to LTS to provide Yarn/PNPM shims.
 * **Optional Python Tooling:** Installs `uv` (Python tool and package manager). Optionally offers to install CPython 3.13 managed by `uv` with `python`/`python3` defaults (does not change your system `python`).
 * **Optional Swift Tooling:** Installs `swiftly` (Swift toolchain manager). Optionally offers to install the latest stable Swift toolchain via `swiftly`.
-* **GitHub CLI Authentication:** After optional tools are approved, if `gh` is installed and not authenticated, the installer offers an interactive [`gh auth login`](https://cli.github.com/manual/gh_auth_login). It never starts authentication in `--force`, `--all`, `--minimal`, `--sync`, dry-run, or non-interactive runs. After a successful login it prints optional commands for [`gh auth setup-git`](https://cli.github.com/manual/gh_auth_setup-git) and SSH/GPG signing-key setup.
+* **GitHub CLI Authentication:** After optional tools are approved, if `gh` is installed and not authenticated, the installer offers an interactive [`gh auth login`](https://cli.github.com/manual/gh_auth_login). It never starts authentication in automatic, minimal, sync, dry-run, or non-interactive runs. After a successful login it prints optional commands for [`gh auth setup-git`](https://cli.github.com/manual/gh_auth_setup-git) and SSH/GPG signing-key setup.
 
 Run `./scripts/health-check.sh --strict` after a standard installation to verify the managed shell files and global Git ignore configuration.
+
+For an isolated Linux lifecycle check, run `./tests/docker-ubuntu-smoke.sh`. It uses `ubuntu:24.04`, mounts the repository read-only, and validates install, shell loading, health checks, and uninstall for Bash and Zsh in disposable homes.
 
 Run `./scripts/tool-health-check.sh` to inspect the availability and reported versions of the curated Git, JSON, editor, GitHub, Python, and Swift tools. The check reports Swiftly separately when its binary is present but its user configuration is not initialized. Add `--strict` when missing optional tools or failed version commands should fail the check.
 

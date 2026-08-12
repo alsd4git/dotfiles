@@ -21,6 +21,10 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - `scripts/tool-health-check.sh` validates the curated tool manifest with `jq` and reports versions.
 - nvm upgrades now offer an explicit migration of global npm packages from the previous Node version.
 - Remote bootstrap helpers now support optional SHA-256 verification, with dynamic upstream channels documented as explicit exceptions.
+- Installer CLI, bootstrap policy, and result reporting now live in focused sourced modules.
+- `--yes` handles non-interactive confirmation, `--all` selects optional components, and legacy `--force` remains a compatibility alias.
+- Windows smoke assertions live in `tests/windows-smoke.ps1` instead of inline workflow YAML.
+- File/RC, Git state, platform helpers, and toolchain helpers are split into focused sourced modules; Ubuntu 24.04 container smoke tests cover Bash and Zsh lifecycle behavior.
 
 ## Active Backlog
 
@@ -44,6 +48,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 | P3 | maybe | CLI Utilities | Evaluate `lazygit`, `tmux`/`zellij`, `yq`, `httpie`/`curlie`, `duf`/`dust`, `tldr`, and `tree`/`broot`. |
 | P3 | maybe | Zsh Plugins | Evaluate `zsh-autosuggestions` and `zsh-syntax-highlighting` only if startup cost stays low. |
 | P3 | maybe | Security & Keys | Guided SSH key generation plus `gh auth login`, and optional GPG signing setup. |
+| P2 | planned | Installer Architecture | Convert the remaining Darwin/Linux orchestration blocks into explicit phase functions only when failure-policy tests cover each phase; keep `install.sh` as the stable entry point. |
 
 ## Notes
 
