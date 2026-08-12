@@ -479,7 +479,7 @@ offer_nvm_global_package_migration() {
     local previous_node="$1"
     local target_node migrate_packages
 
-    target_node="$(nvm version current 2>/dev/null || echo none)"
+    target_node="$(run_nvm version current 2>/dev/null || echo none)"
     if [ "$target_node" = "$previous_node" ] || [ "$target_node" = "none" ] || [ "$target_node" = "system" ]; then
         return 0
     fi
@@ -496,7 +496,7 @@ offer_nvm_global_package_migration() {
 
     read -r -p $'📦 Migrate global npm packages to the new Node version with nvm reinstall-packages? [y/N]: ' migrate_packages || return 0
     if [[ "$migrate_packages" =~ ^[Yy]$ ]]; then
-        if nvm reinstall-packages "$previous_node"; then
+        if run_nvm reinstall-packages "$previous_node"; then
             echo "✅ Global npm packages migrated from $previous_node to $target_node"
         else
             echo "⚠️  Global npm package migration failed; retry with: nvm use $target_node && nvm reinstall-packages $previous_node"
@@ -504,6 +504,21 @@ offer_nvm_global_package_migration() {
     else
         echo "ℹ️  Skipping package migration. Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
     fi
+}
+
+run_nvm() {
+    local status
+
+    # nvm v0.40.4 has internal paths that read an unset local variable while
+    # nounset is active. Keep the installer strict and relax only this call.
+    set +u
+    if nvm "$@"; then
+        status=0
+    else
+        status=$?
+    fi
+    set -u
+    return "$status"
 }
 
 ensure_macos_xcode_tools() {
@@ -824,6 +839,13 @@ if [ -n "$TEST_FUNCTION" ]; then
             ;;
         nvm-migrate)
             offer_nvm_global_package_migration "${DOTFILES_TEST_NVM_PREVIOUS:-v0.0.0}"
+            ;;
+        nvm-wrapper)
+            nvm() {
+                local PROVIDED_VERSION
+                printf '%s\n' "${PROVIDED_VERSION}"
+            }
+            run_nvm use --lts
             ;;
         remote-script)
             run_remote_script "${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" --sha256 "${DOTFILES_TEST_REMOTE_SHA256:-}"
@@ -1219,8 +1241,8 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
         if [ -s "$NVM_DIR/bash_completion" ]; then . "$NVM_DIR/bash_completion"; fi
 
         # Determine current and latest LTS versions (best-effort)
-        current_node="$(nvm version current 2>/dev/null || echo none)"
-        remote_lts="$(nvm version-remote --lts 2>/dev/null || echo '')"
+        current_node="$(run_nvm version current 2>/dev/null || echo none)"
+        remote_lts="$(run_nvm version-remote --lts 2>/dev/null || echo '')"
 
         if [[ "$current_node" != "none" && "$current_node" != "system" ]]; then
             # User already has a Node version active via nvm → offer to switch
@@ -1231,9 +1253,9 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
             fi
             if [[ "$switch_to_lts" =~ ^[Yy]$ ]]; then
                 prev_node="$current_node"
-                nvm install --lts || true
-                nvm alias default 'lts/*' || true
-                nvm use --lts || true
+                run_nvm install --lts || true
+                run_nvm alias default 'lts/*' || true
+                run_nvm use --lts || true
                 # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
                 if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
                 offer_nvm_global_package_migration "$prev_node"
@@ -1242,7 +1264,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
             # No active Node via nvm → offer to install latest LTS and set default
             if $FORCE_MODE || $INSTALL_ALL; then install_node="y"; else read -r -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
             if [[ "$install_node" =~ ^[Yy]$ ]]; then
-                nvm install --lts && nvm alias default 'lts/*'
+                run_nvm install --lts && run_nvm alias default 'lts/*'
                 # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
                 if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
             fi

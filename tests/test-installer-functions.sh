@@ -127,6 +127,8 @@ DOTFILES_TEST_NVM_TARGET=v22.0.0 run_installer_function nvm-migrate y "$test_roo
 if grep -Fq 'reinstall-packages' "$test_log"; then exit 1; fi
 grep -Fq 'non-interactive/automatic mode' "$test_root/nvm-notty.out"
 
+run_installer_function nvm-wrapper "" "$test_root/nvm-wrapper.out" false
+
 write_curl_stub
 remote_payload=$'#!/usr/bin/env bash\nprintf "remote stub executed\\n" >>"$DOTFILES_TEST_LOG"'
 remote_sha256=$(printf '%s\n' "$remote_payload" | shasum -a 256 | awk '{print $1}')
