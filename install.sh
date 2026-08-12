@@ -35,7 +35,9 @@ source "$BASEDIR/lib/installer-git.sh"
 source "$BASEDIR/lib/installer-toolchains.sh"
 # shellcheck source=lib/installer-platforms.sh
 source "$BASEDIR/lib/installer-platforms.sh"
-trap 'installer_exit_summary $?' EXIT
+# shellcheck source=lib/tool-manifest.sh
+source "$BASEDIR/lib/tool-manifest.sh"
+trap 'installer_exit_handler $?' EXIT
 
 parse_installer_args "$@"
 
@@ -45,6 +47,11 @@ if $SHOW_HELP; then
 fi
 
 validate_installer_modes
+
+if ((BASH_VERSINFO[0] < 3 || (BASH_VERSINFO[0] == 3 && BASH_VERSINFO[1] < 2))); then
+    echo "❌ Bash 3.2 or newer is required." >&2
+    exit 2
+fi
 
 ### === Defaults & Constants ===
 UV_PYTHON_VERSION='3.13'
@@ -121,8 +128,6 @@ SYMLINK_VALUES=(
     "$DOTFILES_HOME/git/.git_functions"
     "$DOTFILES_HOME/git/global.gitignore"
 )
-
-REQUIRED_TOOLS=(nano docker swift git)
 
 ### === Detect Environment ===
 OS="$(uname -s)"
@@ -226,6 +231,16 @@ if [ -n "$TEST_FUNCTION" ]; then
             enable_install_summary
             false
             ;;
+        run-step-optional)
+            enable_install_summary
+            run_step optional "optional stub" false
+            ;;
+        cleanup-failure)
+            cleanup_test_path=$(mktemp "${TMPDIR:-/tmp}/dotfiles-cleanup-test.XXXXXX")
+            register_temp_path "$cleanup_test_path"
+            printf '%s\n' "$cleanup_test_path"
+            false
+            ;;
         *)
             echo "❌ Unknown DOTFILES_TEST_FUNCTION: $TEST_FUNCTION" >&2
             exit 2
@@ -272,404 +287,416 @@ for i in "${!SYMLINK_KEYS[@]}"; do
 done
 
 ### === Optional Tools Install ===
-if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
-    if $INSTALL_ALL; then
-        do_install="y"
-    elif $YES_MODE; then
-        do_install="n"
-    else
-        if [[ "$OS" == "Darwin" ]]; then
-            read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings + Dock layout)? [y/N]: ' do_install
+install_platform_tools_phase() {
+    if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
+        if $INSTALL_ALL; then
+            do_install="y"
+        elif $YES_MODE; then
+            do_install="n"
         else
-            read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly, gh)? [y/N]: ' do_install
+            if [[ "$OS" == "Darwin" ]]; then
+                read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings + Dock layout)? [y/N]: ' do_install
+            else
+                read -r -p $'\n✨ Install optional tools? (fzf, eza, bat, zoxide, oh-my-posh, nano, fd, ripgrep, shellcheck, shfmt, uv, swiftly, gh)? [y/N]: ' do_install
+            fi
         fi
-    fi
 
-    if [[ "$do_install" =~ ^[Yy]$ ]]; then
-        OPTIONAL_INSTALL_APPROVED=true
-        echo -e "\n📦 Installing tools..."
+        if [[ "$do_install" =~ ^[Yy]$ ]]; then
+            OPTIONAL_INSTALL_APPROVED=true
+            echo -e "\n📦 Installing tools..."
 
-        case "$OS" in
-            Darwin)
-                if ! ensure_macos_xcode_tools; then
-                    exit 1
-                fi
-
-                if ! command -v brew >/dev/null; then
-                    echo "🍺 Homebrew not found. Installing..."
-                    if [ -n "${DOTFILES_HOMEBREW_INSTALL_SHA256:-}" ]; then
-                        brew_install_args=(--sha256 "$DOTFILES_HOMEBREW_INSTALL_SHA256")
-                    else
-                        brew_install_args=()
-                    fi
-                    if ! run_remote_script "$HOMEBREW_INSTALL_URL" "${brew_install_args[@]}"; then
-                        echo "❌ Homebrew installation failed." >&2
+            case "$OS" in
+                Darwin)
+                    if ! ensure_macos_xcode_tools; then
                         exit 1
                     fi
-                    # Initialize Homebrew in current session and future shells
-                    if [ -x /opt/homebrew/bin/brew ]; then
-                        eval "$(/opt/homebrew/bin/brew shellenv)"
-                        apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[0]}"
-                        apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[0]}"
-                    elif [ -x /usr/local/bin/brew ]; then
-                        eval "$(/usr/local/bin/brew shellenv)"
-                        apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[1]}"
-                        apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[1]}"
-                    fi
-                fi
 
-                if $TRUST_BREW_TAPS; then
-                    phase_banner "Homebrew tap trust"
-                    trust_brewfile_taps
-                fi
-
-                phase_banner "Homebrew Bundle"
-                if [ -f "$MACOS_BREWFILE" ]; then
-                    echo "📦 Installing macOS packages from Brewfile..."
-                    if $BREW_UPGRADE; then
-                        brew bundle install --verbose --file "$MACOS_BREWFILE"
-                    else
-                        # Bootstrap missing packages without taking ownership of every installed update.
-                        brew bundle install --no-upgrade --verbose --file "$MACOS_BREWFILE"
-                    fi
-                else
-                    echo "⚠️  Missing macOS Brewfile at $MACOS_BREWFILE; skipping package install."
-                fi
-
-                ensure_local_bin_on_path
-
-                phase_banner "Shell integration"
-                # fzf keybindings/completions (Homebrew layout)
-                if $INSTALL_ALL || $YES_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
-                if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
-                    echo "⚙️  Configuring fzf keybindings/completions..."
-                    "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc || true
-                    zsh_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
-                    zsh_comp="$(brew --prefix)/opt/fzf/shell/completion.zsh"
-                    bash_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
-                    bash_comp="$(brew --prefix)/opt/fzf/shell/completion.bash"
-                    if [[ "$SHELL_NAME" == "zsh" ]]; then
-                        if [ -f "$zsh_bind" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_bind"; fi
-                        if [ -f "$zsh_comp" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_comp"; fi
-                    else
-                        if [ -f "$bash_bind" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_bind"; fi
-                        if [ -f "$bash_comp" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_comp"; fi
-                    fi
-                fi
-
-                phase_banner "macOS system preferences"
-                if [ -f "$MACOS_DEFAULTS_SCRIPT" ]; then
-                    if $INSTALL_ALL || $YES_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
-                    if [[ "$apply_macos_defaults" =~ ^[Yy]$ ]]; then
-                        bash "$MACOS_DEFAULTS_SCRIPT" --restart
-                    fi
-                else
-                    echo "⚠️  Missing macOS defaults script at $MACOS_DEFAULTS_SCRIPT; skipping defaults."
-                fi
-
-                if [ -f "$MACOS_DOCK_SCRIPT" ]; then
-                    if $INSTALL_ALL || $YES_MODE; then apply_macos_dock="y"; else read -r -p $'\n🧷 Apply saved Dock layout? [y/N]: ' apply_macos_dock; fi
-                    if [[ "$apply_macos_dock" =~ ^[Yy]$ ]]; then
-                        bash "$MACOS_DOCK_SCRIPT" --restart
-                    fi
-                else
-                    echo "⚠️  Missing macOS Dock script at $MACOS_DOCK_SCRIPT; skipping Dock layout."
-                fi
-
-                if $INSTALL_ALL || $YES_MODE; then check_macos_sudo_touch_id="y"; else read -r -p $'\n🔐 Check Touch ID for sudo configuration? [Y/n]: ' check_macos_sudo_touch_id; fi
-                if [[ ! "$check_macos_sudo_touch_id" =~ ^[Nn]$ ]]; then
-                    report_macos_sudo_touch_id_status
-                fi
-
-                # Optional: install pinned Python via uv
-                phase_banner "Toolchain checks"
-                if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
-                    if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        install_uv_python_version
-                    fi
-                fi
-
-                # Optional: install latest stable Swift toolchain via swiftly
-                if command -v swiftly >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
-                    if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
-                        swiftly install stable || true
-                    fi
-                fi
-
-                phase_banner "Post-install hints"
-                report_macos_stats_quarantine_hint
-                ;;
-            Linux)
-                echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
-                sudo apt update
-
-                # Required packages (alphabetical)
-                for pkg in curl exiv2 fzf gnupg jq nano ripgrep unzip; do
-                    install_required_apt_package "$pkg"
-                done
-
-                # Best-effort packages: useful enhancements, but not hard blockers
-                for pkg in bat delta fd-find fastfetch zoxide; do
-                    install_optional_apt_package "$pkg"
-                done
-
-                # gh (GitHub CLI) via official apt repository
-                if ! command -v gh >/dev/null 2>&1; then
-                    echo "📥 Installing GitHub CLI (gh)..."
-                    if [ ! -f /usr/share/keyrings/githubcli-archive-keyring.gpg ]; then
-                        if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-                            | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg; then
-                            sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg || true
+                    if ! command -v brew >/dev/null; then
+                        echo "🍺 Homebrew not found. Installing..."
+                        if [ -n "${DOTFILES_HOMEBREW_INSTALL_SHA256:-}" ]; then
+                            brew_install_args=(--sha256 "$DOTFILES_HOMEBREW_INSTALL_SHA256")
+                        else
+                            brew_install_args=()
+                        fi
+                        if ! run_remote_script "$HOMEBREW_INSTALL_URL" "${brew_install_args[@]}"; then
+                            echo "❌ Homebrew installation failed." >&2
+                            exit 1
+                        fi
+                        # Initialize Homebrew in current session and future shells
+                        if [ -x /opt/homebrew/bin/brew ]; then
+                            eval "$(/opt/homebrew/bin/brew shellenv)"
+                            apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[0]}"
+                            apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[0]}"
+                        elif [ -x /usr/local/bin/brew ]; then
+                            eval "$(/usr/local/bin/brew shellenv)"
+                            apply_rc_lines add "$HOME/.zprofile" "${HOMEBREW_RC_LINES[1]}"
+                            apply_rc_lines add "$HOME/.bash_profile" "${HOMEBREW_RC_LINES[1]}"
                         fi
                     fi
-                    if ! grep -qs "cli.github.com/packages" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
-                        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-                            | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null || true
+
+                    if $TRUST_BREW_TAPS; then
+                        phase_banner "Homebrew tap trust"
+                        trust_brewfile_taps
                     fi
-                    sudo apt update || true
-                    sudo apt install -y gh || echo "⚠️  Failed to install gh via apt; you can install it manually: https://github.com/cli/cli#installation"
-                else
-                    echo "✅ gh already installed"
-                fi
 
-                # eza
-                if ! command -v eza >/dev/null; then
-                    install_eza_from_apt_repository
-                fi
-
-                # oh-my-posh
-                if ! command -v oh-my-posh >/dev/null; then
-                    echo "📥 Installing oh-my-posh..."
-                    echo "   Downloading the official installer over HTTPS before execution."
-                    if [ -n "${DOTFILES_OHMYPOSH_INSTALL_SHA256:-}" ]; then
-                        oh_my_posh_install_args=(--sha256 "$DOTFILES_OHMYPOSH_INSTALL_SHA256")
+                    phase_banner "Homebrew Bundle"
+                    if [ -f "$MACOS_BREWFILE" ]; then
+                        echo "📦 Installing macOS packages from Brewfile..."
+                        if $BREW_UPGRADE; then
+                            brew bundle install --verbose --file "$MACOS_BREWFILE"
+                        else
+                            # Bootstrap missing packages without taking ownership of every installed update.
+                            brew bundle install --no-upgrade --verbose --file "$MACOS_BREWFILE"
+                        fi
                     else
-                        oh_my_posh_install_args=()
+                        echo "⚠️  Missing macOS Brewfile at $MACOS_BREWFILE; skipping package install."
                     fi
-                    if run_remote_script "$OH_MY_POSH_INSTALL_URL" "${oh_my_posh_install_args[@]}" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"; then
-                        report_completed "oh-my-posh"
-                    else
-                        report_optional_failure "oh-my-posh"
-                    fi
-                fi
 
-                # fastfetch
-                if ! command -v fastfetch >/dev/null; then
-                    echo "📥 Installing fastfetch..."
-                    install_optional_apt_package fastfetch
+                    ensure_local_bin_on_path
+
+                    phase_banner "Shell integration"
+                    # fzf keybindings/completions (Homebrew layout)
+                    if $INSTALL_ALL || $YES_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
+                    if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
+                        echo "⚙️  Configuring fzf keybindings/completions..."
+                        "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc || true
+                        zsh_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
+                        zsh_comp="$(brew --prefix)/opt/fzf/shell/completion.zsh"
+                        bash_bind="$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+                        bash_comp="$(brew --prefix)/opt/fzf/shell/completion.bash"
+                        if [[ "$SHELL_NAME" == "zsh" ]]; then
+                            if [ -f "$zsh_bind" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_bind"; fi
+                            if [ -f "$zsh_comp" ]; then apply_rc_lines add "$HOME/.zshrc" "source $zsh_comp"; fi
+                        else
+                            if [ -f "$bash_bind" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_bind"; fi
+                            if [ -f "$bash_comp" ]; then apply_rc_lines add "$HOME/.bashrc" "source $bash_comp"; fi
+                        fi
+                    fi
+
+                    phase_banner "macOS system preferences"
+                    if [ -f "$MACOS_DEFAULTS_SCRIPT" ]; then
+                        if $INSTALL_ALL || $YES_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
+                        if [[ "$apply_macos_defaults" =~ ^[Yy]$ ]]; then
+                            bash "$MACOS_DEFAULTS_SCRIPT" --restart
+                        fi
+                    else
+                        echo "⚠️  Missing macOS defaults script at $MACOS_DEFAULTS_SCRIPT; skipping defaults."
+                    fi
+
+                    if [ -f "$MACOS_DOCK_SCRIPT" ]; then
+                        if $INSTALL_ALL || $YES_MODE; then apply_macos_dock="y"; else read -r -p $'\n🧷 Apply saved Dock layout? [y/N]: ' apply_macos_dock; fi
+                        if [[ "$apply_macos_dock" =~ ^[Yy]$ ]]; then
+                            bash "$MACOS_DOCK_SCRIPT" --restart
+                        fi
+                    else
+                        echo "⚠️  Missing macOS Dock script at $MACOS_DOCK_SCRIPT; skipping Dock layout."
+                    fi
+
+                    if $INSTALL_ALL || $YES_MODE; then check_macos_sudo_touch_id="y"; else read -r -p $'\n🔐 Check Touch ID for sudo configuration? [Y/n]: ' check_macos_sudo_touch_id; fi
+                    if [[ ! "$check_macos_sudo_touch_id" =~ ^[Nn]$ ]]; then
+                        report_macos_sudo_touch_id_status
+                    fi
+
+                    # Optional: install pinned Python via uv
+                    phase_banner "Toolchain checks"
+                    if command -v uv >/dev/null 2>&1; then
+                        if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
+                        if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
+                            install_uv_python_version
+                        fi
+                    fi
+
+                    # Optional: install latest stable Swift toolchain via swiftly
+                    if command -v swiftly >/dev/null 2>&1; then
+                        if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                        if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
+                            swiftly install stable || true
+                        fi
+                    fi
+
+                    phase_banner "Post-install hints"
+                    report_macos_stats_quarantine_hint
+                    ;;
+                Linux)
+                    echo "🐧 Detected Linux; targeting Debian/Ubuntu via apt"
+                    sudo apt update
+
+                    # Required packages (alphabetical)
+                    for pkg in "${REQUIRED_APT_PACKAGES[@]}"; do
+                        install_required_apt_package "$pkg"
+                    done
+
+                    # Best-effort packages: useful enhancements, but not hard blockers
+                    for pkg in "${OPTIONAL_APT_PACKAGES[@]}"; do
+                        install_optional_apt_package "$pkg"
+                    done
+
+                    # gh (GitHub CLI) via official apt repository
+                    if ! command -v gh >/dev/null 2>&1; then
+                        echo "📥 Installing GitHub CLI (gh)..."
+                        if [ ! -f /usr/share/keyrings/githubcli-archive-keyring.gpg ]; then
+                            if curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+                                | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg; then
+                                sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg || true
+                            fi
+                        fi
+                        if ! grep -qs "cli.github.com/packages" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
+                            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+                                | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null || true
+                        fi
+                        sudo apt update || true
+                        sudo apt install -y gh || echo "⚠️  Failed to install gh via apt; you can install it manually: https://github.com/cli/cli#installation"
+                    else
+                        echo "✅ gh already installed"
+                    fi
+
+                    # eza
+                    if ! command -v eza >/dev/null; then
+                        install_eza_from_apt_repository
+                    fi
+
+                    # oh-my-posh
+                    if ! command -v oh-my-posh >/dev/null; then
+                        echo "📥 Installing oh-my-posh..."
+                        echo "   Downloading the official installer over HTTPS before execution."
+                        if [ -n "${DOTFILES_OHMYPOSH_INSTALL_SHA256:-}" ]; then
+                            oh_my_posh_install_args=(--sha256 "$DOTFILES_OHMYPOSH_INSTALL_SHA256")
+                        else
+                            oh_my_posh_install_args=()
+                        fi
+                        if run_remote_script "$OH_MY_POSH_INSTALL_URL" "${oh_my_posh_install_args[@]}" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"; then
+                            report_completed "oh-my-posh"
+                        else
+                            report_optional_failure "oh-my-posh"
+                        fi
+                    fi
+
+                    # fastfetch
                     if ! command -v fastfetch >/dev/null; then
-                        echo "⚠️ fastfetch not available via apt. You can build it manually:"
-                        echo "   https://github.com/fastfetch-cli/fastfetch"
-                    fi
-                fi
-
-                # handle batcat/bat and fdfind/fd shims
-                if command -v batcat >/dev/null && ! command -v bat >/dev/null; then
-                    sudo ln -sf "$(command -v batcat)" /usr/local/bin/bat
-                    echo "🔗 Created shim: bat -> batcat"
-                fi
-                if command -v fdfind >/dev/null && ! command -v fd >/dev/null; then
-                    sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
-                    echo "🔗 Created shim: fd -> fdfind"
-                fi
-
-                # uv (Python tool)
-                if ! command -v uv >/dev/null 2>&1; then
-                    echo "📥 Installing uv (Python tooling)..."
-                    echo "   Downloading the official installer over HTTPS before execution."
-                    if [ -n "${DOTFILES_UV_INSTALL_SHA256:-}" ]; then
-                        uv_install_args=(--sha256 "$DOTFILES_UV_INSTALL_SHA256")
-                    else
-                        uv_install_args=()
-                    fi
-                    if run_remote_script "$UV_INSTALL_URL" "${uv_install_args[@]}"; then
-                        report_completed "uv"
-                    else
-                        report_optional_failure "uv"
-                    fi
-                else
-                    echo "✅ uv already installed"
-                fi
-
-                # swiftly (Swift toolchain manager)
-                # Try to source existing env so detection works even if not on PATH yet
-                swiftly_home="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}"
-                swiftly_env="$swiftly_home/env.sh"
-                swiftly_bin="$swiftly_home/bin/swiftly"
-                # shellcheck disable=SC1090
-                if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
-                if ! command -v swiftly >/dev/null 2>&1 && [ ! -x "$swiftly_bin" ]; then
-                    echo "📥 Installing swiftly (Swift toolchain manager)..."
-                    # Ensure GnuPG is available for signature verification required by swiftly
-                    if ! command -v gpg >/dev/null 2>&1; then
-                        echo "   ↪ Installing gnupg (required by swiftly)..."
-                        sudo apt install -y gnupg || true
-                    fi
-                    arch="$(uname -m)"
-                    url="${SWIFTLY_INSTALL_URL_TEMPLATE/\%s/$arch}"
-                    swiftly_archive="swiftly-${arch}.tar.gz"
-                    tmpdir="$(mktemp -d)"
-                    if (
-                        set -e
-                        cd "$tmpdir"
-                        echo "   ↪ Downloading $url"
-                        curl -fLO "$url"
-                        if [ -n "${DOTFILES_SWIFTLY_INSTALL_SHA256:-}" ]; then
-                            verify_sha256_file "$DOTFILES_SWIFTLY_INSTALL_SHA256" "$swiftly_archive"
-                            echo "   ↪ Verified SHA-256 for $swiftly_archive"
+                        echo "📥 Installing fastfetch..."
+                        install_optional_apt_package fastfetch
+                        if ! command -v fastfetch >/dev/null; then
+                            echo "⚠️ fastfetch not available via apt. You can build it manually:"
+                            echo "   https://github.com/fastfetch-cli/fastfetch"
                         fi
-                        tar zxf "$swiftly_archive"
-                        ./swiftly init --quiet-shell-followup --skip-install
-                    ); then
-                        env_file="$swiftly_env"
-                        # shellcheck disable=SC1090
-                        if [ -f "$env_file" ]; then . "$env_file"; fi
-                        hash -r || true
-                        echo "✅ swiftly installed"
+                    fi
+
+                    # handle batcat/bat and fdfind/fd shims
+                    if command -v batcat >/dev/null && ! command -v bat >/dev/null; then
+                        sudo ln -sf "$(command -v batcat)" /usr/local/bin/bat
+                        echo "🔗 Created shim: bat -> batcat"
+                    fi
+                    if command -v fdfind >/dev/null && ! command -v fd >/dev/null; then
+                        sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+                        echo "🔗 Created shim: fd -> fdfind"
+                    fi
+
+                    # uv (Python tool)
+                    if ! command -v uv >/dev/null 2>&1; then
+                        echo "📥 Installing uv (Python tooling)..."
+                        echo "   Downloading the official installer over HTTPS before execution."
+                        if [ -n "${DOTFILES_UV_INSTALL_SHA256:-}" ]; then
+                            uv_install_args=(--sha256 "$DOTFILES_UV_INSTALL_SHA256")
+                        else
+                            uv_install_args=()
+                        fi
+                        if run_remote_script "$UV_INSTALL_URL" "${uv_install_args[@]}"; then
+                            report_completed "uv"
+                        else
+                            report_optional_failure "uv"
+                        fi
                     else
+                        echo "✅ uv already installed"
+                    fi
+
+                    # swiftly (Swift toolchain manager)
+                    # Try to source existing env so detection works even if not on PATH yet
+                    swiftly_home="${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}"
+                    swiftly_env="$swiftly_home/env.sh"
+                    swiftly_bin="$swiftly_home/bin/swiftly"
+                    # shellcheck disable=SC1090
+                    if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
+                    if ! command -v swiftly >/dev/null 2>&1 && [ ! -x "$swiftly_bin" ]; then
+                        echo "📥 Installing swiftly (Swift toolchain manager)..."
+                        # Ensure GnuPG is available for signature verification required by swiftly
                         if ! command -v gpg >/dev/null 2>&1; then
-                            echo "⚠️  swiftly failed and 'gpg' is missing. Install it with: sudo apt install -y gnupg"
+                            echo "   ↪ Installing gnupg (required by swiftly)..."
+                            sudo apt install -y gnupg || true
                         fi
-                        echo "⚠️  swiftly installation failed. See https://www.swift.org/install/linux/ for manual steps."
-                        report_optional_failure "swiftly"
+                        arch="$(uname -m)"
+                        url="${SWIFTLY_INSTALL_URL_TEMPLATE/\%s/$arch}"
+                        swiftly_archive="swiftly-${arch}.tar.gz"
+                        tmpdir="$(mktemp -d)"
+                        if (
+                            set -e
+                            cd "$tmpdir"
+                            echo "   ↪ Downloading $url"
+                            curl -fLO "$url"
+                            if [ -n "${DOTFILES_SWIFTLY_INSTALL_SHA256:-}" ]; then
+                                verify_sha256_file "$DOTFILES_SWIFTLY_INSTALL_SHA256" "$swiftly_archive"
+                                echo "   ↪ Verified SHA-256 for $swiftly_archive"
+                            fi
+                            tar zxf "$swiftly_archive"
+                            ./swiftly init --quiet-shell-followup --skip-install
+                        ); then
+                            env_file="$swiftly_env"
+                            # shellcheck disable=SC1090
+                            if [ -f "$env_file" ]; then . "$env_file"; fi
+                            hash -r || true
+                            echo "✅ swiftly installed"
+                        else
+                            if ! command -v gpg >/dev/null 2>&1; then
+                                echo "⚠️  swiftly failed and 'gpg' is missing. Install it with: sudo apt install -y gnupg"
+                            fi
+                            echo "⚠️  swiftly installation failed. See https://www.swift.org/install/linux/ for manual steps."
+                            report_optional_failure "swiftly"
+                        fi
+                        rm -rf "$tmpdir"
+                    else
+                        echo "✅ swiftly already installed"
                     fi
-                    rm -rf "$tmpdir"
-                else
-                    echo "✅ swiftly already installed"
-                fi
 
-                # Ensure current session can find freshly installed user binaries
-                ensure_local_bin_on_path
-                # shellcheck disable=SC1090
-                if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
+                    # Ensure current session can find freshly installed user binaries
+                    ensure_local_bin_on_path
+                    # shellcheck disable=SC1090
+                    if [ -f "$swiftly_env" ]; then . "$swiftly_env"; fi
 
-                # Optional: install pinned Python via uv
-                if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
-                    if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
-                        install_uv_python_version
+                    # Optional: install pinned Python via uv
+                    if command -v uv >/dev/null 2>&1; then
+                        if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
+                        if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
+                            install_uv_python_version
+                        fi
                     fi
-                fi
 
-                # Optional: install latest stable Swift toolchain via swiftly
-                if command -v swiftly >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
-                    if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
-                        swiftly install stable || true
+                    # Optional: install latest stable Swift toolchain via swiftly
+                    if command -v swiftly >/dev/null 2>&1; then
+                        if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                        if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
+                            swiftly install stable || true
+                        fi
                     fi
-                fi
-                ;;
-            *)
-                echo "❌ Unsupported OS. Install dependencies manually."
-                ;;
-        esac
-    else
-        report_skipped "optional tool installation"
+                    ;;
+                *)
+                    echo "❌ Unsupported OS. Install dependencies manually."
+                    ;;
+            esac
+        else
+            report_skipped "optional tool installation"
+        fi
     fi
-fi
+}
+
+install_platform_tools_phase
 
 # Set up Git global ignore config and merge recommended defaults into the existing global config.
-if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
-    if command -v git >/dev/null 2>&1; then
-        snapshot_git_config_before_install
-        GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
-        if [ -f "$GIT_IGNORE_GLOBAL" ]; then
-            echo "🔧 Configuring Git global ignore path..."
-            configure_git_default "core.excludesfile" "$GIT_IGNORE_GLOBAL"
+configure_git_phase() {
+    if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
+        if command -v git >/dev/null 2>&1; then
+            snapshot_git_config_before_install
+            GIT_IGNORE_GLOBAL="$HOME/.global.gitignore"
+            if [ -f "$GIT_IGNORE_GLOBAL" ]; then
+                echo "🔧 Configuring Git global ignore path..."
+                configure_git_default "core.excludesfile" "$GIT_IGNORE_GLOBAL"
+            fi
+
+            echo "🔧 Configuring global Git behavior..."
+            for_each_git_default configure_git_default_from_baseline
+            report_completed "Git defaults"
+        else
+            echo "⚠️  git not found; skipping global Git configuration for now."
         fi
-
-        echo "🔧 Configuring global Git behavior..."
-        for_each_git_default configure_git_default_from_baseline
-        report_completed "Git defaults"
-    else
-        echo "⚠️  git not found; skipping global Git configuration for now."
     fi
-fi
 
-if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL && command -v delta >/dev/null 2>&1; then
-    read -r -p $'\n🎨 Configure delta as the Git pager with side-by-side diffs? [y/N]: ' configure_delta
-    if [[ "$configure_delta" =~ ^[Yy]$ ]]; then
-        configure_delta_git
+    if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL && command -v delta >/dev/null 2>&1; then
+        read -r -p $'\n🎨 Configure delta as the Git pager with side-by-side diffs? [y/N]: ' configure_delta
+        if [[ "$configure_delta" =~ ^[Yy]$ ]]; then
+            configure_delta_git
+        fi
     fi
-fi
 
-if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL; then
-    offer_github_authentication
-fi
+    if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL; then
+        offer_github_authentication
+    fi
+}
+
+configure_git_phase
 
 ### === Optional NVM Install ===
-if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
-    if $INSTALL_ALL; then want_nvm="y"; elif $YES_MODE; then want_nvm="n"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
-    if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
-        NVM_TAG="$NVM_VERSION"
+install_nvm_phase() {
+    if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
+        if $INSTALL_ALL; then want_nvm="y"; elif $YES_MODE; then want_nvm="n"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
+        if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
+            NVM_TAG="$NVM_VERSION"
 
-        if [ -d "$HOME/.nvm/.git" ]; then
-            echo "🔄 Updating existing nvm to $NVM_TAG..."
-            git -C "$HOME/.nvm" fetch --tags origin || true
-            git -C "$HOME/.nvm" checkout "$NVM_TAG" || true
-        else
-            echo "📦 Installing nvm ($NVM_TAG)..."
-            # Use the official installer pinned to the selected release tag.
-            if [ -n "${DOTFILES_NVM_INSTALL_SHA256:-}" ]; then
-                nvm_install_args=(--sha256 "$DOTFILES_NVM_INSTALL_SHA256")
+            if [ -d "$HOME/.nvm/.git" ]; then
+                echo "🔄 Updating existing nvm to $NVM_TAG..."
+                git -C "$HOME/.nvm" fetch --tags origin || true
+                git -C "$HOME/.nvm" checkout "$NVM_TAG" || true
             else
-                nvm_install_args=()
+                echo "📦 Installing nvm ($NVM_TAG)..."
+                # Use the official installer pinned to the selected release tag.
+                if [ -n "${DOTFILES_NVM_INSTALL_SHA256:-}" ]; then
+                    nvm_install_args=(--sha256 "$DOTFILES_NVM_INSTALL_SHA256")
+                else
+                    nvm_install_args=()
+                fi
+                run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" "${nvm_install_args[@]}"
             fi
-            run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" "${nvm_install_args[@]}"
-        fi
 
-        # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
-        if [[ "$SHELL_NAME" == "zsh" ]]; then
-            apply_rc_lines add "$HOME/.zshrc" "${NVM_RC_LINES[@]}"
-        else
-            apply_rc_lines add "$HOME/.bashrc" "${NVM_RC_LINES[@]}"
-        fi
-
-        # Initialize nvm in current session if possible
-        export NVM_DIR="$HOME/.nvm"
-        # shellcheck disable=SC1091
-        if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh"; fi
-        # shellcheck disable=SC1091
-        if [ -s "$NVM_DIR/bash_completion" ]; then . "$NVM_DIR/bash_completion"; fi
-
-        # Determine current and latest LTS versions (best-effort)
-        current_node="$(run_nvm version current 2>/dev/null || echo none)"
-        remote_lts="$(run_nvm version-remote --lts 2>/dev/null || echo '')"
-
-        if [[ "$current_node" != "none" && "$current_node" != "system" ]]; then
-            # User already has a Node version active via nvm → offer to switch
-            if $YES_MODE || $INSTALL_ALL; then
-                switch_to_lts="y"
+            # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
+            if [[ "$SHELL_NAME" == "zsh" ]]; then
+                apply_rc_lines add "$HOME/.zshrc" "${NVM_RC_LINES[@]}"
             else
-                read -r -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'$'   Global npm packages are per-Node-version; a migration prompt follows after a successful switch.\n'$'   Proceed? [y/N]: ' switch_to_lts
+                apply_rc_lines add "$HOME/.bashrc" "${NVM_RC_LINES[@]}"
             fi
-            if [[ "$switch_to_lts" =~ ^[Yy]$ ]]; then
-                prev_node="$current_node"
-                run_nvm install --lts || true
-                run_nvm alias default 'lts/*' || true
-                run_nvm use --lts || true
-                # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
-                if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
-                offer_nvm_global_package_migration "$prev_node"
-            fi
-        else
-            # No active Node via nvm → offer to install latest LTS and set default
-            if $YES_MODE || $INSTALL_ALL; then install_node="y"; else read -r -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
-            if [[ "$install_node" =~ ^[Yy]$ ]]; then
-                run_nvm install --lts && run_nvm alias default 'lts/*'
-                # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
-                if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+
+            # Initialize nvm in current session if possible
+            export NVM_DIR="$HOME/.nvm"
+            # shellcheck disable=SC1091
+            if [ -s "$NVM_DIR/nvm.sh" ]; then . "$NVM_DIR/nvm.sh"; fi
+            # shellcheck disable=SC1091
+            if [ -s "$NVM_DIR/bash_completion" ]; then . "$NVM_DIR/bash_completion"; fi
+
+            # Determine current and latest LTS versions (best-effort)
+            current_node="$(run_nvm version current 2>/dev/null || echo none)"
+            remote_lts="$(run_nvm version-remote --lts 2>/dev/null || echo '')"
+
+            if [[ "$current_node" != "none" && "$current_node" != "system" ]]; then
+                # User already has a Node version active via nvm → offer to switch
+                if $YES_MODE || $INSTALL_ALL; then
+                    switch_to_lts="y"
+                else
+                    read -r -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'$'   Global npm packages are per-Node-version; a migration prompt follows after a successful switch.\n'$'   Proceed? [y/N]: ' switch_to_lts
+                fi
+                if [[ "$switch_to_lts" =~ ^[Yy]$ ]]; then
+                    prev_node="$current_node"
+                    run_nvm install --lts || true
+                    run_nvm alias default 'lts/*' || true
+                    run_nvm use --lts || true
+                    # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
+                    if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+                    offer_nvm_global_package_migration "$prev_node"
+                fi
+            else
+                # No active Node via nvm → offer to install latest LTS and set default
+                if $YES_MODE || $INSTALL_ALL; then install_node="y"; else read -r -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
+                if [[ "$install_node" =~ ^[Yy]$ ]]; then
+                    run_nvm install --lts && run_nvm alias default 'lts/*'
+                    # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
+                    if command -v corepack >/dev/null 2>&1; then corepack enable || true; fi
+                fi
             fi
         fi
     fi
-fi
+}
+
+install_nvm_phase
 
 ### === Check for other tools used in aliases/functions ===
 echo -e "\n🔍 Checking for other recommended tools..."
 
-for tool in "${REQUIRED_TOOLS[@]}"; do
+for tool in "${RECOMMENDED_COMMANDS[@]}"; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "⚠️  $tool not found. Some aliases or functions may not work correctly."
         report_optional_failure "recommended command unavailable: $tool"

@@ -64,6 +64,7 @@ run_remote_script() {
     fi
 
     script=$(mktemp "${TMPDIR:-/tmp}/dotfiles-download.XXXXXX")
+    register_temp_path "$script"
     if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$script" "$url"; then
         rm -f "$script"
         return 1
@@ -83,6 +84,7 @@ run_remote_script() {
         status=$?
     fi
     rm -f "$script"
+    forget_temp_path "$script"
     return "$status"
 }
 

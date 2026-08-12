@@ -160,6 +160,16 @@ fi
 grep -Fq 'Required failures: 1' "$test_root/summary-failure.out"
 grep -Fq 'installer exited with status 1' "$test_root/summary-failure.out"
 
+run_installer_function run-step-optional "" "$test_root/run-step-optional.out" false
+grep -Fq 'Optional failures: 1' "$test_root/run-step-optional.out"
+grep -Fq 'optional stub' "$test_root/run-step-optional.out"
+
+if run_installer_function cleanup-failure "" "$test_root/cleanup-failure.out" false; then
+    exit 1
+fi
+cleanup_path=$(grep -E '/dotfiles-cleanup-test\.' "$test_root/cleanup-failure.out" | head -1)
+if [ -e "$cleanup_path" ]; then exit 1; fi
+
 yes_home="$test_root/yes-home"
 mkdir -p "$yes_home"
 HOME="$yes_home" SHELL=/bin/bash GIT_CONFIG_GLOBAL="$yes_home/gitconfig" "$repo_root/install.sh" --yes >"$test_root/yes-mode.out"

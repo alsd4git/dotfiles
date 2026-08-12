@@ -8,7 +8,7 @@ install_required_apt_package() {
         echo "✅ $pkg already installed"
     else
         echo "📦 Installing $pkg..."
-        sudo apt install -y "$pkg"
+        run_step required "apt package: $pkg" sudo apt install -y "$pkg"
     fi
 }
 
@@ -18,13 +18,7 @@ install_optional_apt_package() {
         echo "✅ $pkg already installed"
     else
         echo "📦 Installing $pkg..."
-        if sudo apt install -y "$pkg"; then
-            echo "✅ Installed $pkg"
-            report_completed "$pkg"
-        else
-            echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
-            report_optional_failure "$pkg"
-        fi
+        run_step optional "apt package: $pkg" sudo apt install -y "$pkg"
     fi
 }
 
@@ -44,6 +38,7 @@ install_eza_from_apt_repository() {
     fi
     echo "📥 Configuring the official eza apt repository..."
     key_tmp=$(mktemp "${TMPDIR:-/tmp}/eza-key.XXXXXX")
+    register_temp_path "$key_tmp"
     if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$key_tmp" "$key_url"; then
         rm -f "$key_tmp"
         echo "⚠️  Could not download the eza repository key; skipping eza."
@@ -61,7 +56,10 @@ install_eza_from_apt_repository() {
         return 0
     fi
     rm -f "$key_tmp"
+    forget_temp_path "$key_tmp"
     sudo chmod 0644 "$keyring"
+    # Keep the repository URL exactly as documented by eza. Package integrity
+    # is enforced by APT through the dedicated signed-by keyring above.
     printf 'deb [arch=%s signed-by=%s] http://deb.gierens.de stable main\n' "$architecture" "$keyring" | sudo tee "$source_file" >/dev/null
     sudo chmod 0644 "$source_file"
     sudo apt update
