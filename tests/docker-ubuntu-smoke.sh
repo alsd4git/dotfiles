@@ -31,3 +31,12 @@ docker run --rm \
     '
 
 printf 'Ubuntu container smoke tests passed (%s)\n' "$image"
+
+docker run --rm \
+    --mount "type=bind,src=$repo_root,dst=/workspace,readonly" \
+    --env HOME=/tmp/dotfiles-home \
+    --env SHELL=/bin/bash \
+    bash:3.2 \
+    /workspace/install.sh --dry-run --minimal >/dev/null
+
+printf 'Bash 3.2 compatibility smoke test passed\n'

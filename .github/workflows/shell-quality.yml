@@ -40,13 +40,14 @@ jobs:
             lib/installer-git.sh \
             lib/installer-toolchains.sh \
             lib/installer-platforms.sh \
+            lib/tool-manifest.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
-            old_setup.sh \
+            archive/old_setup.sh \
             general/.aliases \
             general/.functions \
             general/.history_settings \
@@ -65,13 +66,14 @@ jobs:
             lib/installer-git.sh \
             lib/installer-toolchains.sh \
             lib/installer-platforms.sh \
+            lib/tool-manifest.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
-            old_setup.sh \
+            archive/old_setup.sh \
             general/.aliases \
             general/.functions \
             general/.history_settings \
