@@ -141,4 +141,31 @@ if DOTFILES_TEST_REMOTE_SHA256="$(printf '%s\n' incorrect | shasum -a 256 | awk 
 fi
 grep -Fq 'SHA-256 mismatch' "$test_root/remote-failed.out"
 
+run_installer_function bootstrap-policy "" "$test_root/bootstrap-policy.out" false
+grep -Fq 'trusted-upstream-dynamic' "$test_root/bootstrap-policy.out"
+grep -Fq 'fixed-release-optional-sha256' "$test_root/bootstrap-policy.out"
+
+"$repo_root/install.sh" --help >"$test_root/help.out"
+grep -Fq -- '--yes' "$test_root/help.out"
+grep -Fq -- 'Deprecated alias for --all --yes' "$test_root/help.out"
+
+if "$repo_root/install.sh" --sync --yes >"$test_root/invalid-cli.out" 2>&1; then
+    exit 1
+fi
+grep -Fq -- '--sync cannot be combined' "$test_root/invalid-cli.out"
+
+if run_installer_function summary-failure "" "$test_root/summary-failure.out" false; then
+    exit 1
+fi
+grep -Fq 'Required failures: 1' "$test_root/summary-failure.out"
+grep -Fq 'installer exited with status 1' "$test_root/summary-failure.out"
+
+yes_home="$test_root/yes-home"
+mkdir -p "$yes_home"
+HOME="$yes_home" SHELL=/bin/bash GIT_CONFIG_GLOBAL="$yes_home/gitconfig" "$repo_root/install.sh" --yes >"$test_root/yes-mode.out"
+grep -Fq 'Skipped: 1' "$test_root/yes-mode.out"
+grep -Fq 'Optional failures: 0' "$test_root/yes-mode.out"
+if [ -e "$yes_home/.nvm" ]; then exit 1; fi
+HOME="$yes_home" SHELL=/bin/bash GIT_CONFIG_GLOBAL="$yes_home/gitconfig" "$repo_root/install.sh" --uninstall --force >/dev/null
+
 printf 'installer interactive function tests passed\n'

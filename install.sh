@@ -4,6 +4,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 FORCE_MODE=false
+YES_MODE=false
 MINIMAL_MODE=false
 DRY_RUN=false
 COPY_MODE=false
@@ -18,97 +19,32 @@ SYNC_MODE=false
 TRUST_BREW_TAPS=false
 OPTIONAL_INSTALL_APPROVED=false
 TEST_FUNCTION="${DOTFILES_TEST_FUNCTION:-}"
-for arg in "$@"; do
-    case "$arg" in
-        -dr | --dry-run)
-            DRY_RUN=true
-            echo "🧪 Running in dry-run mode. No files will be changed."
-            ;;
-        -c | --copy)
-            COPY_MODE=true
-            echo "📄 Running in copy mode with backup."
-            ;;
-        -cb | --clean-backups)
-            CLEAN_BACKUPS=true
-            ;;
-        -f | --force)
-            FORCE_MODE=true
-            ;;
-        -m | --minimal)
-            MINIMAL_MODE=true
-            ;;
-        --skip-tools)
-            SKIP_TOOLS=true
-            ;;
-        --brew-upgrade)
-            BREW_UPGRADE=true
-            ;;
-        --sync)
-            SYNC_MODE=true
-            ;;
-        --trust-brew-taps)
-            TRUST_BREW_TAPS=true
-            ;;
-        -h | --help)
-            SHOW_HELP=true
-            ;;
-        -a | --all)
-            INSTALL_ALL=true
-            ;;
-        --uninstall)
-            UNINSTALL_MODE=true
-            ;;
-        *)
-            echo "❌ Unknown argument: $arg" >&2
-            exit 2
-            ;;
-    esac
-done
+
+BASEDIR=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=lib/installer-cli.sh
+source "$BASEDIR/lib/installer-cli.sh"
+# shellcheck source=lib/bootstrap-policy.sh
+source "$BASEDIR/lib/bootstrap-policy.sh"
+# shellcheck source=lib/installer-report.sh
+source "$BASEDIR/lib/installer-report.sh"
+# shellcheck source=lib/installer-files.sh
+source "$BASEDIR/lib/installer-files.sh"
+# shellcheck source=lib/installer-git.sh
+source "$BASEDIR/lib/installer-git.sh"
+# shellcheck source=lib/installer-toolchains.sh
+source "$BASEDIR/lib/installer-toolchains.sh"
+# shellcheck source=lib/installer-platforms.sh
+source "$BASEDIR/lib/installer-platforms.sh"
+trap 'installer_exit_summary $?' EXIT
+
+parse_installer_args "$@"
 
 if $SHOW_HELP; then
-    echo "Usage: ./install.sh [options]"
-    echo ""
-    echo "Options:"
-    echo "  -dr, --dry-run         Run in dry mode (no files modified)"
-    echo "  -c,  --copy            Copy files instead of symlinking"
-    echo "  -f,  --force           Skip prompts and force optional installs (does not clean backups)"
-    echo "  -m,  --minimal         Install only core dotfiles (no extras or tools)"
-    echo "      --skip-tools        Skip optional package managers and tool installation"
-    echo "      --brew-upgrade      Upgrade Brewfile dependencies during macOS installation"
-    echo "      --sync              Reconcile dotfiles, shell setup, and Git defaults without tool installs or prompts"
-    echo "      --trust-brew-taps   Explicitly trust every third-party tap declared in the Brewfile"
-    echo "  -cb, --clean-backups   Offer to remove backups created by this installer"
-    echo "  -a,  --all             Automatically install all optional tools"
-    echo "      --uninstall        Remove links and revert shell rc additions"
-    echo "  -h,  --help            Show this help message"
+    show_installer_help
     exit 0
 fi
 
-if $SYNC_MODE && { $MINIMAL_MODE || $INSTALL_ALL || $FORCE_MODE || $BREW_UPGRADE || $CLEAN_BACKUPS || $TRUST_BREW_TAPS; }; then
-    echo "❌ --sync cannot be combined with --minimal, --all, --force, --brew-upgrade, --clean-backups, or --trust-brew-taps." >&2
-    exit 2
-fi
-
-if $UNINSTALL_MODE && { $COPY_MODE || $MINIMAL_MODE || $SKIP_TOOLS || $BREW_UPGRADE || $INSTALL_ALL || $SYNC_MODE || $TRUST_BREW_TAPS; }; then
-    echo "❌ --uninstall cannot be combined with installation-only options." >&2
-    exit 2
-fi
-
-if $FORCE_MODE; then
-    INSTALL_ALL=true
-fi
-
-if $MINIMAL_MODE; then
-    INSTALL_ALL=false
-    SKIP_GIT_CONFIG=true
-    SKIP_FETCH=true
-    SKIP_TOOLS=true
-fi
-
-if $SYNC_MODE; then
-    SKIP_TOOLS=true
-    SKIP_FETCH=true
-fi
+validate_installer_modes
 
 ### === Defaults & Constants ===
 UV_PYTHON_VERSION='3.13'
@@ -156,7 +92,6 @@ DELTA_GIT_DEFAULTS=(
 )
 
 ### === Define dotfiles ===
-BASEDIR=$(cd "$(dirname "$0")" && pwd)
 DOTFILES_HOME="$BASEDIR"
 MACOS_BREWFILE="$DOTFILES_HOME/macos/Brewfile"
 MACOS_DOCK_SCRIPT="$DOTFILES_HOME/macos/dock.sh"
@@ -201,361 +136,6 @@ fi
 printf "\n🔍 Detected OS: %s\n" "$OS"
 printf "🔍 Detected Shell: %s\n" "$SHELL_NAME"
 
-add_to_rc_if_not_present() {
-    local rc_file="${1/#\~/$HOME}" # expand ~ to $HOME
-    local line_to_add="$2"
-    if [ -f "$rc_file" ] && grep -Fq "$line_to_add" "$rc_file"; then
-        echo "📄 $line_to_add found in $rc_file, no need to add"
-    else
-        if $DRY_RUN; then
-            echo "🧪 Would add to $rc_file: $line_to_add"
-        else
-            echo "📝 adding $line_to_add to $rc_file"
-            echo "$line_to_add" >>"$rc_file"
-        fi
-    fi
-}
-
-record_backup() {
-    local backup_path="$1"
-
-    mkdir -p "$GIT_CONFIG_STATE_DIR"
-    touch "$BACKUP_MANIFEST"
-    if ! grep -Fqx -- "$backup_path" "$BACKUP_MANIFEST"; then
-        printf '%s\n' "$backup_path" >>"$BACKUP_MANIFEST"
-    fi
-}
-
-backup_existing_path() {
-    local path="$1"
-    local backup_path
-    local counter=0
-
-    backup_path="${path}.bak.$(date +%s)"
-
-    while [ -e "$backup_path" ] || [ -L "$backup_path" ]; do
-        counter=$((counter + 1))
-        backup_path="${path}.bak.$(date +%s).$counter"
-    done
-
-    mv -- "$path" "$backup_path"
-    record_backup "$backup_path"
-    printf '%s\n' "$backup_path"
-}
-
-calculate_sha256() {
-    local path="$1"
-
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$path" | awk '{print $1}'
-    elif command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$path" | awk '{print $1}'
-    else
-        return 1
-    fi
-}
-
-verify_sha256_file() {
-    local expected_sha256="$1"
-    local path="$2"
-    local actual_sha256
-
-    if [[ ! "$expected_sha256" =~ ^[[:xdigit:]]{64}$ ]]; then
-        echo "❌ Invalid SHA-256 digest for $path" >&2
-        return 2
-    fi
-    if ! actual_sha256=$(calculate_sha256 "$path"); then
-        echo "❌ No SHA-256 utility available; refusing to use $path" >&2
-        return 1
-    fi
-    if [ "$actual_sha256" != "$expected_sha256" ]; then
-        echo "❌ SHA-256 mismatch for $path" >&2
-        return 1
-    fi
-}
-
-run_remote_script() {
-    local url="$1"
-    shift
-    local expected_sha256=""
-    local script status
-
-    if [ "${1:-}" = "--sha256" ]; then
-        if [ "$#" -lt 2 ]; then
-            echo "❌ --sha256 requires a SHA-256 digest for $url" >&2
-            return 2
-        fi
-        expected_sha256="$2"
-        shift 2
-        if [[ ! "$expected_sha256" =~ ^[[:xdigit:]]{64}$ ]]; then
-            echo "❌ Invalid SHA-256 digest for $url" >&2
-            return 2
-        fi
-    fi
-
-    script=$(mktemp "${TMPDIR:-/tmp}/dotfiles-download.XXXXXX")
-    if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$script" "$url"; then
-        rm -f "$script"
-        return 1
-    fi
-
-    if [ -n "$expected_sha256" ]; then
-        if ! verify_sha256_file "$expected_sha256" "$script"; then
-            rm -f "$script"
-            return 1
-        fi
-        echo "🔐 Verified SHA-256 for $url"
-    fi
-
-    if bash "$script" "$@"; then
-        status=0
-    else
-        status=$?
-    fi
-    rm -f "$script"
-    return "$status"
-}
-
-remove_from_rc_if_present() {
-    local rc_file="${1/#\~/$HOME}"
-    local line_to_remove="$2"
-    if [ -f "$rc_file" ] && grep -Fq "$line_to_remove" "$rc_file"; then
-        if $DRY_RUN; then
-            echo "🧪 Would remove line from $rc_file: $line_to_remove"
-        else
-            echo "🧽 removing line from $rc_file: $line_to_remove"
-            # Create a temp file safely
-            tmp_file="${rc_file}.tmp.$$"
-            grep -Fv "$line_to_remove" "$rc_file" >"$tmp_file" || true
-            mv "$tmp_file" "$rc_file"
-        fi
-    fi
-}
-
-cleanup_legacy_path_dedup() {
-    local rc_file="$1"
-
-    remove_from_rc_if_present "$rc_file" "$LEGACY_PATH_DEDUP_MARKER"
-    remove_from_rc_if_present "$rc_file" "$LEGACY_PATH_DEDUP_LINE"
-}
-
-apt_package_installed() {
-    dpkg -s "$1" >/dev/null 2>&1
-}
-
-install_required_apt_package() {
-    local pkg="$1"
-
-    if apt_package_installed "$pkg"; then
-        echo "✅ $pkg already installed"
-    else
-        echo "📦 Installing $pkg..."
-        sudo apt install -y "$pkg"
-    fi
-}
-
-install_optional_apt_package() {
-    local pkg="$1"
-
-    if apt_package_installed "$pkg"; then
-        echo "✅ $pkg already installed"
-    else
-        echo "📦 Installing $pkg..."
-        if sudo apt install -y "$pkg"; then
-            echo "✅ Installed $pkg"
-        else
-            echo "⚠️  $pkg is unavailable from apt on this system; continuing without it"
-        fi
-    fi
-}
-
-install_eza_from_apt_repository() {
-    local key_url="https://raw.githubusercontent.com/eza-community/eza/main/deb.asc"
-    local keyring="/etc/apt/keyrings/gierens.gpg"
-    local source_file="/etc/apt/sources.list.d/gierens.list"
-    local architecture key_tmp
-
-    if apt_package_installed eza; then
-        echo "✅ eza already installed"
-        return 0
-    fi
-
-    architecture=$(dpkg --print-architecture 2>/dev/null || true)
-    if [ -z "$architecture" ]; then
-        echo "⚠️  Cannot determine the Debian architecture; skipping eza."
-        return 0
-    fi
-
-    echo "📥 Configuring the official eza apt repository..."
-    key_tmp=$(mktemp "${TMPDIR:-/tmp}/eza-key.XXXXXX")
-    if ! curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 -o "$key_tmp" "$key_url"; then
-        rm -f "$key_tmp"
-        echo "⚠️  Could not download the eza repository key; skipping eza."
-        return 0
-    fi
-
-    if [ -n "${DOTFILES_EZA_KEY_SHA256:-}" ]; then
-        if ! verify_sha256_file "$DOTFILES_EZA_KEY_SHA256" "$key_tmp"; then
-            rm -f "$key_tmp"
-            echo "⚠️  eza repository key verification failed; skipping eza."
-            return 0
-        fi
-        echo "🔐 Verified SHA-256 for the eza repository key"
-    fi
-
-    if ! sudo mkdir -p "$(dirname "$keyring")" || ! sudo gpg --dearmor --yes --output "$keyring" "$key_tmp"; then
-        rm -f "$key_tmp"
-        echo "⚠️  Could not install the eza repository key; skipping eza."
-        return 0
-    fi
-    rm -f "$key_tmp"
-    sudo chmod 0644 "$keyring"
-
-    printf 'deb [arch=%s signed-by=%s] http://deb.gierens.de stable main\n' \
-        "$architecture" "$keyring" | sudo tee "$source_file" >/dev/null
-    sudo chmod 0644 "$source_file"
-    sudo apt update
-    if ! sudo apt install -y eza; then
-        echo "⚠️  eza is unavailable from the official repository; skipping it."
-    fi
-}
-
-ensure_local_bin_on_path() {
-    if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-        export PATH="$HOME/.local/bin:$PATH"
-    fi
-}
-
-report_macos_sudo_touch_id_status() {
-    local sudo_pam="/etc/pam.d/sudo"
-    local sudo_tid_line='auth       sufficient     pam_tid.so'
-
-    if grep -Fqx "$sudo_tid_line" "$sudo_pam" 2>/dev/null; then
-        echo "✅ Touch ID is already enabled for sudo via $sudo_pam"
-        return 0
-    fi
-
-    echo "⚠️  Touch ID for sudo does not appear to be enabled."
-    echo "ℹ️  Manual recovery path:"
-    echo "   1. Edit /etc/pam.d/sudo with sudo"
-    echo "   2. Ensure this exact line is present: $sudo_tid_line"
-    echo "   3. Test with: sudo -k && sudo -v"
-}
-
-offer_github_authentication() {
-    if ! command -v gh >/dev/null 2>&1; then
-        return 0
-    fi
-
-    if gh auth status --hostname github.com >/dev/null 2>&1; then
-        echo "✅ GitHub CLI is already authenticated on github.com"
-        return 0
-    fi
-
-    if [ "${DOTFILES_TEST_INTERACTIVE:-false}" != true ] && { [ ! -t 0 ] || [ ! -t 1 ]; }; then
-        echo "ℹ️  gh is not authenticated. Run 'gh auth login' from an interactive shell when ready."
-        return 0
-    fi
-
-    local configure_gh_auth
-    read -r -p $'\n🐙 Authenticate GitHub CLI with gh auth login? [y/N]: ' configure_gh_auth || return 0
-    if [[ ! "$configure_gh_auth" =~ ^[Yy]$ ]]; then
-        echo "ℹ️  Skipping GitHub CLI authentication. Run 'gh auth login' later when ready."
-        return 0
-    fi
-
-    if gh auth login; then
-        echo "✅ GitHub CLI authentication completed."
-        echo "ℹ️  Configure Git to use gh credentials with: gh auth setup-git"
-        echo "ℹ️  Add an SSH authentication key with: gh ssh-key add ~/.ssh/<key>.pub --type authentication"
-        echo "ℹ️  Add an SSH signing key with: gh ssh-key add ~/.ssh/<key>.pub --type signing"
-        echo "ℹ️  Add a GPG signing key with: gh gpg-key add <public-key-file>"
-    else
-        echo "⚠️  GitHub CLI authentication was not completed; you can retry with: gh auth login"
-    fi
-}
-
-offer_nvm_global_package_migration() {
-    local previous_node="$1"
-    local target_node migrate_packages
-
-    target_node="$(run_nvm version current 2>/dev/null || echo none)"
-    if [ "$target_node" = "$previous_node" ] || [ "$target_node" = "none" ] || [ "$target_node" = "system" ]; then
-        return 0
-    fi
-
-    echo "ℹ️  Global npm packages are scoped to each nvm Node version."
-    echo "   Current target: $target_node"
-    echo "   Source version: $previous_node"
-
-    if $FORCE_MODE || $INSTALL_ALL || { [ "${DOTFILES_TEST_INTERACTIVE:-false}" != true ] && { [ ! -t 0 ] || [ ! -t 1 ]; }; }; then
-        echo "ℹ️  Skipping package migration in non-interactive/automatic mode."
-        echo "   Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
-        return 0
-    fi
-
-    read -r -p $'📦 Migrate global npm packages to the new Node version with nvm reinstall-packages? [y/N]: ' migrate_packages || return 0
-    if [[ "$migrate_packages" =~ ^[Yy]$ ]]; then
-        if run_nvm reinstall-packages "$previous_node"; then
-            echo "✅ Global npm packages migrated from $previous_node to $target_node"
-        else
-            echo "⚠️  Global npm package migration failed; retry with: nvm use $target_node && nvm reinstall-packages $previous_node"
-        fi
-    else
-        echo "ℹ️  Skipping package migration. Run when ready: nvm use $target_node && nvm reinstall-packages $previous_node"
-    fi
-}
-
-run_nvm() {
-    local status
-
-    # nvm v0.40.4 has internal paths that read an unset local variable while
-    # nounset is active. Keep the installer strict and relax only this call.
-    set +u
-    if nvm "$@"; then
-        status=0
-    else
-        status=$?
-    fi
-    set -u
-    return "$status"
-}
-
-ensure_macos_xcode_tools() {
-    local developer_dir xcode_version xcode_line
-
-    if ! developer_dir=$(xcode-select -p 2>/dev/null); then
-        echo "⚠️  Xcode developer tools are missing."
-        echo "ℹ️  Install Xcode from the App Store or run: xcode-select --install"
-        return 1
-    fi
-
-    if ! xcode_version=$(xcodebuild -version 2>/dev/null); then
-        echo "⚠️  xcodebuild is unavailable even though xcode-select points to $developer_dir"
-        echo "ℹ️  Install Xcode, then run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
-        return 1
-    fi
-
-    echo "✅ Xcode developer directory: $developer_dir"
-    while IFS= read -r xcode_line; do
-        [[ -n "$xcode_line" ]] && echo "✅ $xcode_line"
-    done <<<"$xcode_version"
-}
-
-report_macos_stats_quarantine_hint() {
-    local stats_app="/Applications/Stats.app"
-
-    if [ ! -d "$stats_app" ] || ! command -v xattr >/dev/null 2>&1; then
-        return 0
-    fi
-
-    if xattr -p com.apple.quarantine "$stats_app" >/dev/null 2>&1; then
-        echo "ℹ️  Stats.app still has the quarantine bit set."
-        echo "   If it refuses to open, run:"
-        echo "   sudo xattr -r -d com.apple.quarantine /Applications/Stats.app/"
-    fi
-}
-
 report_git_identity_hint() {
     local git_name git_email
 
@@ -574,217 +154,6 @@ report_git_identity_hint() {
     echo "   Set it with:"
     echo "   git config --global user.name \"Your Name\""
     echo "   git config --global user.email \"you@example.com\""
-}
-
-phase_banner() {
-    printf '\n%s\n' "────────────────────────────────────────────────"
-    printf '▶ %s\n' "$1"
-    printf '%s\n' "────────────────────────────────────────────────"
-}
-
-install_uv_python_version() {
-    if uv python install --preview --default "$UV_PYTHON_VERSION"; then
-        ensure_local_bin_on_path
-        return 0
-    fi
-
-    echo "⚠️  uv default executables require preview mode; falling back to Python $UV_PYTHON_VERSION without default executables."
-    uv python install "$UV_PYTHON_VERSION" || true
-    ensure_local_bin_on_path
-}
-
-trust_brewfile_taps() {
-    local tap
-
-    while IFS= read -r tap; do
-        echo "🔐 Trusting Homebrew tap: $tap"
-        brew trust --tap "$tap"
-    done < <(sed -nE 's/^[[:space:]]*tap[[:space:]]+"([^"]+)".*/\1/p' "$MACOS_BREWFILE")
-}
-
-apply_rc_lines() {
-    local action="$1"
-    local rc_file="$2"
-    shift 2
-
-    local line
-    for line in "$@"; do
-        if [[ "$action" == "add" ]]; then
-            add_to_rc_if_not_present "$rc_file" "$line"
-        else
-            remove_from_rc_if_present "$rc_file" "$line"
-        fi
-    done
-}
-
-snapshot_git_config_value() {
-    local state_file="$1"
-    local setting_id="$2"
-    local setting_key="$3"
-    local value
-
-    while IFS= read -r value; do
-        git config --file "$state_file" --add "snapshot.$setting_id" "$value"
-    done < <(git config --global --get-all "$setting_key" 2>/dev/null || true)
-}
-
-snapshot_git_config_key_if_missing() {
-    local state_file="$1"
-    local setting_key="$2"
-    local setting_id
-
-    setting_id=$(git_config_setting_id "$setting_key")
-    if git config --file "$state_file" --get-all "snapshot.$setting_id" >/dev/null 2>&1; then
-        return
-    fi
-
-    snapshot_git_config_value "$state_file" "$setting_id" "$setting_key"
-}
-
-snapshot_git_default_from_baseline() {
-    local state_file="$1"
-    local setting_key="$2"
-    local setting_id
-
-    setting_id=$(git_config_setting_id "$setting_key")
-    snapshot_git_config_value "$state_file" "$setting_id" "$setting_key"
-}
-
-git_config_setting_id() {
-    printf '%s' "$1" | tr '[:upper:].' '[:lower:]-'
-}
-
-for_each_git_default() {
-    local callback="$1"
-    shift
-    local setting_key
-    local setting_value
-    local callback_failed=false
-
-    while IFS='=' read -r setting_key setting_value; do
-        if [ -z "$setting_key" ] || [[ "$setting_key" == \#* ]]; then
-            continue
-        fi
-        if [ -z "$setting_value" ]; then
-            echo "❌ Invalid Git defaults entry: $setting_key" >&2
-            return 2
-        fi
-        if ! "$callback" "$@" "$setting_key" "$setting_value"; then
-            callback_failed=true
-        fi
-    done <"$GIT_DEFAULTS_FILE"
-
-    if $callback_failed; then
-        return 1
-    fi
-}
-
-snapshot_git_config_before_install() {
-    if [ -f "$GIT_CONFIG_STATE_FILE" ]; then
-        return
-    fi
-
-    mkdir -p "$GIT_CONFIG_STATE_DIR"
-    local state_tmp
-    state_tmp=$(mktemp "$GIT_CONFIG_STATE_DIR/git-config.before.XXXXXX")
-    chmod 600 "$state_tmp"
-
-    git config --file "$state_tmp" installer.version 1
-    snapshot_git_config_value "$state_tmp" "core-excludesfile" "core.excludesfile"
-    for_each_git_default snapshot_git_default_from_baseline "$state_tmp"
-
-    mv "$state_tmp" "$GIT_CONFIG_STATE_FILE"
-}
-
-configure_git_default() {
-    local setting_key="$1"
-    local setting_value="$2"
-    local setting_id
-    setting_id=$(git_config_setting_id "$setting_key")
-
-    git config --global "$setting_key" "$setting_value"
-    git config --file "$GIT_CONFIG_STATE_FILE" --replace-all "managed.$setting_id" "$setting_value"
-}
-
-configure_git_default_from_baseline() {
-    configure_git_default "$1" "$2"
-}
-
-configure_delta_git() {
-    local setting_entry setting_key setting_value
-
-    if ! command -v delta >/dev/null 2>&1; then
-        return 0
-    fi
-
-    snapshot_git_config_before_install
-    for setting_entry in "${DELTA_GIT_DEFAULTS[@]}"; do
-        IFS='=' read -r setting_key setting_value <<<"$setting_entry"
-        snapshot_git_config_key_if_missing "$GIT_CONFIG_STATE_FILE" "$setting_key"
-        configure_git_default "$setting_key" "$setting_value"
-    done
-
-    echo "✅ Configured Git to use delta with navigation, side-by-side output, and line numbers."
-}
-
-restore_git_default() {
-    local setting_key="$1"
-    local setting_id
-    local installed_value
-    local current_value
-    local snapshot_value
-
-    setting_id=$(git_config_setting_id "$setting_key")
-    installed_value=$(git config --file "$GIT_CONFIG_STATE_FILE" --get "managed.$setting_id" 2>/dev/null || true)
-    if [ -z "$installed_value" ]; then
-        return
-    fi
-
-    current_value=$(git config --global --get-all "$setting_key" 2>/dev/null || true)
-    if [ "$current_value" != "$installed_value" ]; then
-        echo "⚠️  Keeping Git setting $setting_key because it changed after installation."
-        return 1
-    fi
-
-    git config --global --unset-all "$setting_key" || true
-    while IFS= read -r snapshot_value; do
-        git config --global --add "$setting_key" "$snapshot_value"
-    done < <(git config --file "$GIT_CONFIG_STATE_FILE" --get-all "snapshot.$setting_id" 2>/dev/null || true)
-}
-
-restore_git_default_from_baseline() {
-    restore_git_default "$1"
-}
-
-restore_git_config_before_install() {
-    if [ ! -f "$GIT_CONFIG_STATE_FILE" ]; then
-        return
-    fi
-
-    if $DRY_RUN; then
-        echo "🧪 Would restore Git settings managed by the installer."
-        return
-    fi
-
-    if ! command -v git >/dev/null 2>&1; then
-        echo "⚠️  git not found; leaving installer-managed Git settings in place."
-        return
-    fi
-
-    local restore_failed=false
-    echo "🔧 Restoring Git settings managed by the installer..."
-    restore_git_default "core.excludesfile" || restore_failed=true
-    for_each_git_default restore_git_default_from_baseline || restore_failed=true
-    local delta_entry delta_key
-    for delta_entry in "${DELTA_GIT_DEFAULTS[@]}"; do
-        delta_key="${delta_entry%%=*}"
-        restore_git_default "$delta_key" || restore_failed=true
-    done
-
-    if ! $restore_failed; then
-        rm -f "$GIT_CONFIG_STATE_FILE"
-        rmdir "$GIT_CONFIG_STATE_DIR" 2>/dev/null || true
-    fi
 }
 
 run_uninstall() {
@@ -850,6 +219,13 @@ if [ -n "$TEST_FUNCTION" ]; then
         remote-script)
             run_remote_script "${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" --sha256 "${DOTFILES_TEST_REMOTE_SHA256:-}"
             ;;
+        bootstrap-policy)
+            print_bootstrap_policy
+            ;;
+        summary-failure)
+            enable_install_summary
+            false
+            ;;
         *)
             echo "❌ Unknown DOTFILES_TEST_FUNCTION: $TEST_FUNCTION" >&2
             exit 2
@@ -865,6 +241,7 @@ if $UNINSTALL_MODE; then
 fi
 
 ### === Symlink Files ===
+enable_install_summary
 echo -e "\n🔗 Linking or copying files..."
 for i in "${!SYMLINK_KEYS[@]}"; do
     dest="${SYMLINK_KEYS[$i]}"
@@ -872,6 +249,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
     if $DRY_RUN; then
         action=$([[ $COPY_MODE == true ]] && echo "copy" || echo "link")
         echo "🧪 Would $action $dest → $src"
+        report_skipped "$action $dest (dry-run)"
     elif $COPY_MODE; then
         if [ -e "$dest" ] || [ -L "$dest" ]; then
             backup_path=$(backup_existing_path "$dest")
@@ -879,6 +257,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         fi
         cp -a "$src" "$dest"
         echo "📄 Copied $src → $dest"
+        report_completed "copied $dest"
     else
         if [ -e "$dest" ] || [ -L "$dest" ]; then
             if [ ! -L "$dest" ] || [ "$(readlink "$dest")" != "$src" ]; then
@@ -888,6 +267,7 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         fi
         ln -sf "$src" "$dest"
         echo "✅ Linked $dest → $src"
+        report_completed "linked $dest"
     fi
 done
 
@@ -895,6 +275,8 @@ done
 if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
     if $INSTALL_ALL; then
         do_install="y"
+    elif $YES_MODE; then
+        do_install="n"
     else
         if [[ "$OS" == "Darwin" ]]; then
             read -r -p $'\n✨ Install macOS packages and defaults? (Brewfile + recommended system settings + Dock layout)? [y/N]: ' do_install
@@ -920,7 +302,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                     else
                         brew_install_args=()
                     fi
-                    if ! run_remote_script "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh" "${brew_install_args[@]}"; then
+                    if ! run_remote_script "$HOMEBREW_INSTALL_URL" "${brew_install_args[@]}"; then
                         echo "❌ Homebrew installation failed." >&2
                         exit 1
                     fi
@@ -958,7 +340,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 phase_banner "Shell integration"
                 # fzf keybindings/completions (Homebrew layout)
-                if $INSTALL_ALL || $FORCE_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
+                if $INSTALL_ALL || $YES_MODE; then configure_fzf="y"; else read -r -p $'\n🎹 Enable fzf keybindings and completions? [y/N]: ' configure_fzf; fi
                 if [[ "$configure_fzf" =~ ^[Yy]$ ]]; then
                     echo "⚙️  Configuring fzf keybindings/completions..."
                     "$(brew --prefix)/opt/fzf/install" --key-bindings --completion --no-update-rc || true
@@ -977,7 +359,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 phase_banner "macOS system preferences"
                 if [ -f "$MACOS_DEFAULTS_SCRIPT" ]; then
-                    if $INSTALL_ALL || $FORCE_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
+                    if $INSTALL_ALL || $YES_MODE; then apply_macos_defaults="y"; else read -r -p $'\n🍎 Apply recommended macOS defaults? [y/N]: ' apply_macos_defaults; fi
                     if [[ "$apply_macos_defaults" =~ ^[Yy]$ ]]; then
                         bash "$MACOS_DEFAULTS_SCRIPT" --restart
                     fi
@@ -986,7 +368,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 fi
 
                 if [ -f "$MACOS_DOCK_SCRIPT" ]; then
-                    if $INSTALL_ALL || $FORCE_MODE; then apply_macos_dock="y"; else read -r -p $'\n🧷 Apply saved Dock layout? [y/N]: ' apply_macos_dock; fi
+                    if $INSTALL_ALL || $YES_MODE; then apply_macos_dock="y"; else read -r -p $'\n🧷 Apply saved Dock layout? [y/N]: ' apply_macos_dock; fi
                     if [[ "$apply_macos_dock" =~ ^[Yy]$ ]]; then
                         bash "$MACOS_DOCK_SCRIPT" --restart
                     fi
@@ -994,7 +376,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                     echo "⚠️  Missing macOS Dock script at $MACOS_DOCK_SCRIPT; skipping Dock layout."
                 fi
 
-                if $INSTALL_ALL || $FORCE_MODE; then check_macos_sudo_touch_id="y"; else read -r -p $'\n🔐 Check Touch ID for sudo configuration? [Y/n]: ' check_macos_sudo_touch_id; fi
+                if $INSTALL_ALL || $YES_MODE; then check_macos_sudo_touch_id="y"; else read -r -p $'\n🔐 Check Touch ID for sudo configuration? [Y/n]: ' check_macos_sudo_touch_id; fi
                 if [[ ! "$check_macos_sudo_touch_id" =~ ^[Nn]$ ]]; then
                     report_macos_sudo_touch_id_status
                 fi
@@ -1002,7 +384,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 # Optional: install pinned Python via uv
                 phase_banner "Toolchain checks"
                 if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
+                    if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
                         install_uv_python_version
                     fi
@@ -1010,7 +392,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 # Optional: install latest stable Swift toolchain via swiftly
                 if command -v swiftly >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                    if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
                     if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
                         swiftly install stable || true
                     fi
@@ -1066,7 +448,11 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                     else
                         oh_my_posh_install_args=()
                     fi
-                    run_remote_script "https://ohmyposh.dev/install.sh" "${oh_my_posh_install_args[@]}" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"
+                    if run_remote_script "$OH_MY_POSH_INSTALL_URL" "${oh_my_posh_install_args[@]}" -d "$HOME/.local/bin" -t "$HOME/.cache/oh-my-posh/themes"; then
+                        report_completed "oh-my-posh"
+                    else
+                        report_optional_failure "oh-my-posh"
+                    fi
                 fi
 
                 # fastfetch
@@ -1098,7 +484,11 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                     else
                         uv_install_args=()
                     fi
-                    run_remote_script "https://astral.sh/uv/install.sh" "${uv_install_args[@]}"
+                    if run_remote_script "$UV_INSTALL_URL" "${uv_install_args[@]}"; then
+                        report_completed "uv"
+                    else
+                        report_optional_failure "uv"
+                    fi
                 else
                     echo "✅ uv already installed"
                 fi
@@ -1118,7 +508,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                         sudo apt install -y gnupg || true
                     fi
                     arch="$(uname -m)"
-                    url="https://download.swift.org/swiftly/linux/swiftly-${arch}.tar.gz"
+                    url="${SWIFTLY_INSTALL_URL_TEMPLATE/\%s/$arch}"
                     swiftly_archive="swiftly-${arch}.tar.gz"
                     tmpdir="$(mktemp -d)"
                     if (
@@ -1143,6 +533,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                             echo "⚠️  swiftly failed and 'gpg' is missing. Install it with: sudo apt install -y gnupg"
                         fi
                         echo "⚠️  swiftly installation failed. See https://www.swift.org/install/linux/ for manual steps."
+                        report_optional_failure "swiftly"
                     fi
                     rm -rf "$tmpdir"
                 else
@@ -1156,7 +547,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 # Optional: install pinned Python via uv
                 if command -v uv >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
+                    if $INSTALL_ALL || $YES_MODE; then uv_install_py="y"; else read -r -p $'🐍 Install Python 3.13 via uv? [y/N]: ' uv_install_py; fi
                     if [[ "$uv_install_py" =~ ^[Yy]$ ]]; then
                         install_uv_python_version
                     fi
@@ -1164,7 +555,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
                 # Optional: install latest stable Swift toolchain via swiftly
                 if command -v swiftly >/dev/null 2>&1; then
-                    if $INSTALL_ALL || $FORCE_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
+                    if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
                     if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
                         swiftly install stable || true
                     fi
@@ -1174,6 +565,8 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
                 echo "❌ Unsupported OS. Install dependencies manually."
                 ;;
         esac
+    else
+        report_skipped "optional tool installation"
     fi
 fi
 
@@ -1189,25 +582,26 @@ if ! $SKIP_GIT_CONFIG && ! $DRY_RUN; then
 
         echo "🔧 Configuring global Git behavior..."
         for_each_git_default configure_git_default_from_baseline
+        report_completed "Git defaults"
     else
         echo "⚠️  git not found; skipping global Git configuration for now."
     fi
 fi
 
-if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $FORCE_MODE && ! $INSTALL_ALL && command -v delta >/dev/null 2>&1; then
+if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL && command -v delta >/dev/null 2>&1; then
     read -r -p $'\n🎨 Configure delta as the Git pager with side-by-side diffs? [y/N]: ' configure_delta
     if [[ "$configure_delta" =~ ^[Yy]$ ]]; then
         configure_delta_git
     fi
 fi
 
-if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $FORCE_MODE && ! $INSTALL_ALL; then
+if $OPTIONAL_INSTALL_APPROVED && ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL; then
     offer_github_authentication
 fi
 
 ### === Optional NVM Install ===
 if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
-    if $FORCE_MODE; then want_nvm="y"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
+    if $INSTALL_ALL; then want_nvm="y"; elif $YES_MODE; then want_nvm="n"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
     if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
         NVM_TAG="$NVM_VERSION"
 
@@ -1246,7 +640,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
 
         if [[ "$current_node" != "none" && "$current_node" != "system" ]]; then
             # User already has a Node version active via nvm → offer to switch
-            if $FORCE_MODE || $INSTALL_ALL; then
+            if $YES_MODE || $INSTALL_ALL; then
                 switch_to_lts="y"
             else
                 read -r -p $'\n🌳 Detected Node '"$current_node"$' active via nvm.'$'\n'$'   Switch to latest LTS'"${remote_lts:+ ($remote_lts)}"$' and set as default?\n'$'   Global npm packages are per-Node-version; a migration prompt follows after a successful switch.\n'$'   Proceed? [y/N]: ' switch_to_lts
@@ -1262,7 +656,7 @@ if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
             fi
         else
             # No active Node via nvm → offer to install latest LTS and set default
-            if $FORCE_MODE || $INSTALL_ALL; then install_node="y"; else read -r -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
+            if $YES_MODE || $INSTALL_ALL; then install_node="y"; else read -r -p $'🌱 Install latest LTS Node via nvm and set default? [y/N]: ' install_node; fi
             if [[ "$install_node" =~ ^[Yy]$ ]]; then
                 run_nvm install --lts && run_nvm alias default 'lts/*'
                 # Optionally enable Corepack for yarn/pnpm shims (non-fatal if missing)
@@ -1278,8 +672,10 @@ echo -e "\n🔍 Checking for other recommended tools..."
 for tool in "${REQUIRED_TOOLS[@]}"; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "⚠️  $tool not found. Some aliases or functions may not work correctly."
+        report_optional_failure "recommended command unavailable: $tool"
     else
         echo "✅ $tool is available."
+        report_completed "command available: $tool"
     fi
 done
 
@@ -1318,8 +714,10 @@ configure_shell_rc() {
     if $DRY_RUN; then
         echo "🧪 Dry-run: skipping interactive startup prompts for $rc_path"
     elif ! ${SKIP_FETCH:-false}; then
-        if $FORCE_MODE; then
+        if $INSTALL_ALL; then
             reply="y"
+        elif $YES_MODE; then
+            reply="n"
         else
             read -r -p "🧠 Run nice_print_aliases at shell startup? [y/N]: " reply
         fi
@@ -1327,8 +725,10 @@ configure_shell_rc() {
             add_to_rc_if_not_present "$rc_file" "[[ \$- == *i* ]] && nice_print_aliases"
         fi
 
-        if $FORCE_MODE; then
+        if $INSTALL_ALL; then
             reply="y"
+        elif $YES_MODE; then
+            reply="n"
         else
             read -r -p "🖼️  Run $FETCH_CMD at shell startup? [y/N]: " reply
         fi
@@ -1387,7 +787,7 @@ if $CLEAN_BACKUPS; then
             done
             echo "✅ Dry-run complete. No backup files were removed."
         else
-            if $FORCE_MODE; then
+            if $YES_MODE; then
                 confirm="y"
             else
                 read -r -p "🛑 Do you want to delete all these files? [y/N]: " confirm
@@ -1407,5 +807,6 @@ if $CLEAN_BACKUPS; then
 fi
 
 report_git_identity_hint
+print_install_summary
 
 echo -e "\n🚀 Setup complete. You may need to restart your shell or source the new config."
