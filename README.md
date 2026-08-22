@@ -194,6 +194,8 @@ The Windows prompt uses the upstream `tokyo.omp.json` shipped with the `JanDeDob
 
 The installer prints a summary of the manifests, shows a short alias cheat sheet, and can install only the missing items after an explicit confirmation, so you can rerun the bootstrap as many times as needed without duplicating work. Use `-y` if you want to answer yes to all installer prompts without typing each confirmation.
 
+Winget does not guarantee a Start Menu shortcut for every desktop package. To create the curated shortcuts for GUI packages that are installed without one, run `.\windows\start-menu-shortcuts.ps1`; use `-Repair` after a Winget upgrade if a package moved its executable.
+
 For machine-specific PowerShell tweaks, keep them outside the repo in one of these optional local overlays:
 
 - `~\.private_profile.ps1` for one-off overrides
