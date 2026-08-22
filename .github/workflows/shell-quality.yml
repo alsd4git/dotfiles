@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install tools
         run: |
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run installer dry-run
         env:
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install jq
         run: |
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Test interactive installer functions with stubs
         run: ./tests/test-installer-functions.sh
@@ -123,7 +123,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Test Bash and Zsh lifecycle in Ubuntu 24.04
         run: ./tests/docker-ubuntu-smoke.sh
@@ -132,7 +132,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate macOS defaults and Dock dry-runs
         run: |
@@ -148,7 +148,7 @@ jobs:
         shell: [bash, zsh]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Zsh
         if: matrix.shell == 'zsh'
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install and uninstall without changing pre-existing Git settings
         env:
@@ -238,7 +238,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Parse PowerShell sources and run the minimal dry-run
         shell: pwsh
@@ -250,7 +250,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run the full Linux installer
         env:
@@ -265,7 +265,7 @@ jobs:
 
       - name: Upload full-install log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotfiles-full-install-log
           path: ${{ runner.temp }}/dotfiles-full-install.log
