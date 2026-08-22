@@ -3,6 +3,7 @@ param(
     [switch]$Repair
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $startMenuPrograms = Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs'

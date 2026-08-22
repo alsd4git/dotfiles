@@ -9,6 +9,7 @@ $sources = @(
     'install.ps1'
     'windows/profile.ps1'
     'windows/Dotfiles.WindowsPackages.psm1'
+    'windows/start-menu-shortcuts.ps1'
 )
 
 foreach ($source in $sources) {
