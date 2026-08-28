@@ -368,13 +368,19 @@ Do not bypass the platform check and assume another package manager is compatibl
 
 ## Verification and lifecycle tests
 
-Open a new interactive shell and run:
+Open a new interactive shell and verify the managed configuration:
 
 ```bash
-command -v git nano fzf zoxide uv swiftly gh
+type rld npmupg
 git config --global --get core.excludesfile
 ./scripts/health-check.sh --strict
 ./scripts/tool-health-check.sh
+```
+
+If you approved the optional tool phase, verify those commands separately:
+
+```bash
+command -v git nano fzf zoxide uv swiftly gh
 ```
 
 Run the isolated installer function tests:

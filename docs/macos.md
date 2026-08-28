@@ -358,13 +358,20 @@ Prompt initialization is intentionally skipped for non-interactive shells.
 
 ## Verification
 
-Open a new Bash or Zsh session and run:
+Open a new Bash or Zsh session and verify the managed configuration:
 
 ```bash
-command -v git nano fzf zoxide uv swiftly gh
+type rld npmupg
 git config --global --get core.excludesfile
 ./scripts/health-check.sh --strict
 ./scripts/tool-health-check.sh
+```
+
+If you approved the Homebrew and optional tool phase, verify those commands
+separately:
+
+```bash
+command -v git nano fzf zoxide uv swiftly gh
 ```
 
 Preview the standalone macOS scripts:

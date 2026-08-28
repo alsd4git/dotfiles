@@ -1,6 +1,7 @@
 # dotfiles
 
 [![Shell Quality](https://github.com/alsd4git/dotfiles/actions/workflows/shell-quality.yml/badge.svg)](https://github.com/alsd4git/dotfiles/actions/workflows/shell-quality.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 Personal, opinionated dotfiles for macOS, Debian/Ubuntu, and Windows. The Unix path configures Bash or Zsh through `install.sh`; the Windows path configures PowerShell through `install.ps1` and uses WinGet for packages.
 
@@ -230,14 +231,19 @@ The shared command names use shell-native implementations so they remain familia
 
 ## Verification and tests
 
-After a Unix installation:
+After a Unix installation, verify the managed configuration:
 
 ```bash
-command -v git nano fzf zoxide uv swiftly gh
 type rld npmupg
 git config --global --get core.excludesfile
 ./scripts/health-check.sh --strict
 ./scripts/tool-health-check.sh
+```
+
+When the optional tool phase was approved, also verify its commands:
+
+```bash
+command -v git nano fzf zoxide uv swiftly gh
 ```
 
 After a Windows installation, open a new PowerShell session and run:
