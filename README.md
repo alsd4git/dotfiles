@@ -210,17 +210,23 @@ The public template is [`windows/packages.private.example.psd1`](windows/package
 
 ## Common commands
 
+The shared command names use shell-native implementations so they remain familiar across Bash, Zsh, and PowerShell.
+
 | Command | Platform | Purpose |
 | --- | --- | --- |
-| `a` / `aa` | All configured shells | Inspect a command or print aliases |
+| `a` / `aa` | All configured shells | Inspect or list configured aliases and command shortcuts |
 | `l`, `la`, `ll`, `lt` | All configured shells | Directory listings, using `eza` when available |
+| `rld` | Bash, Zsh, PowerShell | Reload the active shell configuration without starting a nested shell |
 | `gl` / `gp` | All configured shells | Pull with rebase/autostash or push the current branch |
 | `gsu` | All configured shells | Set the upstream to `origin/<current-branch>` |
 | `gla` / `glaf` | All configured shells | Show the latest commit summary or full patch |
-| `npmupg` | Unix and Windows | Inspect and update global npm packages |
+| `npmupg` | Bash, Zsh, PowerShell | Show outdated global npm packages and run `npm update -g` |
 | `brewup` | macOS | Update, upgrade, and clean Homebrew packages |
 | `wingup` | Windows | Show and apply WinGet upgrades |
-| `rld` | Windows | Reload the managed PowerShell profile |
+
+`rld` detects the active interpreter rather than relying on the login-shell value in `$SHELL`. It re-sources `~/.bashrc` in Bash, `${ZDOTDIR:-$HOME}/.zshrc` in Zsh, and the current-user all-hosts profile in PowerShell. It does not reload login-only files such as `.bash_profile` or `.zprofile`. The older Unix command `rldz` remains as a compatibility alias to `rld`.
+
+`npmupg` requires `npm`. On Unix it now reports a clear error when Node.js is unavailable instead of executing two failing commands.
 
 ## Verification and tests
 
@@ -228,6 +234,7 @@ After a Unix installation:
 
 ```bash
 command -v git nano fzf zoxide uv swiftly gh
+type rld npmupg
 git config --global --get core.excludesfile
 ./scripts/health-check.sh --strict
 ./scripts/tool-health-check.sh
@@ -236,7 +243,7 @@ git config --global --get core.excludesfile
 After a Windows installation, open a new PowerShell session and run:
 
 ```powershell
-Get-Command git, winget, aa, l, gl, wingup -ErrorAction SilentlyContinue
+Get-Command git, winget, aa, l, gl, rld, npmupg, wingup -ErrorAction SilentlyContinue
 git config --global --get core.excludesfile
 ```
 

@@ -25,6 +25,25 @@ foreach ($source in $sources) {
     }
 }
 
+$profileTokens = $null
+$profileErrors = $null
+$profileAst = [System.Management.Automation.Language.Parser]::ParseFile(
+    (Join-Path $repoRoot 'windows/profile.ps1'),
+    [ref]$profileTokens,
+    [ref]$profileErrors
+)
+$profileFunctions = @(
+    $profileAst.FindAll(
+        { param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] },
+        $true
+    ) | ForEach-Object Name
+)
+foreach ($commandName in @('rld', 'npmupg')) {
+    if ($profileFunctions -notcontains $commandName) {
+        throw "Missing shared PowerShell helper: $commandName"
+    }
+}
+
 Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1') | Out-Null
 Import-Module (Join-Path $repoRoot 'windows/Dotfiles.WindowsPackages.psm1') -Force
 
