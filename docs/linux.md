@@ -272,7 +272,7 @@ Preview and run the conservative uninstall:
 ./install.sh --uninstall
 ```
 
-Uninstall removes managed symlinks and shell-startup additions and restores Git values that still match the installer's managed values. It does not remove packages installed through APT or third-party tool managers.
+Uninstall removes managed symlinks and shell-startup lines recorded when the installer added them. It restores Git values that still match the installer's managed values. Installations made before the ownership record was introduced leave unrecorded startup lines untouched. It does not remove packages installed through APT or third-party tool managers.
 
 Clean only backups recorded by this installer:
 
@@ -364,7 +364,7 @@ command -v oh-my-posh
 
 ### Unsupported Linux distributions
 
-On a real run, before it links or copies any managed files, `install.sh` reads `/etc/os-release` and accepts only `ID=debian` or `ID=ubuntu`. Other Linux distributions exit with an error before the installer changes the home directory. A dry-run remains available for previewing managed file operations, but it does not simulate package installation. Adapt the shared shell files manually or add a dedicated, tested platform module before using package installation.
+Before entering the APT package phase, `install.sh` reads `/etc/os-release` and accepts only `ID=debian` or `ID=ubuntu`. Configuration-only modes and uninstall do not need this check. A dry-run remains available for previewing managed file operations, but it does not simulate package installation. Adapt the shared shell files manually or add a dedicated, tested platform module before using package installation.
 
 ## Verification and lifecycle tests
 

@@ -18,10 +18,7 @@ docker run --rm \
             export HOME="$test_home"
             export SHELL="$shell_bin"
             export GIT_CONFIG_GLOBAL="$test_home/gitconfig"
-
-            /workspace/install.sh --sync >/tmp/install.log
-            /workspace/scripts/health-check.sh --strict >/tmp/health.log
-            grep -Fq "Required failures: 0" /tmp/install.log
+            export DOTFILES_OS_RELEASE_FILE="$test_home/missing-os-release"
 
             case "$shell_bin" in
                 /bin/bash)
@@ -33,6 +30,13 @@ docker run --rm \
                     expected_shell=zsh
                     ;;
             esac
+
+            preexisting_line="[[ -f ~/.shell_aliases ]] && source ~/.shell_aliases"
+            printf "%s\n" "$preexisting_line" >"$rc_file"
+
+            /workspace/install.sh --sync >/tmp/install.log
+            /workspace/scripts/health-check.sh --strict >/tmp/health.log
+            grep -Fq "Required failures: 0" /tmp/install.log
 
             printf "\nexport DOTFILES_RLD_SMOKE=%s\n" "$expected_shell" >>"$rc_file"
             "$shell_bin" -ic "
@@ -49,6 +53,8 @@ docker run --rm \
 
             /workspace/install.sh --uninstall --force >/tmp/uninstall.log
             test ! -e "$test_home/.shell_aliases"
+            grep -Fxq "$preexisting_line" "$rc_file"
+            if grep -Fq "[[ -f ~/.shell_functions ]] && source ~/.shell_functions" "$rc_file"; then exit 1; fi
         done
     '
 

@@ -11,7 +11,7 @@ test_log="$test_root/calls.log"
 mkdir -p "$stub_bin" "$test_home"
 
 cleanup() {
-    rm -f "$stub_bin/gh" "$stub_bin/nvm" "$test_root"/*.out "$test_log"
+    rm -f "$stub_bin/gh" "$stub_bin/nvm" "$test_root"/*.out "$test_root"/os-release-* "$test_log"
     rmdir "$stub_bin" "$test_home" "$test_root" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -71,6 +71,7 @@ run_installer_function() {
             DOTFILES_TEST_REMOTE_SHA256="${DOTFILES_TEST_REMOTE_SHA256:-}" \
             DOTFILES_TEST_REMOTE_URL="${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" \
             DOTFILES_TEST_REMOTE_PAYLOAD="${DOTFILES_TEST_REMOTE_PAYLOAD:-}" \
+            DOTFILES_OS_RELEASE_FILE="${DOTFILES_OS_RELEASE_FILE:-}" \
             "$repo_root/install.sh" >"$output_file" 2>&1
     else
         env \
@@ -86,6 +87,7 @@ run_installer_function() {
             DOTFILES_TEST_REMOTE_SHA256="${DOTFILES_TEST_REMOTE_SHA256:-}" \
             DOTFILES_TEST_REMOTE_URL="${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" \
             DOTFILES_TEST_REMOTE_PAYLOAD="${DOTFILES_TEST_REMOTE_PAYLOAD:-}" \
+            DOTFILES_OS_RELEASE_FILE="${DOTFILES_OS_RELEASE_FILE:-}" \
             "$repo_root/install.sh" </dev/null >"$output_file" 2>&1
     fi
 }
@@ -144,6 +146,26 @@ grep -Fq 'SHA-256 mismatch' "$test_root/remote-failed.out"
 run_installer_function bootstrap-policy "" "$test_root/bootstrap-policy.out" false
 grep -Fq 'trusted-upstream-dynamic' "$test_root/bootstrap-policy.out"
 grep -Fq 'fixed-release-optional-sha256' "$test_root/bootstrap-policy.out"
+
+printf 'ID=ubuntu\n' >"$test_root/os-release-ubuntu"
+DOTFILES_OS_RELEASE_FILE="$test_root/os-release-ubuntu" run_installer_function linux-distribution "" "$test_root/linux-ubuntu.out" false
+
+printf 'ID=fedora\n' >"$test_root/os-release-fedora"
+if DOTFILES_OS_RELEASE_FILE="$test_root/os-release-fedora" run_installer_function linux-distribution "" "$test_root/linux-fedora.out" false; then
+    exit 1
+fi
+grep -Fq 'Unsupported Linux distribution: fedora' "$test_root/linux-fedora.out"
+
+printf 'NAME=Unknown\n' >"$test_root/os-release-no-id"
+if DOTFILES_OS_RELEASE_FILE="$test_root/os-release-no-id" run_installer_function linux-distribution "" "$test_root/linux-no-id.out" false; then
+    exit 1
+fi
+grep -Fq 'Cannot identify the Linux distribution' "$test_root/linux-no-id.out"
+
+if DOTFILES_OS_RELEASE_FILE="$test_root/missing-os-release" run_installer_function linux-distribution "" "$test_root/linux-missing.out" false; then
+    exit 1
+fi
+grep -Fq 'is unavailable' "$test_root/linux-missing.out"
 
 "$repo_root/install.sh" --help >"$test_root/help.out"
 grep -Fq -- '--yes' "$test_root/help.out"

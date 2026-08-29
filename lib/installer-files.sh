@@ -10,6 +10,69 @@ add_to_rc_if_not_present() {
     else
         echo "📝 adding $line_to_add to $rc_file"
         echo "$line_to_add" >>"$rc_file"
+        record_managed_rc_line "$rc_file" "$line_to_add"
+    fi
+}
+
+record_managed_rc_line() {
+    local rc_file="$1"
+    local line="$2"
+    local entry
+
+    mkdir -p "$GIT_CONFIG_STATE_DIR"
+    touch "$RC_LINE_MANIFEST"
+    entry=$(printf '%s\t%s' "$rc_file" "$line")
+    if ! grep -Fqx -- "$entry" "$RC_LINE_MANIFEST"; then
+        printf '%s\n' "$entry" >>"$RC_LINE_MANIFEST"
+    fi
+}
+
+remove_exact_line_once() {
+    local rc_file="$1"
+    local line_to_remove="$2"
+    local tmp_file="${rc_file}.tmp.$$"
+    local current_line removed=false
+
+    : >"$tmp_file"
+    while IFS= read -r current_line || [ -n "$current_line" ]; do
+        if ! $removed && [ "$current_line" = "$line_to_remove" ]; then
+            removed=true
+            continue
+        fi
+        printf '%s\n' "$current_line" >>"$tmp_file"
+    done <"$rc_file"
+    mv "$tmp_file" "$rc_file"
+}
+
+remove_managed_rc_lines() {
+    local rc_file line
+
+    if [ ! -f "$RC_LINE_MANIFEST" ]; then
+        echo "ℹ️  No recorded shell startup additions found; leaving startup files unchanged."
+        return 0
+    fi
+
+    while IFS=$'\t' read -r rc_file line; do
+        case "$rc_file" in
+            "$HOME/.bashrc" | "$HOME/.zshrc" | "$HOME/.bash_profile" | "$HOME/.zprofile") ;;
+            *)
+                echo "⚠️  Ignoring unexpected startup file in $RC_LINE_MANIFEST: $rc_file" >&2
+                continue
+                ;;
+        esac
+        if [ ! -f "$rc_file" ] || ! grep -Fxq -- "$line" "$rc_file"; then
+            continue
+        fi
+        if $DRY_RUN; then
+            echo "🧪 Would remove recorded line from $rc_file: $line"
+        else
+            echo "🧽 removing recorded line from $rc_file: $line"
+            remove_exact_line_once "$rc_file" "$line"
+        fi
+    done <"$RC_LINE_MANIFEST"
+
+    if ! $DRY_RUN; then
+        rm -f "$RC_LINE_MANIFEST"
     fi
 }
 

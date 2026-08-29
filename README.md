@@ -206,7 +206,7 @@ The public template is [`windows/packages.private.example.psd1`](windows/package
 - The Unix installer records the backups it creates and limits `--clean-backups` to that manifest.
 - The Windows installer currently creates backups but does not maintain an equivalent recursive backup manifest. Its cleanup command has a narrower scope; see the [Windows recovery notes](docs/windows.md#backup-and-recovery).
 - Both installers snapshot the Git values they manage. Restore logic leaves a setting untouched when it was changed after installation.
-- `install.sh --uninstall` provides a conservative Unix uninstall. Windows currently has `-RestoreGitDefaults`, not a complete uninstall.
+- `install.sh --uninstall` removes only shell-startup lines recorded when the installer added them. Installations made before this ownership record was introduced leave unrecorded startup lines untouched. Windows currently has `-RestoreGitDefaults`, not a complete uninstall.
 - macOS defaults, the saved Dock layout, Windows Terminal settings, and TrafficMonitor configuration are opinionated. Review their source files before applying them.
 
 ## Common commands

@@ -3,9 +3,10 @@
 validate_linux_distribution() {
     local distribution_id=''
     local key value
+    local os_release_file="${DOTFILES_OS_RELEASE_FILE:-/etc/os-release}"
 
-    if [ ! -r /etc/os-release ]; then
-        echo "❌ Cannot identify the Linux distribution: /etc/os-release is unavailable." >&2
+    if [ ! -r "$os_release_file" ]; then
+        echo "❌ Cannot identify the Linux distribution: $os_release_file is unavailable." >&2
         return 1
     fi
 
@@ -15,14 +16,14 @@ validate_linux_distribution() {
             distribution_id=${distribution_id%\"}
             break
         fi
-    done </etc/os-release
+    done <"$os_release_file"
 
     case "$distribution_id" in
         debian | ubuntu)
             return 0
             ;;
         '')
-            echo "❌ Cannot identify the Linux distribution from /etc/os-release." >&2
+            echo "❌ Cannot identify the Linux distribution from $os_release_file." >&2
             ;;
         *)
             echo "❌ Unsupported Linux distribution: $distribution_id. This installer supports Debian and Ubuntu." >&2

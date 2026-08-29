@@ -107,6 +107,7 @@ GIT_DEFAULTS_FILE="$DOTFILES_HOME/git/defaults.conf"
 GIT_CONFIG_STATE_DIR="$HOME/.config/dotfiles/installer-state"
 GIT_CONFIG_STATE_FILE="$GIT_CONFIG_STATE_DIR/git-config.before"
 BACKUP_MANIFEST="$GIT_CONFIG_STATE_DIR/backups.list"
+RC_LINE_MANIFEST="$GIT_CONFIG_STATE_DIR/rc-lines.list"
 
 SYMLINK_KEYS=(
     "$HOME/.shell_aliases"
@@ -132,10 +133,6 @@ SYMLINK_VALUES=(
 ### === Detect Environment ===
 OS="$(uname -s)"
 SHELL_NAME=$(basename "$SHELL")
-
-if [ "$OS" = "Linux" ] && ! $DRY_RUN; then
-    validate_linux_distribution
-fi
 
 if $TRUST_BREW_TAPS && [ "$OS" != "Darwin" ]; then
     echo "❌ --trust-brew-taps is only available on macOS." >&2
@@ -183,31 +180,7 @@ run_uninstall() {
         fi
     done
 
-    # Remove startup additions (guarded lines)
-    for rc in ~/.zshrc ~/.bashrc; do
-        apply_rc_lines remove "$rc" "${COMMON_RC_LINES[@]}"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && nice_print_aliases"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { fastfetch 2>/dev/null; } &>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { screenfetch 2>/dev/null; } &>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { fastfetch 2>/dev/null; } 2>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && { screenfetch 2>/dev/null; } 2>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && fastfetch 2>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && screenfetch 2>/dev/null"
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && eval \"\$(zoxide init zsh)\""
-        remove_from_rc_if_present "$rc" "[[ \$- == *i* ]] && eval \"\$(zoxide init bash)\""
-        remove_from_rc_if_present "$rc" "source /usr/share/fzf/key-bindings.bash"
-        remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.bash"
-        remove_from_rc_if_present "$rc" "source /usr/share/fzf/key-bindings.zsh"
-        remove_from_rc_if_present "$rc" "source /usr/share/fzf/completion.zsh"
-        remove_from_rc_if_present "$rc" "$PATH_DEDUP_MARKER"
-        remove_from_rc_if_present "$rc" 'typeset -U path'
-        remove_from_rc_if_present "$rc" '[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
-        apply_rc_lines remove "$rc" "${NVM_RC_LINES[@]}"
-    done
-
-    for rc in ~/.zprofile ~/.bash_profile; do
-        apply_rc_lines remove "$rc" "${HOMEBREW_RC_LINES[@]}"
-    done
+    remove_managed_rc_lines
 }
 
 if [ -n "$TEST_FUNCTION" ]; then
@@ -230,6 +203,9 @@ if [ -n "$TEST_FUNCTION" ]; then
             ;;
         bootstrap-policy)
             print_bootstrap_policy
+            ;;
+        linux-distribution)
+            validate_linux_distribution
             ;;
         summary-failure)
             enable_install_summary
@@ -308,6 +284,10 @@ install_platform_tools_phase() {
         if [[ "$do_install" =~ ^[Yy]$ ]]; then
             OPTIONAL_INSTALL_APPROVED=true
             echo -e "\n📦 Installing tools..."
+
+            if [ "$OS" = "Linux" ]; then
+                validate_linux_distribution
+            fi
 
             case "$OS" in
                 Darwin)
