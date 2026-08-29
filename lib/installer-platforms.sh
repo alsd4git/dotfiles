@@ -1,5 +1,36 @@
 #!/usr/bin/env bash
 
+validate_linux_distribution() {
+    local distribution_id=''
+    local key value
+
+    if [ ! -r /etc/os-release ]; then
+        echo "❌ Cannot identify the Linux distribution: /etc/os-release is unavailable." >&2
+        return 1
+    fi
+
+    while IFS='=' read -r key value; do
+        if [ "$key" = ID ]; then
+            distribution_id=${value#\"}
+            distribution_id=${distribution_id%\"}
+            break
+        fi
+    done </etc/os-release
+
+    case "$distribution_id" in
+        debian | ubuntu)
+            return 0
+            ;;
+        '')
+            echo "❌ Cannot identify the Linux distribution from /etc/os-release." >&2
+            ;;
+        *)
+            echo "❌ Unsupported Linux distribution: $distribution_id. This installer supports Debian and Ubuntu." >&2
+            ;;
+    esac
+    return 1
+}
+
 apt_package_installed() { dpkg -s "$1" >/dev/null 2>&1; }
 
 install_required_apt_package() {

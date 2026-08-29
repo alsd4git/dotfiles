@@ -23,7 +23,29 @@ docker run --rm \
             /workspace/scripts/health-check.sh --strict >/tmp/health.log
             grep -Fq "Required failures: 0" /tmp/install.log
 
-            "$shell_bin" -ic "type aa >/dev/null; type gl >/dev/null"
+            case "$shell_bin" in
+                /bin/bash)
+                    rc_file="$test_home/.bashrc"
+                    expected_shell=bash
+                    ;;
+                /usr/bin/zsh)
+                    rc_file="$test_home/.zshrc"
+                    expected_shell=zsh
+                    ;;
+            esac
+
+            printf "\nexport DOTFILES_RLD_SMOKE=%s\n" "$expected_shell" >>"$rc_file"
+            "$shell_bin" -ic "
+                unset DOTFILES_RLD_SMOKE
+                type aa >/dev/null
+                type gl >/dev/null
+                type la >/dev/null
+                type rld >/dev/null
+                type npmupg >/dev/null
+                rld >/tmp/rld.log
+                test \"\$DOTFILES_RLD_SMOKE\" = \"$expected_shell\"
+            "
+            grep -Fq "Reloading $expected_shell configuration: $rc_file" /tmp/rld.log
 
             /workspace/install.sh --uninstall --force >/tmp/uninstall.log
             test ! -e "$test_home/.shell_aliases"
