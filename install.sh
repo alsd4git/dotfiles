@@ -133,6 +133,10 @@ SYMLINK_VALUES=(
 OS="$(uname -s)"
 SHELL_NAME=$(basename "$SHELL")
 
+if [ "$OS" = "Linux" ] && ! $DRY_RUN; then
+    validate_linux_distribution
+fi
+
 if $TRUST_BREW_TAPS && [ "$OS" != "Darwin" ]; then
     echo "❌ --trust-brew-taps is only available on macOS." >&2
     exit 2

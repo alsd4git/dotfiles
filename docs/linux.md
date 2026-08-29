@@ -362,9 +362,9 @@ Oh My Posh initialization runs only in interactive shells. Verify from a new ter
 command -v oh-my-posh
 ```
 
-### The distribution is rejected
+### Unsupported Linux distributions
 
-Do not bypass the platform check and assume another package manager is compatible. Use the shared shell files manually or extend the installer with a dedicated, tested platform module.
+On a real run, before it links or copies any managed files, `install.sh` reads `/etc/os-release` and accepts only `ID=debian` or `ID=ubuntu`. Other Linux distributions exit with an error before the installer changes the home directory. A dry-run remains available for previewing managed file operations, but it does not simulate package installation. Adapt the shared shell files manually or add a dedicated, tested platform module before using package installation.
 
 ## Verification and lifecycle tests
 

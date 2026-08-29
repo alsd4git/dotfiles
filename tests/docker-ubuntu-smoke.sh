@@ -39,6 +39,7 @@ docker run --rm \
                 unset DOTFILES_RLD_SMOKE
                 type aa >/dev/null
                 type gl >/dev/null
+                type la >/dev/null
                 type rld >/dev/null
                 type npmupg >/dev/null
                 rld >/tmp/rld.log

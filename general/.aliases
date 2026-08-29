@@ -37,6 +37,9 @@ else
     fi
 fi
 
+# Keep the common "show all" spelling available in Bash and Zsh.
+alias la='l'
+
 # Always available eza-based aliases (only if eza is installed)
 if [ "$USE_EZA" = true ]; then
     alias lx='eza --long --all --group-directories-first --header --links --sort=name --icons --group --git --total-size'
