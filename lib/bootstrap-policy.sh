@@ -95,5 +95,5 @@ print_bootstrap_policy() {
     printf '%-16s %-34s %s\n' "uv" "$UV_INSTALL_POLICY" "$UV_INSTALL_URL"
     printf '%-16s %-34s %s\n' "eza-key" "$EZA_KEY_POLICY" "$EZA_KEY_URL"
     printf '%-16s %-34s %s\n' "swiftly" "$SWIFTLY_INSTALL_POLICY" "$SWIFTLY_INSTALL_URL_TEMPLATE"
-    printf '%-16s %-34s %s\n' "nvm" "fixed-release-optional-sha256" "https://raw.githubusercontent.com/nvm-sh/nvm/<version>/install.sh"
+    printf '%-16s %-34s %s\n' "nvm" "latest-release-or-explicit-pin" "https://github.com/nvm-sh/nvm.git tags"
 }

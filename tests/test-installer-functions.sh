@@ -11,7 +11,8 @@ test_log="$test_root/calls.log"
 mkdir -p "$stub_bin" "$test_home"
 
 cleanup() {
-    rm -f "$stub_bin/gh" "$stub_bin/nvm" "$test_root"/*.out "$test_root"/os-release-* "$test_log"
+    rm -f "$stub_bin/gh" "$stub_bin/git" "$stub_bin/nvm" "$test_root"/*.out "$test_root"/os-release-* "$test_log"
+    rmdir "$test_home/.nvm/.git" "$test_home/.nvm" 2>/dev/null || true
     rmdir "$stub_bin" "$test_home" "$test_root" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -36,6 +37,31 @@ write_nvm_stub() {
         '    "reinstall-packages "*) exit "${DOTFILES_TEST_NVM_REINSTALL_STATUS:-0}" ;;' \
         'esac' >"$stub_bin/nvm"
     chmod +x "$stub_bin/nvm"
+}
+
+write_git_stub() {
+    printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'printf "%s\\n" "$*" >>"$DOTFILES_TEST_LOG"' \
+        'if [ "${1:-}" = ls-remote ]; then' \
+        '    printf "%s\\trefs/tags/%s\\n" old-release v0.39.7' \
+        '    printf "%s\\trefs/tags/%s\\n" latest-release "${DOTFILES_TEST_NVM_LATEST_TAG:-v0.40.6}"' \
+        '    exit 0' \
+        'fi' \
+        'case "${3:-}" in' \
+        '    fetch) exit "${DOTFILES_TEST_NVM_FETCH_STATUS:-0}" ;;' \
+        '    tag)' \
+        '        printf "%s\\n" v0.39.7 "${DOTFILES_TEST_NVM_CURRENT_TAG:-v0.40.4}" "${DOTFILES_TEST_NVM_LATEST_TAG:-v0.40.6}"' \
+        '        ;;' \
+        '    describe)' \
+        '        case "$*" in' \
+        '            *"--exact-match"*) printf "%s\\n" "${DOTFILES_TEST_NVM_CURRENT_TAG:-v0.40.4}" ;;' \
+        '            *) printf "%s\\n" "${DOTFILES_TEST_NVM_LATEST_TAG:-v0.40.6}" ;;' \
+        '        esac' \
+        '        ;;' \
+        '    checkout) exit "${DOTFILES_TEST_NVM_CHECKOUT_STATUS:-0}" ;;' \
+        'esac' >"$stub_bin/git"
+    chmod +x "$stub_bin/git"
 }
 
 write_curl_stub() {
@@ -68,6 +94,10 @@ run_installer_function() {
             DOTFILES_TEST_GH_LOGIN_STATUS="${DOTFILES_TEST_GH_LOGIN_STATUS:-0}" \
             DOTFILES_TEST_NVM_TARGET="${DOTFILES_TEST_NVM_TARGET:-v22.0.0}" \
             DOTFILES_TEST_NVM_REINSTALL_STATUS="${DOTFILES_TEST_NVM_REINSTALL_STATUS:-0}" \
+            DOTFILES_TEST_NVM_CURRENT_TAG="${DOTFILES_TEST_NVM_CURRENT_TAG:-v0.40.4}" \
+            DOTFILES_TEST_NVM_LATEST_TAG="${DOTFILES_TEST_NVM_LATEST_TAG:-v0.40.6}" \
+            DOTFILES_TEST_NVM_FETCH_STATUS="${DOTFILES_TEST_NVM_FETCH_STATUS:-0}" \
+            DOTFILES_TEST_NVM_CHECKOUT_STATUS="${DOTFILES_TEST_NVM_CHECKOUT_STATUS:-0}" \
             DOTFILES_TEST_REMOTE_SHA256="${DOTFILES_TEST_REMOTE_SHA256:-}" \
             DOTFILES_TEST_REMOTE_URL="${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" \
             DOTFILES_TEST_REMOTE_PAYLOAD="${DOTFILES_TEST_REMOTE_PAYLOAD:-}" \
@@ -84,6 +114,10 @@ run_installer_function() {
             DOTFILES_TEST_GH_LOGIN_STATUS="${DOTFILES_TEST_GH_LOGIN_STATUS:-0}" \
             DOTFILES_TEST_NVM_TARGET="${DOTFILES_TEST_NVM_TARGET:-v22.0.0}" \
             DOTFILES_TEST_NVM_REINSTALL_STATUS="${DOTFILES_TEST_NVM_REINSTALL_STATUS:-0}" \
+            DOTFILES_TEST_NVM_CURRENT_TAG="${DOTFILES_TEST_NVM_CURRENT_TAG:-v0.40.4}" \
+            DOTFILES_TEST_NVM_LATEST_TAG="${DOTFILES_TEST_NVM_LATEST_TAG:-v0.40.6}" \
+            DOTFILES_TEST_NVM_FETCH_STATUS="${DOTFILES_TEST_NVM_FETCH_STATUS:-0}" \
+            DOTFILES_TEST_NVM_CHECKOUT_STATUS="${DOTFILES_TEST_NVM_CHECKOUT_STATUS:-0}" \
             DOTFILES_TEST_REMOTE_SHA256="${DOTFILES_TEST_REMOTE_SHA256:-}" \
             DOTFILES_TEST_REMOTE_URL="${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" \
             DOTFILES_TEST_REMOTE_PAYLOAD="${DOTFILES_TEST_REMOTE_PAYLOAD:-}" \
@@ -131,6 +165,35 @@ grep -Fq 'non-interactive/automatic mode' "$test_root/nvm-notty.out"
 
 run_installer_function nvm-wrapper "" "$test_root/nvm-wrapper.out" false
 
+mkdir -p "$test_home/.nvm/.git"
+write_git_stub
+run_installer_function nvm-release-update y "$test_root/nvm-release-accepted.out" true
+grep -Fq 'NVM v0.40.4 is installed. Update to v0.40.6?' "$test_root/nvm-release-accepted.out"
+grep -Fq 'checkout v0.40.6' "$test_log"
+
+run_installer_function nvm-release-update n "$test_root/nvm-release-declined.out" true
+grep -Fq 'Keeping NVM v0.40.4' "$test_root/nvm-release-declined.out"
+if grep -Fq 'checkout' "$test_log"; then exit 1; fi
+
+DOTFILES_TEST_NVM_CURRENT_TAG=v0.40.6 run_installer_function nvm-release-update "" "$test_root/nvm-release-current.out" true
+grep -Fq 'already the latest release' "$test_root/nvm-release-current.out"
+if grep -Fq 'checkout' "$test_log"; then exit 1; fi
+
+DOTFILES_TEST_NVM_FETCH_STATUS=1 run_installer_function nvm-release-update "" "$test_root/nvm-release-fetch-failed.out" true
+grep -Fq 'keeping the installed version' "$test_root/nvm-release-fetch-failed.out"
+if grep -Fq 'checkout' "$test_log"; then exit 1; fi
+
+run_installer_function nvm-release-update "" "$test_root/nvm-release-automatic.out" false
+grep -Fq 'checkout v0.40.6' "$test_log"
+grep -Fq 'fetch --tags origin' "$test_log"
+
+DOTFILES_NVM_VERSION=v0.40.5 run_installer_function nvm-release-update "" "$test_root/nvm-release-forced.out" true
+grep -Fq 'checkout v0.40.5' "$test_log"
+if grep -Fq 'Update to' "$test_root/nvm-release-forced.out"; then exit 1; fi
+
+DOTFILES_TEST_NVM_LATEST_TAG=v0.41.2 run_installer_function nvm-latest-remote "" "$test_root/nvm-latest-remote.out" false
+grep -Fxq 'v0.41.2' "$test_root/nvm-latest-remote.out"
+
 write_curl_stub
 remote_payload=$'#!/usr/bin/env bash\nprintf "remote stub executed\\n" >>"$DOTFILES_TEST_LOG"'
 remote_sha256=$(printf '%s\n' "$remote_payload" | shasum -a 256 | awk '{print $1}')
@@ -145,7 +208,7 @@ grep -Fq 'SHA-256 mismatch' "$test_root/remote-failed.out"
 
 run_installer_function bootstrap-policy "" "$test_root/bootstrap-policy.out" false
 grep -Fq 'trusted-upstream-dynamic' "$test_root/bootstrap-policy.out"
-grep -Fq 'fixed-release-optional-sha256' "$test_root/bootstrap-policy.out"
+grep -Fq 'latest-release-or-explicit-pin' "$test_root/bootstrap-policy.out"
 
 printf 'ID=ubuntu\n' >"$test_root/os-release-ubuntu"
 DOTFILES_OS_RELEASE_FILE="$test_root/os-release-ubuntu" run_installer_function linux-distribution "" "$test_root/linux-ubuntu.out" false

@@ -55,10 +55,10 @@ fi
 
 ### === Defaults & Constants ===
 UV_PYTHON_VERSION='3.13'
-NVM_VERSION="${DOTFILES_NVM_VERSION:-v0.40.4}"
+NVM_VERSION="${DOTFILES_NVM_VERSION:-}"
 
-if [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "❌ DOTFILES_NVM_VERSION must be a semantic version tag such as v0.40.4." >&2
+if [ -n "$NVM_VERSION" ] && [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "❌ DOTFILES_NVM_VERSION must be a semantic version tag such as v0.40.8." >&2
     exit 2
 fi
 
@@ -198,6 +198,15 @@ if [ -n "$TEST_FUNCTION" ]; then
                 printf '%s\n' "${PROVIDED_VERSION}"
             }
             run_nvm use --lts
+            ;;
+        nvm-release-update)
+            prepare_nvm_release_update "$HOME/.nvm" "$NVM_VERSION"
+            if $NVM_RELEASE_UPDATE_APPROVED; then
+                git -C "$HOME/.nvm" checkout "$NVM_SELECTED_TAG"
+            fi
+            ;;
+        nvm-latest-remote)
+            resolve_latest_nvm_remote_tag
             ;;
         remote-script)
             run_remote_script "${DOTFILES_TEST_REMOTE_URL:-https://example.invalid/script.sh}" --sha256 "${DOTFILES_TEST_REMOTE_SHA256:-}"
@@ -612,21 +621,30 @@ install_nvm_phase() {
     if ! $MINIMAL_MODE && ! $SKIP_TOOLS && ! $DRY_RUN; then
         if $INSTALL_ALL; then want_nvm="y"; elif $YES_MODE; then want_nvm="n"; else read -r -p $'\n🟢 Install/Update nvm (Node Version Manager)? [y/N]: ' want_nvm; fi
         if [[ "$want_nvm" =~ ^[Yy]$ ]]; then
-            NVM_TAG="$NVM_VERSION"
-
             if [ -d "$HOME/.nvm/.git" ]; then
-                echo "🔄 Updating existing nvm to $NVM_TAG..."
-                git -C "$HOME/.nvm" fetch --tags origin || true
-                git -C "$HOME/.nvm" checkout "$NVM_TAG" || true
+                prepare_nvm_release_update "$HOME/.nvm" "$NVM_VERSION"
+                if $NVM_RELEASE_UPDATE_APPROVED; then
+                    echo "🔄 Updating existing nvm to $NVM_SELECTED_TAG..."
+                    if ! git -C "$HOME/.nvm" checkout "$NVM_SELECTED_TAG"; then
+                        echo "⚠️  NVM update failed; keeping the existing checkout."
+                    fi
+                fi
             else
-                echo "📦 Installing nvm ($NVM_TAG)..."
-                # Use the official installer pinned to the selected release tag.
+                NVM_SELECTED_TAG="$NVM_VERSION"
+                if [ -z "$NVM_SELECTED_TAG" ]; then
+                    NVM_SELECTED_TAG=$(resolve_latest_nvm_remote_tag || true)
+                fi
+                if [[ ! "$NVM_SELECTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    echo "⚠️  Could not resolve the latest NVM release; skipping NVM installation."
+                    return 0
+                fi
+                echo "📦 Installing nvm ($NVM_SELECTED_TAG)..."
                 if [ -n "${DOTFILES_NVM_INSTALL_SHA256:-}" ]; then
                     nvm_install_args=(--sha256 "$DOTFILES_NVM_INSTALL_SHA256")
                 else
                     nvm_install_args=()
                 fi
-                run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_TAG/install.sh" "${nvm_install_args[@]}"
+                PROFILE=/dev/null NVM_DIR="$HOME/.nvm" run_remote_script "https://raw.githubusercontent.com/nvm-sh/nvm/$NVM_SELECTED_TAG/install.sh" "${nvm_install_args[@]}"
             fi
 
             # Ensure nvm is initialized for the current shell; avoid touching rc of other shells
