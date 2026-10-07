@@ -86,6 +86,7 @@ HOMEBREW_RC_LINES=(
 
 PATH_DEDUP_MARKER='# PATH de-dup (dotfiles installer)'
 BASH_PATH_DEDUP_LINE='[ -x /usr/bin/awk ] && [ -x /usr/bin/paste ] && [ -x /usr/bin/tr ] && PATH="$([ -x /usr/bin/printf ] && /usr/bin/printf %s "$PATH" | /usr/bin/tr ":" "\n" | /usr/bin/awk '\''!seen[$0]++'\'' | /usr/bin/paste -sd:)" && export PATH'
+ZSH_PATH_DEDUP_LINE='typeset -gU path'
 LEGACY_PATH_DEDUP_MARKER='# Remove duplicates from PATH'
 LEGACY_PATH_DEDUP_LINE='export PATH=$(echo "$PATH" | tr ":" "\n" | awk "!seen[\$0]++" | paste -sd:)'
 
@@ -719,6 +720,9 @@ configure_shell_rc() {
 
     apply_rc_lines add "$rc_file" "${COMMON_RC_LINES[@]}"
     cleanup_legacy_path_dedup "$rc_file"
+    if [ "$shell_kind" = "zsh" ]; then
+        remove_from_rc_if_present "$rc_file" 'typeset -U path'
+    fi
     add_to_rc_if_not_present "$rc_file" "$PATH_DEDUP_MARKER"
     add_to_rc_if_not_present "$rc_file" "$path_dedup_line"
 
@@ -760,7 +764,7 @@ configure_shell_rc() {
 }
 
 if [[ "$SHELL_NAME" == "zsh" ]]; then
-    configure_shell_rc "zsh" "$HOME/.zshrc" "/usr/share/fzf/key-bindings.zsh" "/usr/share/fzf/completion.zsh" 'typeset -U path'
+    configure_shell_rc "zsh" "$HOME/.zshrc" "/usr/share/fzf/key-bindings.zsh" "/usr/share/fzf/completion.zsh" "$ZSH_PATH_DEDUP_LINE"
 fi
 
 if [[ "$SHELL_NAME" == "bash" ]]; then
