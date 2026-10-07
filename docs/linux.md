@@ -190,17 +190,13 @@ A stable Swift toolchain is a separate optional choice.
 
 ### Node.js with NVM
 
-The installer can install or update NVM. The reviewed default version is:
-
-```text
-v0.40.4
-```
-
-Override it only with another reviewed semantic version:
+The installer resolves the latest NVM release from the official Git tags. Set an explicit semantic version only when you need to hold or test a specific release:
 
 ```bash
-DOTFILES_NVM_VERSION=v0.40.4 ./install.sh
+DOTFILES_NVM_VERSION=v0.40.8 ./install.sh
 ```
+
+For an existing Git checkout, an interactive run asks before updating to the resolved release. Automatic modes use the latest resolved release without a second prompt. An explicit `DOTFILES_NVM_VERSION` always takes precedence and skips latest-release selection.
 
 When no NVM-managed Node version is active, the installer can install the latest LTS and set it as default. When moving from an existing version, migration of global npm packages remains an explicit prompt and is never performed automatically.
 

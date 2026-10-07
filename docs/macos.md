@@ -269,10 +269,10 @@ Moving upstream installers are not treated as immutable artifacts. Optional SHA-
 
 These values are opt-in because upstream moving install URLs do not expose one permanent digest. Review the corresponding upstream release/install page before bootstrapping a new machine.
 
-The NVM release defaults to the pinned `v0.40.4`. Override it only with another reviewed semantic version:
+The installer resolves the latest NVM release from the official Git tags. An interactive update asks before moving an existing checkout to that release. Automatic modes use the resolved release without a second prompt. Set an explicit version only when you need to hold or test a specific release:
 
 ```bash
-DOTFILES_NVM_VERSION=v0.40.4 ./install.sh
+DOTFILES_NVM_VERSION=v0.40.8 ./install.sh
 ```
 
 ## Refreshing the application inventory
