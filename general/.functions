@@ -33,6 +33,25 @@ function up_dockers() {
     done <<<"$image_refs"
 }
 
+function watchtower_run_once() {
+    # Pass Docker registry credentials to Watchtower when available. On hosts
+    # without a Docker config, public-registry updates keep working unchanged.
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "docker not found. Install Docker to use watchtower_run_once."
+        return 1
+    fi
+
+    local docker_config="$HOME/.docker/config.json"
+    local -a docker_args
+    docker_args=(run --rm -v /var/run/docker.sock:/var/run/docker.sock)
+
+    if [ -r "$docker_config" ]; then
+        docker_args+=(-v "$docker_config:/config.json:ro")
+    fi
+
+    docker "${docker_args[@]}" nickfedor/watchtower --run-once --cleanup "$@"
+}
+
 # ===== Alias Helpers =====
 function nice_print_aliases() {
     #TODO: restore coloring, sorting and spacing, this needs to be valid on bash/zsh - MacOS/Debian
