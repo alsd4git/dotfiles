@@ -162,7 +162,8 @@ Run `./install.sh --help` for the complete option list. macOS-specific options s
 | `.\install.ps1 -DryRun` | Preview file, Git, and package operations without changing the machine |
 | `.\install.ps1 -Minimal` | Apply managed configuration but skip package installation |
 | `.\install.ps1 -Sync` | Reconcile profiles, copied configuration, and Git defaults without installing packages |
-| `.\install.ps1 -Force` or `-y` | Answer yes to all package prompts; this includes optional and non-empty private manifests |
+| `.\install.ps1 -Force` or `-y` | Answer yes to package-group prompts, but never to removing a pre-existing Node.js |
+| `.\install.ps1 -Force -MigrateNodeToNvm` | Explicitly opt into replacing WinGet-managed standalone Node with NVM v2 after saving an npm global inventory |
 | `.\install.ps1 -CleanBackups` | Inspect the currently supported Windows backup-cleanup scope and ask before deletion |
 | `.\install.ps1 -RestoreGitDefaults` | Restore managed Git values when they have not changed since installation |
 

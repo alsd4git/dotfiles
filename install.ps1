@@ -4,6 +4,7 @@ param(
     [Alias('y')]
     [switch]$Force,
     [switch]$Minimal,
+    [switch]$MigrateNodeToNvm,
     [switch]$CleanBackups,
     [switch]$Sync,
     [switch]$RestoreGitDefaults
@@ -15,6 +16,8 @@ $ProgressPreference = 'SilentlyContinue'
 
 $windowsPackageModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPackages.psm1'
 Import-Module -Name $windowsPackageModule -Force
+$windowsNodeModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsNode.psm1'
+Import-Module -Name $windowsNodeModule -Force
 
 function Write-Section {
     param([string]$Message)
@@ -597,6 +600,11 @@ function Install-WindowsPackageBaseline {
             Write-Info "  $($section.Manager):"
             foreach ($packageEntry in $section.Packages) {
                 $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
+                if ($section.Manager -eq 'Winget' -and $package.Id -eq 'AuthorSoftware.NVMWindows') {
+                    Invoke-DotfilesNvmBootstrap -DryRun:$DryRun -NonInteractive:$Force -ExplicitMigration:$MigrateNodeToNvm
+                    continue
+                }
+
                 $installed = $false
 
                 switch ($section.Manager) {
@@ -719,6 +727,10 @@ if ($Sync -and ($Minimal -or $Force -or $CleanBackups)) {
 
 if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) {
     throw '-RestoreGitDefaults cannot be combined with installation options.'
+}
+
+if ($MigrateNodeToNvm -and ($Minimal -or $Sync -or $RestoreGitDefaults)) {
+    throw '-MigrateNodeToNvm requires normal package installation, not -Minimal, -Sync or -RestoreGitDefaults.'
 }
 
 $RepoRoot = Split-Path -Parent $PSCommandPath

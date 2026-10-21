@@ -9,6 +9,8 @@ $sources = @(
     'install.ps1'
     'windows/profile.ps1'
     'windows/Dotfiles.WindowsPackages.psm1'
+    'windows/Dotfiles.WindowsNode.psm1'
+    'tests/windows-node-tests.ps1'
     'windows/start-menu-shortcuts.ps1'
 )
 
@@ -46,6 +48,12 @@ foreach ($commandName in @('rld', 'npmupg')) {
 
 Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1') | Out-Null
 Import-Module (Join-Path $repoRoot 'windows/Dotfiles.WindowsPackages.psm1') -Force
+& (Join-Path $repoRoot 'tests/windows-node-tests.ps1')
+
+$corePackages = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1')
+if (@($corePackages.Winget) -notcontains 'AuthorSoftware.NVMWindows' -or @($corePackages.Winget) -contains 'OpenJS.NodeJS.LTS') {
+    throw 'Windows core manifest must use NVM v2 rather than standalone Node LTS.'
+}
 
 $entry = Resolve-WindowsPackageEntry -PackageEntry 'eza-community.eza' -Manager Winget
 if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
