@@ -177,14 +177,17 @@ function Invoke-DotfilesNvmBootstrap {
     switch ($plan) {
         'LegacyNvm' {
             Write-Warning 'NVM for Windows v1 detected. Migrate it manually before installing v2.'
+            if ($ExplicitMigration -and -not $DryRun) { throw 'Explicit migration cannot proceed with NVM v1 present.' }
             return
         }
         'OtherNode' {
             Write-Warning "Another Node runtime is on PATH ($($state.OtherNodePaths -join ', ')); resolve this conflict before installing NVM."
+            if ($ExplicitMigration -and -not $DryRun) { throw 'Explicit migration cannot proceed with another Node runtime on PATH.' }
             return
         }
         'ManualNode' {
             Write-Warning "Standalone Node found outside recognized WinGet packages ($($state.StandalonePaths -join ', ')). Uninstall it manually first."
+            if ($ExplicitMigration -and -not $DryRun) { throw 'Explicit migration requires WinGet-managed standalone Node.' }
             return
         }
         'Existing' {
@@ -262,6 +265,7 @@ function Invoke-DotfilesNvmBootstrap {
         Write-Warning "NVM bootstrap incomplete: $($_.Exception.Message)"
         if ($backup) { Write-Warning "Saved npm inventory: $backup" }
         Write-Warning 'No automatic rollback was attempted. Inspect WinGet and PATH before rerunning.'
+        throw 'NVM bootstrap failed; package installation was stopped to avoid concealing a Node/PATH conflict.'
     }
 }
 
