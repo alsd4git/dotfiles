@@ -164,7 +164,7 @@ An approved migration writes the current global npm package names/versions to `%
 
 The inventory is for **manual reinstallation** of global npm tools, not an archive of their files. The installer does not silently delete global npm directories or reinstall arbitrary global tools. After migration, review that inventory and install any packages you still need under the NVM-managed Node.
 
-If WinGet cannot remove the old runtime, the installer reports an incomplete migration and leaves the state for manual repair rather than deleting files. The earlier executable may continue to shadow NVM on PATH. Close and reopen PowerShell, then verify:
+If WinGet cannot remove the old runtime, the installer reports an incomplete migration, returns a failure, and leaves the state for manual repair rather than deleting files. Explicit noninteractive migration also fails instead of silently skipping when unsupported Node/NVM installations are detected. The earlier executable may continue to shadow NVM on PATH. Close and reopen PowerShell, then verify:
 
 ```powershell
 nvm --version
