@@ -12,6 +12,8 @@ $sources = @(
     'windows/Dotfiles.WindowsPowerShell.psm1'
     'windows/Install-PowerShellMsi.ps1'
     'tests/windows-powershell-msi-tests.ps1'
+    'windows/Dotfiles.WindowsNode.psm1'
+    'tests/windows-node-tests.ps1'
     'windows/start-menu-shortcuts.ps1'
 )
 
@@ -56,6 +58,12 @@ if (@($coreManifest.Winget) -notcontains 'Microsoft.PowerShell') {
     throw 'The Windows core manifest must include Microsoft.PowerShell.'
 }
 
+& (Join-Path $repoRoot 'tests/windows-node-tests.ps1')
+
+$corePackages = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1')
+if (@($corePackages.Winget) -notcontains 'AuthorSoftware.NVMWindows' -or @($corePackages.Winget) -contains 'OpenJS.NodeJS.LTS') {
+    throw 'Windows core manifest must use NVM v2 rather than standalone Node LTS.'
+}
 
 $entry = Resolve-WindowsPackageEntry -PackageEntry 'eza-community.eza' -Manager Winget
 if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
