@@ -120,7 +120,8 @@ Windows Terminal and TrafficMonitor configuration are currently copied during no
 | `.\install.ps1 -DryRun` | Preview files, Git changes, manifest selection, and missing packages without modifying the machine |
 | `.\install.ps1 -Minimal` | Apply managed files and Git defaults but skip package installation |
 | `.\install.ps1 -Sync` | Reconcile profiles, copied files, manifests, and Git defaults without installing packages |
-| `.\install.ps1 -Force` | Answer yes to core, optional, and non-empty private package prompts |
+| `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing PowerShell MSIX |
+| `.\install.ps1 -Force -MigratePowerShellToMsi` | Explicit opt-in to replace current-user PowerShell MSIX with fixed-path MSI, only from a non-MSIX shell |
 | `.\install.ps1 -y` | Alias for `-Force` |
 | `.\install.ps1 -CleanBackups` | List backups in the currently supported cleanup scope and ask before deletion |
 | `.\install.ps1 -RestoreGitDefaults` | Restore installer-managed Git values when they still match the values applied by the installer |
@@ -130,7 +131,8 @@ Important mode rules:
 - `-Sync` cannot be combined with `-Minimal`, `-Force`, or `-CleanBackups`.
 - `-RestoreGitDefaults` is a dedicated operation and cannot be combined with installation options.
 - `-DryRun` can be combined with `-Force` or `-Sync` for a non-destructive full preview.
-- `-Force` is a yes-to-all switch, not simply an overwrite switch. It opts into optional and local private packages as well.
+- `-Force` opts into package groups, including optional and private ones, but never authorizes removal of PowerShell MSIX. Use the additional `-MigratePowerShellToMsi` flag or an interactive confirmation.
+- `-MigratePowerShellToMsi` is incompatible with `-Minimal`, `-Sync`, `-RestoreGitDefaults`, and `-CleanBackups`.
 
 ## Package manifests
 
@@ -147,6 +149,43 @@ The package inventory is split by intent:
 Both `Winget` and `NpmGlobal` sections are supported. The public `NpmGlobal` sections are intentionally empty so machine-specific global npm tools are not encoded into the repository.
 
 A WinGet entry can be either a package ID string or a structured entry with an explicit source. The installer uses exact package IDs and installs only packages it does not detect as already present.
+
+### PowerShell 7: fixed-path MSI for SSH
+
+The core manifest still lists `Microsoft.PowerShell`, but the installer treats it specially. Starting with PowerShell 7.6, a generic WinGet install selects **MSIX** by default, which exposes `pwsh.exe` through an App Execution Alias in `%LOCALAPPDATA%\Microsoft\WindowsApps`. That alias can fail from Windows OpenSSH or other service logon contexts. For this bootstrap we therefore require the **MSI (wix)** installer, with a stable real executable at `C:\Program Files\PowerShell\7\pwsh.exe`. See [Microsoft's PowerShell installation guide](https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows) and [OpenSSH App Execution Alias issue](https://github.com/PowerShell/Win32-OpenSSH/issues/2449).
+
+The current bootstrap targets **7.6.7 MSI** with `--installer-type wix --version 7.6.7.0`. Microsoft has announced that **7.7 and later will not ship MSI installers**, so do not silently switch this path to MSIX during a future upgrade; reassess a fixed-path ZIP/launcher approach for 7.7+. The installed PowerShell 7.6 MSI continues to use the usual supported servicing policy.
+
+Behavior:
+
+- **No existing PowerShell 7:** install and verify MSI at the stable Program Files path. Built-in Windows PowerShell 5.1 is never removed.
+- **Fixed-path PowerShell 7 already working:** leave it in place and avoid reinstalling.
+- **Store/MSIX is present:** ask whether to replace it (default **No**). `-Force` is not permission to remove it. An explicit `-MigratePowerShellToMsi` or Yes answer installs/verifies MSI first, then removes only the *current user's* `Microsoft.PowerShell` AppX registration. The shared WinGet ID does not identify the two installer technologies, so uninstalling blindly by `winget uninstall Microsoft.PowerShell` is unsafe.
+- **The script itself is running from PowerShell MSIX:** never uninstall the running package. Show a command to **close that session** and relaunch only this migration from Windows PowerShell 5.1, which has its own system executable and stays installed.
+- **Other or broken `pwsh.exe` installations or an unavailable AppX query:** warn and skip automatic changes rather than guessing.
+
+For the typical migration from an active MSIX terminal, first close the existing PowerShell 7 window, then start Windows PowerShell 5.1 and run the narrow helper:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Install-PowerShellMsi.ps1 -Migrate
+```
+
+The helper changes only PowerShell, not your Git configuration, profiles, Node or other packages. Alternatively, from a Windows PowerShell 5.1 session, use the normal package bootstrap with `.\install.ps1 -Force -MigratePowerShellToMsi`. Both paths require explicit migration consent; ordinary `-Force` leaves existing MSIX untouched. Preview operations with `.\windows\Install-PowerShellMsi.ps1 -DryRun` (from the repo root) or `.\install.ps1 -DryRun -Force`.
+
+To verify an MSI installation from **a new Windows/SSH session**:
+
+```powershell
+where.exe pwsh
+Get-Command pwsh -All | Select-Object Source
+& "$env:ProgramFiles\PowerShell\7\pwsh.exe" -NoProfile -Command '$PSHOME'
+Get-AppxPackage -Name Microsoft.PowerShell
+```
+
+The MSI invocation should report `C:\Program Files\PowerShell\7`. After migration the current-user MSIX package should no longer be registered. Restart old shells to refresh PATH. If the old Store alias persists, inspect **Settings → Apps → Advanced app settings → App execution aliases**, rather than deleting anything under WindowsApps manually.
+
+**OpenSSH default shell is configured separately:** installation alone does not change `HKLM:\SOFTWARE\OpenSSH` or restart `sshd`. If you explicitly want PowerShell 7 as the SSH default shell, inspect your OpenSSH configuration and set `DefaultShell` to the full Program Files executable path from an elevated session; keep the original registry value for rollback. This repo deliberately does not change service configuration.
+
+Windows PowerShell **5.1 is supported as a bootstrap/recovery host**. The Windows smoke checks parse and exercise the dotfiles under both `powershell.exe` (5.1) and `pwsh.exe` (7), without installing or removing anything. If the MSI install or MSIX removal fails, the bootstrap reports failure, preserves Windows PowerShell 5.1, and does not automatically delete the other installation.
 
 ## Local configuration
 
