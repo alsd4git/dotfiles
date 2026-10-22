@@ -83,7 +83,10 @@ function Get-DotfilesPowerShellPlan {
         [switch]$ExplicitMigration
     )
 
-    if (-not $State.MsixQuerySucceeded) { return 'UnknownAppx' }
+    if (-not $State.MsixQuerySucceeded) {
+        if ($State.RunningMsix) { return 'Relaunch' }
+        return 'UnknownAppx'
+    }
     if (@($State.OtherPwshPaths).Count -gt 0) { return 'OtherPwsh' }
     if ($State.MsiFilePresent -and -not $State.MsiPresent) { return 'BrokenMsi' }
     if (@($State.MsixPackages).Count -gt 0) {
