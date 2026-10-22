@@ -130,6 +130,25 @@ function Install-DotfilesPwshMsi {
     }
 }
 
+function Assert-DotfilesNoRunningPackagedPwsh {
+    if (-not (Get-Command Get-CimInstance -ErrorAction SilentlyContinue)) {
+        throw 'Cannot check running MSIX PowerShell processes. Use Windows PowerShell 5.1 with the CIM cmdlets available.'
+    }
+
+    try {
+        $packaged = @(
+            Get-CimInstance -ClassName Win32_Process -Filter "Name = 'pwsh.exe'" -ErrorAction Stop |
+                Where-Object { $_.ExecutablePath -match '[\\/]WindowsApps[\\/]' }
+        )
+    } catch {
+        throw 'Cannot inspect running PowerShell processes. MSIX was not removed.'
+    }
+
+    if ($packaged.Count -gt 0) {
+        throw 'Another packaged pwsh.exe process is still running. Close Store/MSIX PowerShell windows and retry the migration.'
+    }
+}
+
 function Show-DotfilesPwshRelaunch {
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
     $windowsPs = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -227,6 +246,7 @@ function Invoke-DotfilesPowerShellBootstrap {
             if ($state.RunningMsix) {
                 throw 'Refusing to remove the PowerShell MSIX executable currently running this script.'
             }
+            Assert-DotfilesNoRunningPackagedPwsh
             foreach ($package in @($state.MsixPackages)) {
                 Write-Host "  Removing current-user MSIX package: $($package.PackageFullName)"
                 Remove-AppxPackage -Package $package.PackageFullName -ErrorAction Stop

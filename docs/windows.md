@@ -170,7 +170,7 @@ For the typical migration from an active MSIX terminal, first close the existing
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\Install-PowerShellMsi.ps1 -Migrate
 ```
 
-The helper changes only PowerShell, not your Git configuration, profiles, Node or other packages. Alternatively, from a Windows PowerShell 5.1 session, use the normal package bootstrap with `.\install.ps1 -Force -MigratePowerShellToMsi`. Both paths require explicit migration consent; ordinary `-Force` leaves existing MSIX untouched. Preview operations with `.\windows\Install-PowerShellMsi.ps1 -DryRun` (from the repo root) or `.\install.ps1 -DryRun -Force`.
+The helper changes only PowerShell, not your Git configuration, profiles, Node or other packages. Before uninstalling the MSIX package, it also checks for any remaining packaged `pwsh.exe` processes and aborts removal if they are still running. Alternatively, from a Windows PowerShell 5.1 session, use the normal package bootstrap with `.\install.ps1 -Force -MigratePowerShellToMsi`. Both paths require explicit migration consent; ordinary `-Force` leaves existing MSIX untouched. Preview operations with `.\windows\Install-PowerShellMsi.ps1 -DryRun` (from the repo root) or `.\install.ps1 -DryRun -Force`.
 
 To verify an MSI installation from **a new Windows/SSH session**:
 
