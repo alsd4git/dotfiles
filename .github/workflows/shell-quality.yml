@@ -240,8 +240,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Parse PowerShell sources and run the minimal dry-run
+      - name: Parse PowerShell sources and run the minimal dry-run (PowerShell 7)
         shell: pwsh
+        run: ./tests/windows-smoke.ps1
+
+      - name: Parse and smoke-test from Windows PowerShell 5.1
+        shell: powershell
         run: ./tests/windows-smoke.ps1
 
   full-install:

@@ -7,6 +7,7 @@
         'GitHub.cli'
         'JanDeDobbeleer.OhMyPosh'
         'DEVCOM.JetBrainsMonoNerdFont'
+        # MSI (wix), not WinGet's default MSIX; handled by the installer-specific bootstrap.
         'Microsoft.PowerShell'
         'Microsoft.WindowsTerminal'
         'GNU.Nano'

@@ -4,6 +4,7 @@ param(
     [Alias('y')]
     [switch]$Force,
     [switch]$Minimal,
+    [switch]$MigratePowerShellToMsi,
     [switch]$CleanBackups,
     [switch]$Sync,
     [switch]$RestoreGitDefaults
@@ -15,6 +16,8 @@ $ProgressPreference = 'SilentlyContinue'
 
 $windowsPackageModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPackages.psm1'
 Import-Module -Name $windowsPackageModule -Force
+$windowsPowerShellModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPowerShell.psm1'
+Import-Module -Name $windowsPowerShellModule -Force
 
 function Write-Section {
     param([string]$Message)
@@ -541,7 +544,13 @@ function Get-WindowsPackageComparison {
                 $installed = $false
 
                 switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
+                    'Winget' {
+                        if ($package.Id -eq 'Microsoft.PowerShell') {
+                            $installed = Test-DotfilesPwshMsiPresent
+                        } else {
+                            $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source
+                        }
+                    }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -597,10 +606,20 @@ function Install-WindowsPackageBaseline {
             Write-Info "  $($section.Manager):"
             foreach ($packageEntry in $section.Packages) {
                 $package = Resolve-WindowsPackageEntry -PackageEntry $packageEntry -Manager $section.Manager
+                if ($section.Manager -eq 'Winget' -and $package.Id -eq 'Microsoft.PowerShell') {
+                    Invoke-DotfilesPowerShellBootstrap -RepoRoot $PSScriptRoot -DryRun:$DryRun -NonInteractive:$Force -ExplicitMigration:$MigratePowerShellToMsi
+                    continue
+                }
                 $installed = $false
 
                 switch ($section.Manager) {
-                    'Winget' { $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source }
+                    'Winget' {
+                        if ($package.Id -eq 'Microsoft.PowerShell') {
+                            $installed = Test-DotfilesPwshMsiPresent
+                        } else {
+                            $installed = Test-WingetPackageInstalled -PackageId $package.Id -Source $package.Source
+                        }
+                    }
                     'NpmGlobal' { $installed = Test-NpmGlobalPackageInstalled -PackageName $package.Name }
                 }
 
@@ -719,6 +738,10 @@ if ($Sync -and ($Minimal -or $Force -or $CleanBackups)) {
 
 if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) {
     throw '-RestoreGitDefaults cannot be combined with installation options.'
+}
+
+if ($MigratePowerShellToMsi -and ($Minimal -or $Sync -or $RestoreGitDefaults -or $CleanBackups)) {
+    throw '-MigratePowerShellToMsi requires a normal package run. Use the standalone Windows PowerShell 5.1 migration helper if needed.'
 }
 
 $RepoRoot = Split-Path -Parent $PSCommandPath
