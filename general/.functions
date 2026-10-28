@@ -41,11 +41,15 @@ function watchtower_run_once() {
         return 1
     fi
 
-    local docker_config="$HOME/.docker/config.json"
+    local docker_config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
     local -a docker_args
     docker_args=(run --rm -v /var/run/docker.sock:/var/run/docker.sock)
 
     if [ -r "$docker_config" ]; then
+        # Warn conservatively on helper keys, including multiline JSON.
+        if grep -Eq '"(credsStore|credHelpers)"' "$docker_config"; then
+            printf '%s\n' 'Warning: Docker config references credential helpers. Mounting the config alone does not provide the host keychain or helper binaries to Watchtower; private-registry authentication may fail. Use a dedicated DOCKER_CONFIG with credentials usable inside the container.' >&2
+        fi
         docker_args+=(-v "$docker_config:/config.json:ro")
     fi
 
@@ -147,20 +151,20 @@ function netuse() {
     echo -e "${dim}Interface: $iface | Refresh: ${interval}s${nc}"
     echo ""
 
-    local tmpdir fifo cmd_pid
+    local tmpdir fifo cmd_pid done_marker cmd_status
     tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/netuse.XXXXXX") || return 1
     fifo="$tmpdir/output"
+    done_marker="__NETUSE_DONE_${tmpdir}__"
     if ! mkfifo "$fifo"; then
         rmdir "$tmpdir" 2>/dev/null || true
         return 1
     fi
 
     (
-        "$@" 2>&1 | while IFS= read -r line; do
-            printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
-        done
-        echo "__DONE__"
-    ) >"$fifo" &
+        if "$@"; then cmd_status=0; else cmd_status=$?; fi
+        printf '\n%s\n' "$done_marker"
+        exit "$cmd_status"
+    ) >"$fifo" 2>&1 &
     cmd_pid=$!
 
     exec 3<"$fifo"
@@ -172,10 +176,10 @@ function netuse() {
 
     while $running; do
         if read -t "$interval" -r line <&3; then
-            if [[ "$line" == "__DONE__" ]]; then
+            if [[ "$line" == "$done_marker" ]]; then
                 running=false
             else
-                echo "$line"
+                printf "\r\033[K${green}[CMD]${nc} %s\n" "$line"
             fi
         fi
 
@@ -200,7 +204,7 @@ function netuse() {
     done
 
     exec 3<&-
-    wait "$cmd_pid" 2>/dev/null || true
+    if wait "$cmd_pid"; then cmd_status=0; else cmd_status=$?; fi
     rm -f -- "$fifo"
     rmdir "$tmpdir" 2>/dev/null || true
 
@@ -215,6 +219,7 @@ function netuse() {
     if ((total_time > 0)); then
         echo -e "  Media: $(_hu_speed $((total_rx / total_time)))"
     fi
+    return "$cmd_status"
 }
 
 # ===== Notes and Future Enhancements =====
