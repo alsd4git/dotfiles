@@ -391,4 +391,6 @@ Run the full disposable Ubuntu 24.04 Bash/Zsh lifecycle test when Docker is avai
 ./tests/docker-ubuntu-smoke.sh
 ```
 
-The container test mounts the repository read-only and verifies install, interactive shell loading, health checks, and uninstall in isolated home directories.
+The container test mounts the repository read-only and verifies install, interactive shell loading, health checks, and uninstall in isolated home directories. It also runs `tests/test-shell-functions.sh` in Bash and Zsh, checking Watchtower arguments with a simulated Docker command and `netuse` exit codes without updating real containers.
+
+Watchtower uses `${DOCKER_CONFIG:-$HOME/.docker}/config.json` when readable, mounted read-only. Configurations referencing `credsStore` or `credHelpers` produce a warning: mounting the JSON alone does not make host credential helpers or keychains available inside Watchtower. Use a dedicated Docker configuration suitable for the container if private-registry authentication requires it; never commit registry credentials.

@@ -14,6 +14,7 @@ docker run --rm \
         apt-get install -y --no-install-recommends ca-certificates git zsh >/dev/null
 
         for shell_bin in /bin/bash /usr/bin/zsh; do
+            timeout 30 "$shell_bin" /workspace/tests/test-shell-functions.sh
             test_home=$(mktemp -d /tmp/dotfiles-home.XXXXXX)
             export HOME="$test_home"
             export SHELL="$shell_bin"

@@ -44,6 +44,7 @@ jobs:
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
+            tests/test-shell-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
@@ -70,6 +71,7 @@ jobs:
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
             tests/test-installer-functions.sh \
+            tests/test-shell-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
             macos/dock.sh \
@@ -170,6 +172,7 @@ jobs:
           fi
 
           export SHELL="$shell_bin"
+          timeout 30 "$shell_bin" tests/test-shell-functions.sh
           ./install.sh --minimal
 
           mkdir -p "$HOME/.local/bin"
