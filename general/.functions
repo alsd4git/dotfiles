@@ -161,7 +161,8 @@ function netuse() {
     fi
 
     (
-        if "$@"; then cmd_status=0; else cmd_status=$?; fi
+        # Keep exit/exec inside the command from bypassing the completion marker.
+        if ("$@"); then cmd_status=0; else cmd_status=$?; fi
         printf '\n%s\n' "$done_marker"
         exit "$cmd_status"
     ) >"$fifo" 2>&1 &

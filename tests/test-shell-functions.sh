@@ -56,6 +56,19 @@ if [ "$(uname -s)" = Linux ]; then
     grep -Fq '__DONE__' "$test_root/netuse"
     grep -Fq 'stderr without newline' "$test_root/netuse"
     grep -Fq 'Riepilogo' "$test_root/netuse"
+
+    for expected_result in 0 7; do
+        actual_result=0
+        netuse --iface lo exit "$expected_result" >"$test_root/netuse" || actual_result=$?
+        test "$actual_result" -eq "$expected_result"
+        grep -Fq 'Riepilogo' "$test_root/netuse"
+    done
+
+    actual_result=0
+    netuse --iface lo exec sh -c 'printf "exec output\n"; exit 29' >"$test_root/netuse" || actual_result=$?
+    test "$actual_result" -eq 29
+    grep -Fq 'exec output' "$test_root/netuse"
+    grep -Fq 'Riepilogo' "$test_root/netuse"
 else
     printf '%s\n' 'netuse runtime tests skipped: Linux /proc required'
 fi
