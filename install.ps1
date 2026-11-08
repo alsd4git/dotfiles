@@ -5,6 +5,7 @@ param(
     [switch]$Force,
     [switch]$Minimal,
     [switch]$MigratePowerShellToMsi,
+    [switch]$MigrateNodeToNvm,
     [switch]$CleanBackups,
     [switch]$Sync,
     [switch]$RestoreGitDefaults
@@ -18,6 +19,8 @@ $windowsPackageModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPackage
 Import-Module -Name $windowsPackageModule -Force
 $windowsPowerShellModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsPowerShell.psm1'
 Import-Module -Name $windowsPowerShellModule -Force
+$windowsNodeModule = Join-Path $PSScriptRoot 'windows\Dotfiles.WindowsNode.psm1'
+Import-Module -Name $windowsNodeModule -Force
 
 function Write-Section {
     param([string]$Message)
@@ -610,6 +613,11 @@ function Install-WindowsPackageBaseline {
                     Invoke-DotfilesPowerShellBootstrap -RepoRoot $PSScriptRoot -DryRun:$DryRun -NonInteractive:$Force -ExplicitMigration:$MigratePowerShellToMsi
                     continue
                 }
+                if ($section.Manager -eq 'Winget' -and $package.Id -eq 'AuthorSoftware.NVMWindows') {
+                    Invoke-DotfilesNvmBootstrap -DryRun:$DryRun -NonInteractive:$Force -ExplicitMigration:$MigrateNodeToNvm
+                    continue
+                }
+
                 $installed = $false
 
                 switch ($section.Manager) {
@@ -742,6 +750,10 @@ if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) 
 
 if ($MigratePowerShellToMsi -and ($Minimal -or $Sync -or $RestoreGitDefaults -or $CleanBackups)) {
     throw '-MigratePowerShellToMsi requires a normal package run. Use the standalone Windows PowerShell 5.1 migration helper if needed.'
+}
+
+if ($MigrateNodeToNvm -and ($Minimal -or $Sync -or $RestoreGitDefaults)) {
+    throw '-MigrateNodeToNvm requires normal package installation, not -Minimal, -Sync or -RestoreGitDefaults.'
 }
 
 $RepoRoot = Split-Path -Parent $PSCommandPath

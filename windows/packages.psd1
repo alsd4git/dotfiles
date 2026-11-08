@@ -11,7 +11,7 @@
         'Microsoft.PowerShell'
         'Microsoft.WindowsTerminal'
         'GNU.Nano'
-        'OpenJS.NodeJS.LTS'
+        'AuthorSoftware.NVMWindows'
         '7zip.7zip'
         'sharkdp.bat'
         'dandavison.delta'
