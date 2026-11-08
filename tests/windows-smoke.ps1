@@ -9,6 +9,9 @@ $sources = @(
     'install.ps1'
     'windows/profile.ps1'
     'windows/Dotfiles.WindowsPackages.psm1'
+    'windows/Dotfiles.WindowsPowerShell.psm1'
+    'windows/Install-PowerShellMsi.ps1'
+    'tests/windows-powershell-msi-tests.ps1'
     'windows/start-menu-shortcuts.ps1'
 )
 
@@ -46,13 +49,20 @@ foreach ($commandName in @('rld', 'npmupg')) {
 
 Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1') | Out-Null
 Import-Module (Join-Path $repoRoot 'windows/Dotfiles.WindowsPackages.psm1') -Force
+& (Join-Path $repoRoot 'tests/windows-powershell-msi-tests.ps1')
+
+$coreManifest = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1')
+if (@($coreManifest.Winget) -notcontains 'Microsoft.PowerShell') {
+    throw 'The Windows core manifest must include Microsoft.PowerShell.'
+}
+
 
 $entry = Resolve-WindowsPackageEntry -PackageEntry 'eza-community.eza' -Manager Winget
 if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
     throw 'Shared package entry normalization failed.'
 }
 
-if (-not $IsWindows) {
+if ($env:OS -ne 'Windows_NT') {
     Write-Host 'PowerShell parsing and shared module checks passed; Windows lifecycle skipped on this platform.'
     return
 }
