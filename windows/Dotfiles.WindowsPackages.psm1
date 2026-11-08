@@ -166,11 +166,12 @@ function Test-WingetPackageInstalled {
 }
 
 function Get-WingetInstalledPackageIds {
+    param([switch]$Refresh)
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         return @()
     }
 
-    if (Get-Variable -Scope Script -Name WingetInstalledPackageIds -ErrorAction SilentlyContinue) {
+    if (-not $Refresh -and (Get-Variable -Scope Script -Name WingetInstalledPackageIds -ErrorAction SilentlyContinue)) {
         return $script:WingetInstalledPackageIds
     }
 

@@ -79,4 +79,26 @@ foreach ($badJson in @('{"dependencies":{"example":{"version":"4.5.6"}}}', '{"de
     if (-not $failed) { throw 'Inventory verification accepted a missing or changed package.' }
 }
 
+Import-Module (Join-Path $repoRoot 'windows/Dotfiles.WindowsPackages.psm1') -Force
+$global:dotfilesTestWingetIds = @('OpenJS.NodeJS.LTS')
+$global:dotfilesTestWingetExports = 0
+function global:winget {
+    $global:dotfilesTestWingetExports++
+    $outputIndex = [array]::IndexOf($args, '-o') + 1
+    $packages = @($global:dotfilesTestWingetIds | ForEach-Object { @{ PackageIdentifier = $_ } })
+    @{ Sources = @(@{ Packages = $packages }) } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $args[$outputIndex]
+    $global:LASTEXITCODE = 0
+}
+try {
+    if (@(Get-WingetInstalledPackageIds) -notcontains 'OpenJS.NodeJS.LTS') { throw 'Expected initial package in export.' }
+    $global:dotfilesTestWingetIds = @('AuthorSoftware.NVMWindows')
+    if (@(Get-WingetInstalledPackageIds) -notcontains 'OpenJS.NodeJS.LTS') { throw 'Expected cached export before refresh.' }
+    $refreshed = @(Get-WingetInstalledPackageIds -Refresh)
+    if ($refreshed -contains 'OpenJS.NodeJS.LTS' -or $refreshed -notcontains 'AuthorSoftware.NVMWindows') { throw 'Refresh returned stale package IDs.' }
+    if ($global:dotfilesTestWingetExports -ne 2) { throw 'Unexpected WinGet export count.' }
+} finally {
+    Remove-Item Function:\global:winget -ErrorAction SilentlyContinue
+    Remove-Variable dotfilesTestWingetIds, dotfilesTestWingetExports -Scope Global -ErrorAction SilentlyContinue
+}
+
 Write-Host 'NVM migration decision tests passed.'

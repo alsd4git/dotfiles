@@ -262,7 +262,7 @@ function Invoke-DotfilesNvmBootstrap {
             $adopted = $adoptedJson | ConvertFrom-Json -ErrorAction Stop
             $saved = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json -ErrorAction Stop
             Assert-DotfilesNpmInventory -Saved $saved -Adopted $adopted
-            $installedNow = @(Get-WingetInstalledPackageIds)
+            $installedNow = @(Get-WingetInstalledPackageIds -Refresh)
             foreach ($id in $state.StandaloneIds) {
                 if ($installedNow -notcontains $id) { continue }
                 Write-Host "  Uninstalling standalone Node.js: $id"
