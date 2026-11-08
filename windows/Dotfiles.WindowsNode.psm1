@@ -158,6 +158,16 @@ function Test-DotfilesNvmDefault {
     }
 }
 
+function Assert-DotfilesNpmInventory {
+    param([Parameter(Mandatory = $true)][psobject]$Saved, [Parameter(Mandatory = $true)][psobject]$Adopted)
+    foreach ($package in @($Saved.GlobalPackages)) {
+        if ($package -notmatch '^(.+)@([^@]+)$') { throw "Cannot verify saved package: $package" }
+        $name = $Matches[1]; $version = $Matches[2]
+        $property = $Adopted.dependencies.PSObject.Properties[$name]
+        if (-not $property -or $property.Value.version -ne $version) { throw "Adopted npm package missing or changed: $package" }
+    }
+}
+
 function Install-DotfilesNodeLts {
     param([Parameter(Mandatory = $true)][string]$NvmExecutable)
     Write-Host '  Installing Node.js LTS using NVM...'
@@ -195,28 +205,18 @@ function Invoke-DotfilesNvmBootstrap {
             return
         }
         'Prompt' {
-            if ($DryRun) {
-                Write-Host '  Would ask whether to replace standalone Node.js (default No); no changes.'
-                return
-            }
-            if ($NonInteractive) {
-                Write-Warning 'Standalone Node present. -Force does not authorize removal; skipping NVM. Use -MigrateNodeToNvm to opt in.'
-                return
-            }
-            Write-Host "  Standalone Node.js detected: $($state.StandaloneIds -join ', ')."
-            Write-Host '  Migration saves npm globals, activates Node LTS in NVM, then uninstalls standalone Node.'
-            $reply = Read-Host '  Replace standalone Node.js with NVM for Windows? [y/N]'
-            if ($reply -notmatch '^[Yy]$') {
-                Write-Host '  Keeping standalone Node.js and skipping NVM to avoid PATH conflicts.'
-                return
-            }
+            if ($DryRun) { Write-Host '  Would ask to migrate standalone Node and its npm globals (default No).'; return }
+            if ($NonInteractive) { Write-Warning 'Standalone Node detected; migration requires explicit consent.'; return }
+            Write-Warning 'NVM adoption copies Node and global npm modules, then may uninstall standalone Node during setup.'
+            $reply = Read-Host '  Migrate standalone Node and global npm modules to NVM? [y/N]'
+            if ($reply -notmatch '^[Yy]$') { return }
             $plan = 'Migrate'
         }
     }
 
     if ($DryRun) {
         if ($plan -eq 'Migrate') {
-            Write-Host "  Would back up npm globals, install NVM + Node LTS, then uninstall $($state.StandaloneIds -join ', ')."
+            Write-Host '  Would save the npm inventory and run NVM adoption; setup may uninstall standalone Node.'
         } else {
             Write-Host "  Would install $script:NvmPackageId $script:NvmVersion and Node LTS."
         }
@@ -233,30 +233,45 @@ function Invoke-DotfilesNvmBootstrap {
         $nvmExe = $state.NvmExecutable
         if (-not $nvmExe) {
             Write-Host "  Installing $script:NvmPackageId $script:NvmVersion..."
-            # The pinned installer must not uninstall old Node before LTS is ready.
-            & winget install --id $script:NvmPackageId --exact --version $script:NvmVersion --source winget --accept-package-agreements --accept-source-agreements --silent --custom '/OFFICIALNODE=ignore'
-            if ($LASTEXITCODE -ne 0) { throw 'WinGet could not install NVM; existing Node.js was not removed.' }
+            $installerArgs = @('install', '--id', $script:NvmPackageId, '--exact', '--version', $script:NvmVersion, '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--silent')
+            if ($plan -eq 'Migrate') { $installerArgs += @('--custom', '/OFFICIALNODE=adopt') }
+            & winget @installerArgs
+            if ($LASTEXITCODE -ne 0) { throw 'WinGet could not install NVM; inspect the machine before retrying.' }
             $newNvm = @(Get-DotfilesNvmExecutables | Where-Object { $_.Major -ge 2 } | Select-Object -First 1)
             if ($newNvm.Count -eq 0) { throw 'WinGet reported success but nvm.exe was not found; inspect the installation in a new shell.' }
             $nvmExe = $newNvm[0].Path
         }
 
-        if ($plan -eq 'Install' -or -not (Test-DotfilesNvmDefault -NvmExecutable $nvmExe)) {
+        if ($plan -eq 'Install') {
             Install-DotfilesNodeLts -NvmExecutable $nvmExe
-        } else {
-            Write-Host '  Reusing the existing NVM default version.'
+        } elseif (-not (Test-DotfilesNvmDefault -NvmExecutable $nvmExe)) {
+            throw 'NVM did not report an adopted default Node version. Inspect the saved inventory and installation before retrying.'
         }
 
         if ($plan -eq 'Migrate') {
-            # Uninstall only AFTER a usable NVM default has been verified.
+            # Verify the adopted executable and npm global inventory before removing
+            # any standalone installation still present after the NVM installer.
+            $versionText = (& $nvmExe default 2>$null | Out-String)
+            if ($versionText -notmatch 'v?(\d+\.\d+\.\d+)') { throw 'Cannot identify the adopted Node version.' }
+            $adoptedDir = Join-Path (Split-Path -Parent $nvmExe) ("installs\v" + $Matches[1])
+            $adoptedNode = Join-Path $adoptedDir 'node.exe'
+            $adoptedNpm = Join-Path $adoptedDir 'node_modules\npm\bin\npm-cli.js'
+            if (-not (Test-Path -LiteralPath $adoptedNode) -or -not (Test-Path -LiteralPath $adoptedNpm)) { throw 'Adopted Node or npm is missing.' }
+            $adoptedJson = (& $adoptedNode $adoptedNpm ls -g --depth=0 --json 2>$null | Out-String)
+            if ($LASTEXITCODE -ne 0) { throw 'Unable to verify adopted npm globals.' }
+            $adopted = $adoptedJson | ConvertFrom-Json -ErrorAction Stop
+            $saved = Get-Content -LiteralPath $backup -Raw | ConvertFrom-Json -ErrorAction Stop
+            Assert-DotfilesNpmInventory -Saved $saved -Adopted $adopted
+            $installedNow = @(Get-WingetInstalledPackageIds)
             foreach ($id in $state.StandaloneIds) {
+                if ($installedNow -notcontains $id) { continue }
                 Write-Host "  Uninstalling standalone Node.js: $id"
                 & winget uninstall --id $id --exact --source winget --accept-source-agreements
                 if ($LASTEXITCODE -ne 0) { throw "Failed to uninstall $id; both installations may remain. Resolve the PATH conflict manually." }
             }
             $left = @($state.StandalonePaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
             if ($left.Count -gt 0) { throw "Old node.exe still exists at $($left -join ', '); resolve this conflict before using NVM." }
-            Write-Host '  Migration complete. Review the saved npm global list; reinstall needed tools under NVM.'
+            Write-Host '  Migration complete. The adopted Node version and saved npm globals were verified.'
         } else {
             Write-Host '  NVM and Node.js LTS installed.'
         }
@@ -270,6 +285,7 @@ function Invoke-DotfilesNvmBootstrap {
 }
 
 Export-ModuleMember -Function @(
+    'Assert-DotfilesNpmInventory'
     'Get-DotfilesNvmExecutables'
     'Get-DotfilesNodePlan'
     'Get-DotfilesNodeState'

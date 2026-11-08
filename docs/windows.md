@@ -123,7 +123,7 @@ Windows Terminal and TrafficMonitor configuration are currently copied during no
 | `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing PowerShell MSIX |
 | `.\install.ps1 -Force -MigratePowerShellToMsi` | Explicit opt-in to replace current-user PowerShell MSIX with fixed-path MSI, only from a non-MSIX shell |
 | `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing standalone Node.js |
-| `.\install.ps1 -Force -MigrateNodeToNvm` | Explicitly consent to replacing WinGet-managed standalone Node.js with NVM v2 |
+| `.\install.ps1 -Force -MigrateNodeToNvm` | Explicitly migrate standalone Node and its global npm packages using NVM adoption |
 | `.\install.ps1 -y` | Alias for `-Force` |
 | `.\install.ps1 -CleanBackups` | List backups in the currently supported cleanup scope and ask before deletion |
 | `.\install.ps1 -RestoreGitDefaults` | Restore installer-managed Git values when they still match the values applied by the installer |
@@ -136,6 +136,7 @@ Important mode rules:
 - `-Force` opts into package groups, including optional and private ones, but never authorizes removal of PowerShell MSIX. Use the additional `-MigratePowerShellToMsi` flag or an interactive confirmation.
 - `-MigratePowerShellToMsi` is incompatible with `-Minimal`, `-Sync`, `-RestoreGitDefaults`, and `-CleanBackups`.
 - `-Force` opts into package groups, not removal of an existing runtime. Node.js migration requires its own prompt or `-MigrateNodeToNvm`.
+- `-Force` opts into package groups, not removal of an existing runtime. Migration requires a separate confirmation or `-MigrateNodeToNvm`.
 - `-MigrateNodeToNvm` cannot be combined with `-Minimal`, `-Sync`, or `-RestoreGitDefaults`.
 
 ## Package manifests
@@ -196,13 +197,13 @@ The public core installs **NVM for Windows v2** (`AuthorSoftware.NVMWindows`) in
 
 - **No Node or NVM:** install NVM and Node LTS, then open a new PowerShell session.
 - **NVM v2 already present:** keep the selected/default Node version unchanged.
-- **WinGet-managed standalone Node.js (`OpenJS.NodeJS.LTS` or `OpenJS.NodeJS`):** offer migration with a default answer of **No**. Declining keeps Node and skips installing NVM.
-- **`-Force`:** selects package groups, but never authorizes removal of Node. For unattended explicit consent use `.\install.ps1 -Force -MigrateNodeToNvm`. Using `-MigrateNodeToNvm` alone still requires choosing the core package group.
+- **WinGet-managed standalone Node.js (`OpenJS.NodeJS.LTS` or `OpenJS.NodeJS`):** offer migration with a default answer of No.
+- **`-Force`:** selects package groups, but does not authorize migration without `-MigrateNodeToNvm`.
 - **Unrecognized standalone Node, NVM v1, Scoop/fnm/Volta, or another Node executable on PATH:** skip automatic changes and explain the conflict. Clean up manually and rerun.
 
-An approved migration writes the current global npm package names/versions to `%LOCALAPPDATA%\dotfiles\node-migration\before-nvm-*.json`. The installer then installs NVM, activates/verifies a Node version managed by NVM and **only after that** invokes WinGet to uninstall standalone Node. The old Node is not removed if NVM installation or LTS activation fails. A temporary coexistence during migration is intentional, not a supported final state.
+An approved migration saves an npm inventory and invokes the community NVM installer with adoption. NVM copies the existing version and global modules; it can uninstall standalone Node during installation, before this bootstrap verifies the replacement. The bootstrap checks the adopted version and saved package versions before attempting to remove any standalone package still present. See the [NVM installer documentation](https://docs.nvm-windows.com/install/installers/).
 
-The inventory is for **manual reinstallation** of global npm tools, not an archive of their files. The installer does not silently delete global npm directories or reinstall arbitrary global tools. After migration, review that inventory and install any packages you still need under the NVM-managed Node.
+The inventory contains package names and versions, not a backup of their files. The adopted Node version remains the default so its global modules remain available; additional Node versions manage their own global modules.
 
 If WinGet cannot remove the old runtime, the installer reports an incomplete migration, returns a failure, and leaves the state for manual repair rather than deleting files. Explicit noninteractive migration also fails instead of silently skipping when unsupported Node/NVM installations are detected. The earlier executable may continue to shadow NVM on PATH. Close and reopen PowerShell, then verify:
 

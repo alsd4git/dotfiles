@@ -70,4 +70,13 @@ Assert-NodePlan -State $legacy -Expected 'LegacyNvm' -ExplicitMigration
 $ambiguous = New-TestNodeState -StandaloneIds @('OpenJS.NodeJS.LTS') -OtherNodePaths @('C:\tools\node.exe')
 Assert-NodePlan -State $ambiguous -Expected 'OtherNode' -ExplicitMigration
 
+$saved = [pscustomobject]@{ GlobalPackages = @('@scope/tool@1.2.3', 'example@4.5.6') }
+$adopted = '{"dependencies":{"@scope/tool":{"version":"1.2.3"},"example":{"version":"4.5.6"}}}' | ConvertFrom-Json
+Assert-DotfilesNpmInventory -Saved $saved -Adopted $adopted
+foreach ($badJson in @('{"dependencies":{"example":{"version":"4.5.6"}}}', '{"dependencies":{"@scope/tool":{"version":"1.2.4"},"example":{"version":"4.5.6"}}}')) {
+    $failed = $false
+    try { Assert-DotfilesNpmInventory -Saved $saved -Adopted ($badJson | ConvertFrom-Json) } catch { $failed = $true }
+    if (-not $failed) { throw 'Inventory verification accepted a missing or changed package.' }
+}
+
 Write-Host 'NVM migration decision tests passed.'
