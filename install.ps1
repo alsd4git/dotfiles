@@ -750,6 +750,8 @@ if ($RestoreGitDefaults -and ($Sync -or $Minimal -or $Force -or $CleanBackups)) 
 
 if ($MigratePowerShellToMsi -and ($Minimal -or $Sync -or $RestoreGitDefaults -or $CleanBackups)) {
     throw '-MigratePowerShellToMsi requires a normal package run. Use the standalone Windows PowerShell 5.1 migration helper if needed.'
+}
+
 if ($MigrateNodeToNvm -and ($Minimal -or $Sync -or $RestoreGitDefaults)) {
     throw '-MigrateNodeToNvm requires normal package installation, not -Minimal, -Sync or -RestoreGitDefaults.'
 }

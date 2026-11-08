@@ -60,8 +60,7 @@ if (@($coreManifest.Winget) -notcontains 'Microsoft.PowerShell') {
 
 & (Join-Path $repoRoot 'tests/windows-node-tests.ps1')
 
-$corePackages = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'windows/packages.psd1')
-if (@($corePackages.Winget) -notcontains 'AuthorSoftware.NVMWindows' -or @($corePackages.Winget) -contains 'OpenJS.NodeJS.LTS') {
+if (@($coreManifest.Winget) -notcontains 'AuthorSoftware.NVMWindows' -or @($coreManifest.Winget) -contains 'OpenJS.NodeJS.LTS') {
     throw 'Windows core manifest must use NVM v2 rather than standalone Node LTS.'
 }
 

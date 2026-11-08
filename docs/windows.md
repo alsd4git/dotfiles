@@ -120,9 +120,8 @@ Windows Terminal and TrafficMonitor configuration are currently copied during no
 | `.\install.ps1 -DryRun` | Preview files, Git changes, manifest selection, and missing packages without modifying the machine |
 | `.\install.ps1 -Minimal` | Apply managed files and Git defaults but skip package installation |
 | `.\install.ps1 -Sync` | Reconcile profiles, copied files, manifests, and Git defaults without installing packages |
-| `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing PowerShell MSIX |
+| `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing PowerShell MSIX or standalone Node.js |
 | `.\install.ps1 -Force -MigratePowerShellToMsi` | Explicit opt-in to replace current-user PowerShell MSIX with fixed-path MSI, only from a non-MSIX shell |
-| `.\install.ps1 -Force` | Answer yes to package-group prompts, but not to removing standalone Node.js |
 | `.\install.ps1 -Force -MigrateNodeToNvm` | Explicitly migrate standalone Node and its global npm packages using NVM adoption |
 | `.\install.ps1 -y` | Alias for `-Force` |
 | `.\install.ps1 -CleanBackups` | List backups in the currently supported cleanup scope and ask before deletion |
@@ -136,7 +135,6 @@ Important mode rules:
 - `-Force` opts into package groups, including optional and private ones, but never authorizes removal of PowerShell MSIX. Use the additional `-MigratePowerShellToMsi` flag or an interactive confirmation.
 - `-MigratePowerShellToMsi` is incompatible with `-Minimal`, `-Sync`, `-RestoreGitDefaults`, and `-CleanBackups`.
 - `-Force` opts into package groups, not removal of an existing runtime. Node.js migration requires its own prompt or `-MigrateNodeToNvm`.
-- `-Force` opts into package groups, not removal of an existing runtime. Migration requires a separate confirmation or `-MigrateNodeToNvm`.
 - `-MigrateNodeToNvm` cannot be combined with `-Minimal`, `-Sync`, or `-RestoreGitDefaults`.
 
 ## Package manifests
@@ -191,6 +189,7 @@ The MSI invocation should report `C:\Program Files\PowerShell\7`. After migratio
 **OpenSSH default shell is configured separately:** installation alone does not change `HKLM:\SOFTWARE\OpenSSH` or restart `sshd`. If you explicitly want PowerShell 7 as the SSH default shell, inspect your OpenSSH configuration and set `DefaultShell` to the full Program Files executable path from an elevated session; keep the original registry value for rollback. This repo deliberately does not change service configuration.
 
 Windows PowerShell **5.1 is supported as a bootstrap/recovery host**. The Windows smoke checks parse and exercise the dotfiles under both `powershell.exe` (5.1) and `pwsh.exe` (7), without installing or removing anything. If the MSI install or MSIX removal fails, the bootstrap reports failure, preserves Windows PowerShell 5.1, and does not automatically delete the other installation.
+
 ### Node.js: NVM for Windows v2
 
 The public core installs **NVM for Windows v2** (`AuthorSoftware.NVMWindows`) in place of standalone `OpenJS.NodeJS.LTS`. The bootstrap pins NVM **2.0.1**, which is available in WinGet and code-signed. On a clean machine it installs and activates the latest Node LTS with `nvm install lts` and `nvm use lts`.
