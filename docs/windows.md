@@ -154,7 +154,7 @@ A WinGet entry can be either a package ID string or a structured entry with an e
 
 The core manifest still lists `Microsoft.PowerShell`, but the installer treats it specially. Starting with PowerShell 7.6, a generic WinGet install selects **MSIX** by default, which exposes `pwsh.exe` through an App Execution Alias in `%LOCALAPPDATA%\Microsoft\WindowsApps`. That alias can fail from Windows OpenSSH or other service logon contexts. For this bootstrap we therefore require the **MSI (wix)** installer, with a stable real executable at `C:\Program Files\PowerShell\7\pwsh.exe`. See [Microsoft's PowerShell installation guide](https://learn.microsoft.com/powershell/scripting/install/install-powershell-on-windows) and [OpenSSH App Execution Alias issue](https://github.com/PowerShell/Win32-OpenSSH/issues/2449).
 
-The current bootstrap targets **7.6.7 MSI** with `--installer-type wix --version 7.6.7.0`. Microsoft has announced that **7.7 and later will not ship MSI installers**, so do not silently switch this path to MSIX during a future upgrade; reassess a fixed-path ZIP/launcher approach for 7.7+. The installed PowerShell 7.6 MSI continues to use the usual supported servicing policy.
+The current bootstrap targets **7.6.9 MSI** with `--installer-type wix --version 7.6.9.0`. Microsoft has announced that **7.7 and later will not ship MSI installers**, so do not silently switch this path to MSIX during a future upgrade; reassess a fixed-path ZIP/launcher approach for 7.7+. The installed PowerShell 7.6 MSI continues to use the usual supported servicing policy.
 
 Behavior:
 

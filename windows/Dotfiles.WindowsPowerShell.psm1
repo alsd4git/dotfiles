@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 
 $script:PwshPackageId = 'Microsoft.PowerShell'
-$script:PwshMsiVersion = '7.6.7.0'
+$script:PwshMsiVersion = '7.6.9.0'
 
 function Get-DotfilesPwshMsiPath {
     $programFiles = [Environment]::GetEnvironmentVariable('ProgramW6432')
