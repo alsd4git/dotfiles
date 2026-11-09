@@ -115,24 +115,23 @@ function Save-DotfilesNodeInventory {
     $globals = @()
     if ($npmPath) {
         $raw = (& $npmPath ls -g --depth=0 --json 2>$null | Out-String).Trim()
-        if (-not $raw) { throw 'npm returned no global inventory; migration was cancelled.' }
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { throw 'npm global inventory failed; migration was cancelled.' }
         try {
             $inventory = $raw | ConvertFrom-Json -ErrorAction Stop
-            if ($inventory.dependencies) {
-                foreach ($item in $inventory.dependencies.PSObject.Properties) {
+            $dependencies = $inventory.PSObject.Properties['dependencies']
+            if ($dependencies -and $dependencies.Value) {
+                foreach ($item in $dependencies.Value.PSObject.Properties) {
                     if ($item.Name -in @('npm', 'corepack')) { continue }
-                    if ($item.Value.version) {
-                        $globals += "$($item.Name)@$($item.Value.version)"
-                    } else {
-                        $globals += $item.Name
-                    }
+                    $version = $item.Value.PSObject.Properties['version']
+                    if (-not $version -or [string]::IsNullOrWhiteSpace([string]$version.Value)) { throw 'Package version missing.' }
+                    $globals += "$($item.Name)@$($version.Value)"
                 }
             }
         } catch {
             throw 'Unable to parse npm global inventory; migration was cancelled.'
         }
     } else {
-        Write-Warning 'npm not found; the migration inventory will not contain global packages.'
+        throw 'npm not found; cannot inventory global packages. Migration was cancelled.'
     }
 
     $dir = Join-Path $env:LOCALAPPDATA 'dotfiles\node-migration'
@@ -152,7 +151,7 @@ function Test-DotfilesNvmDefault {
     param([Parameter(Mandatory = $true)][string]$NvmExecutable)
     try {
         $default = (& $NvmExecutable default 2>$null | Out-String).Trim()
-        return ($LASTEXITCODE -eq 0 -and $default -match 'v?\d+\.\d+\.\d+')
+        return ($LASTEXITCODE -eq 0 -and $default -match '(?m)^\s*Default\s*:\s*v?\d+\.\d+\.\d+\s*$')
     } catch {
         return $false
     }
@@ -201,7 +200,16 @@ function Invoke-DotfilesNvmBootstrap {
             return
         }
         'Existing' {
-            Write-Host '  NVM v2 already installed; keeping its current Node.js version unchanged.'
+            if (Test-DotfilesNvmDefault -NvmExecutable $state.NvmExecutable) {
+                Write-Host '  NVM v2 already installed; keeping its current Node.js version unchanged.'
+                return
+            }
+            $installedJson = (& $state.NvmExecutable list --json 2>$null | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0 -or -not $installedJson.StartsWith('[')) { throw 'Cannot inspect installed NVM versions; leaving the default unchanged.' }
+            try { $installed = @($installedJson | ConvertFrom-Json -ErrorAction Stop) } catch { throw 'Cannot parse installed NVM versions; leaving the default unchanged.' }
+            if (@($installed | Where-Object { $_ -and $_.default }).Count -gt 0) { throw 'NVM reports a default that could not be verified; leaving it unchanged.' }
+            if ($DryRun) { Write-Host '  Would install and activate Node.js LTS for existing NVM without a default.'; return }
+            Install-DotfilesNodeLts -NvmExecutable $state.NvmExecutable
             return
         }
         'Prompt' {
@@ -252,7 +260,7 @@ function Invoke-DotfilesNvmBootstrap {
             # Verify the adopted executable and npm global inventory before removing
             # any standalone installation still present after the NVM installer.
             $versionText = (& $nvmExe default 2>$null | Out-String)
-            if ($versionText -notmatch 'v?(\d+\.\d+\.\d+)') { throw 'Cannot identify the adopted Node version.' }
+            if ($versionText -notmatch '(?m)^\s*Default\s*:\s*v?(\d+\.\d+\.\d+)\s*$') { throw 'Cannot identify the adopted Node version.' }
             $adoptedDir = Join-Path (Split-Path -Parent $nvmExe) ("installs\v" + $Matches[1])
             $adoptedNode = Join-Path $adoptedDir 'node.exe'
             $adoptedNpm = Join-Path $adoptedDir 'node_modules\npm\bin\npm-cli.js'
