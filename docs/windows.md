@@ -420,7 +420,7 @@ Run the installer again after correcting the package source or local WinGet stat
 Open a new PowerShell session and run:
 
 ```powershell
-Get-Command git, winget, aa, l, gl, npmupg, wingup -ErrorAction SilentlyContinue
+Get-Command git, winget, aa, l, gl, npmupg -ErrorAction SilentlyContinue
 git config --global --get core.excludesfile
 git config --global --get init.defaultBranch
 ```

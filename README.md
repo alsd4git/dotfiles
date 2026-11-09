@@ -225,7 +225,6 @@ The shared command names use shell-native implementations so they remain familia
 | `gla` / `glaf` | All configured shells | Show the latest commit summary or full patch |
 | `npmupg` | Bash, Zsh, PowerShell | Show outdated global npm packages and run `npm update -g` |
 | `brewup` | macOS | Update, upgrade, and clean Homebrew packages |
-| `wingup` | Windows | Show and apply WinGet upgrades |
 
 `rld` detects the active interpreter rather than relying on the login-shell value in `$SHELL`. It re-sources `~/.bashrc` in Bash, `${ZDOTDIR:-$HOME}/.zshrc` in Zsh, and the current-user all-hosts profile in PowerShell. It does not reload login-only files such as `.bash_profile` or `.zprofile`. The older Unix command `rldz` remains as a compatibility alias to `rld`.
 
@@ -251,7 +250,7 @@ command -v git nano fzf zoxide uv swiftly gh
 After a Windows installation, open a new PowerShell session and run:
 
 ```powershell
-Get-Command git, winget, aa, l, gl, rld, npmupg, wingup -ErrorAction SilentlyContinue
+Get-Command git, winget, aa, l, gl, rld, npmupg -ErrorAction SilentlyContinue
 git config --global --get core.excludesfile
 ```
 

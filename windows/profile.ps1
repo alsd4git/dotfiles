@@ -403,17 +403,6 @@ function npmupg {
     npm update -g
 }
 
-function wingup {
-    if (-not (Test-CommandExists winget)) {
-        Write-Warning 'winget not found.'
-        return
-    }
-
-    Write-Section 'winget updates'
-    winget upgrade
-    winget upgrade --all --accept-package-agreements --accept-source-agreements
-}
-
 function rpx {
     if (-not (Test-CommandExists repomix)) {
         Write-Warning 'repomix not found.'

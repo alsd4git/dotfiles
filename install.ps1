@@ -721,7 +721,6 @@ function Write-WindowsAliasSummary {
         [pscustomobject]@{ Name = 'gl'; MapsTo = 'git pull --rebase --autostash' }
         [pscustomobject]@{ Name = 'rld'; MapsTo = 'Reload the PowerShell profile' }
         [pscustomobject]@{ Name = 'npmupg'; MapsTo = 'npm outdated -g && npm update -g' }
-        [pscustomobject]@{ Name = 'wingup'; MapsTo = 'winget upgrade && winget upgrade --all' }
     )
 
     Write-Section 'Quick aliases'
