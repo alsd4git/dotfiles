@@ -195,14 +195,14 @@ Windows PowerShell **5.1 is supported as a bootstrap/recovery host**. The Window
 The public core installs **NVM for Windows v2** (`AuthorSoftware.NVMWindows`) in place of standalone `OpenJS.NodeJS.LTS`. The bootstrap pins NVM **2.0.1**, which is available in WinGet and code-signed. On a clean machine it installs and activates the latest Node LTS with `nvm install lts` and `nvm use lts`.
 
 - **No Node or NVM:** install NVM and Node LTS, then open a new PowerShell session.
-- **NVM v2 already present:** keep the selected/default Node version unchanged.
+- **NVM v2 already present:** keep a valid selected/default Node version unchanged. If there is no default, install and activate Node LTS; if the installation cannot be inspected reliably, stop without changing the default.
 - **WinGet-managed standalone Node.js (`OpenJS.NodeJS.LTS` or `OpenJS.NodeJS`):** offer migration with a default answer of No.
 - **`-Force`:** selects package groups, but does not authorize migration without `-MigrateNodeToNvm`.
 - **Unrecognized standalone Node, NVM v1, Scoop/fnm/Volta, or another Node executable on PATH:** skip automatic changes and explain the conflict. Clean up manually and rerun.
 
 An approved migration saves an npm inventory and invokes the community NVM installer with adoption. NVM copies the existing version and global modules; it can uninstall standalone Node during installation, before this bootstrap verifies the replacement. The bootstrap checks the adopted version and saved package versions before attempting to remove any standalone package still present. See the [NVM installer documentation](https://docs.nvm-windows.com/install/installers/).
 
-The inventory contains package names and versions, not a backup of their files. The adopted Node version remains the default so its global modules remain available; additional Node versions manage their own global modules.
+The inventory contains package names and versions, not a backup of their files. Migration stops if npm is unavailable, reports an error, or returns a package without a version. The adopted Node version remains the default so its global modules remain available; additional Node versions manage their own global modules.
 
 If WinGet cannot remove the old runtime, the installer reports an incomplete migration, returns a failure, and leaves the state for manual repair rather than deleting files. Explicit noninteractive migration also fails instead of silently skipping when unsupported Node/NVM installations are detected. The earlier executable may continue to shadow NVM on PATH. Close and reopen PowerShell, then verify:
 

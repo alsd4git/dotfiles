@@ -70,6 +70,59 @@ Assert-NodePlan -State $legacy -Expected 'LegacyNvm' -ExplicitMigration
 $ambiguous = New-TestNodeState -StandaloneIds @('OpenJS.NodeJS.LTS') -OtherNodePaths @('C:\tools\node.exe')
 Assert-NodePlan -State $ambiguous -Expected 'OtherNode' -ExplicitMigration
 
+# Exercise the existing-manager path without installing or changing Node.
+$nodeModule = Get-Module Dotfiles.WindowsNode
+& $nodeModule {
+    function script:dotfilesFakeDefault { $global:LASTEXITCODE = 0; return $script:testDefaultOutput }
+    $script:testDefaultOutput = "Default  : none`nLast     : v24.22.1"
+    if (Test-DotfilesNvmDefault -NvmExecutable 'dotfilesFakeDefault') { throw 'Previous Node version must not be mistaken for the default.' }
+    $script:testDefaultOutput = "Default  : v26.13.0`nLast     : v24.22.1"
+    if (-not (Test-DotfilesNvmDefault -NvmExecutable 'dotfilesFakeDefault')) { throw 'Valid default was not detected.' }
+    $script:testDefault = $true
+    $script:testInstallCount = 0
+    function script:Get-DotfilesNodeState {
+        [pscustomobject]@{ NvmExecutable = 'dotfilesFakeNvm'; HasLegacyNvm = $false; OtherNodePaths = @(); HasStandaloneNode = $false; StandaloneIds = @() }
+    }
+    function script:Test-DotfilesNvmDefault { param($NvmExecutable) return $script:testDefault }
+    function script:Install-DotfilesNodeLts { param($NvmExecutable) $script:testInstallCount++ }
+    function script:dotfilesFakeNvm { $global:LASTEXITCODE = 0; return '[]' }
+    Invoke-DotfilesNvmBootstrap
+    if ($script:testInstallCount -ne 0) { throw 'A valid NVM default must not be changed.' }
+    $script:testDefault = $false
+    Invoke-DotfilesNvmBootstrap -DryRun
+    if ($script:testInstallCount -ne 0) { throw 'Dry-run must not install Node.' }
+    Invoke-DotfilesNvmBootstrap
+    if ($script:testInstallCount -ne 1) { throw 'NVM without a default must install Node LTS.' }
+}
+Import-Module (Join-Path $repoRoot 'windows/Dotfiles.WindowsNode.psm1') -Force
+
+# Use a disposable npm command and profile directory; never inspect real globals.
+$inventoryRoot = Join-Path ([IO.Path]::GetTempPath()) ("dotfiles-node-inventory-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $inventoryRoot | Out-Null
+$originalLocalAppData = $env:LOCALAPPDATA
+try {
+    $env:LOCALAPPDATA = $inventoryRoot
+    $fakeNode = Join-Path $inventoryRoot 'node.exe'
+    $fakeNpm = Join-Path $inventoryRoot 'npm.cmd'
+    $state = [pscustomobject]@{ StandalonePaths = @($fakeNode); StandaloneIds = @('OpenJS.NodeJS.LTS') }
+    $nodeModule = Get-Module Dotfiles.WindowsNode
+    Set-Content -LiteralPath $fakeNpm -Value '@echo {"dependencies":{"example":{"version":"1.2.3"}}}'
+    $savedPath = & $nodeModule { param($testState) Save-DotfilesNodeInventory -State $testState } $state
+    $inventory = Get-Content -LiteralPath $savedPath -Raw | ConvertFrom-Json
+    if (@($inventory.GlobalPackages) -notcontains 'example@1.2.3') { throw 'Expected npm package inventory.' }
+    Set-Content -LiteralPath $fakeNpm -Value @('@echo {"dependencies":{}}', '@exit /b 1')
+    $failed = $false
+    try { & $nodeModule { param($testState) Save-DotfilesNodeInventory -State $testState } $state } catch { $failed = $true }
+    if (-not $failed) { throw 'Failed npm inventory must stop migration.' }
+    Set-Content -LiteralPath $fakeNpm -Value '@echo {"dependencies":{"example":{}}}'
+    $failed = $false
+    try { & $nodeModule { param($testState) Save-DotfilesNodeInventory -State $testState } $state } catch { $failed = $true }
+    if (-not $failed) { throw 'Missing npm package version must stop migration.' }
+} finally {
+    $env:LOCALAPPDATA = $originalLocalAppData
+    Remove-Item -LiteralPath $inventoryRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 $saved = [pscustomobject]@{ GlobalPackages = @('@scope/tool@1.2.3', 'example@4.5.6') }
 $adopted = '{"dependencies":{"@scope/tool":{"version":"1.2.3"},"example":{"version":"4.5.6"}}}' | ConvertFrom-Json
 Assert-DotfilesNpmInventory -Saved $saved -Adopted $adopted
