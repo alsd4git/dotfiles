@@ -18,6 +18,7 @@ A parking lot for possible enhancements. Active items are prioritized; finished 
 - Delta configuration is now an explicit opt-in with conservative Git state restoration.
 - Legacy PATH de-duplication lines are migrated automatically during shell startup updates.
 - The installer now offers interactive `gh auth login` only when explicitly approved, with SSH/GPG setup hints.
+- Optional incoming SSH key import is separate from client authentication and requires explicit confirmation.
 - `scripts/tool-health-check.sh` validates the curated tool manifest with `jq` and reports versions.
 - nvm upgrades now offer an explicit migration of global npm packages from the previous Node version.
 - Remote bootstrap helpers now support optional SHA-256 verification, with dynamic upstream channels documented as explicit exceptions.

@@ -14,6 +14,8 @@ $sources = @(
     'tests/windows-powershell-msi-tests.ps1'
     'windows/Dotfiles.WindowsNode.psm1'
     'tests/windows-node-tests.ps1'
+    'scripts/import-ssh-keys.ps1'
+    'tests/windows-ssh-key-tests.ps1'
     'windows/start-menu-shortcuts.ps1'
 )
 
@@ -71,6 +73,15 @@ if ($entry.Source -ne 'winget' -or $entry.Id -ne 'eza-community.eza') {
 
 if ($env:OS -ne 'Windows_NT') {
     Write-Host 'PowerShell parsing and shared module checks passed; Windows lifecycle skipped on this platform.'
+    return
+}
+
+& (Join-Path $repoRoot 'tests/windows-ssh-key-tests.ps1')
+
+# PowerShell's $HOME and Windows profile paths do not follow $env:HOME.
+# The lifecycle below invokes the installer and must only run on a disposable VM.
+if ($env:DOTFILES_DISPOSABLE_WINDOWS -ne '1') {
+    Write-Host 'Windows installer lifecycle skipped: use a disposable Windows environment and set DOTFILES_DISPOSABLE_WINDOWS=1.'
     return
 }
 

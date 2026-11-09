@@ -842,4 +842,13 @@ fi
 report_git_identity_hint
 print_install_summary
 
+if ! $MINIMAL_MODE && ! $SYNC_MODE && ! $UNINSTALL_MODE && ! $CLEAN_BACKUPS && ! $DRY_RUN && ! $YES_MODE && ! $INSTALL_ALL && [ -t 0 ]; then
+    read -r -p 'Import public SSH keys to allow incoming connections to this machine? [y/N] ' import_ssh_keys
+    if [[ "$import_ssh_keys" =~ ^[Yy]$ ]]; then
+        if ! bash "$DOTFILES_HOME/scripts/import-ssh-keys.sh"; then
+            echo 'SSH key import failed; review the message above.' >&2
+        fi
+    fi
+fi
+
 echo -e "\n🚀 Setup complete. You may need to restart your shell or source the new config."
