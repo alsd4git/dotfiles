@@ -109,10 +109,10 @@ done <"$temp_dir/download"
 
 ssh_dir="$HOME/.ssh"
 target="$ssh_dir/authorized_keys"
-[ ! -L "$ssh_dir" ] && [ ! -L "$target" ] || {
+if [ -L "$ssh_dir" ] || [ -L "$target" ]; then
     echo 'Refusing symlinked SSH paths.' >&2
     exit 1
-}
+fi
 if [ -e "$target" ] && [ ! -f "$target" ]; then
     echo 'authorized_keys is not a regular file.' >&2
     exit 1
@@ -145,10 +145,10 @@ esac
 
 mkdir -p "$ssh_dir"
 chmod 700 "$ssh_dir"
-[ ! -L "$ssh_dir" ] && [ ! -L "$target" ] || {
+if [ -L "$ssh_dir" ] || [ -L "$target" ]; then
     echo 'SSH path changed; no keys written.' >&2
     exit 1
-}
+fi
 if $target_existed && [ -f "$target" ]; then
     cmp -s "$target" "$temp_dir/existing" || {
         echo 'authorized_keys changed; retry.' >&2
