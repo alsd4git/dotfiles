@@ -195,6 +195,10 @@ Apply it only after reviewing the tracked app list:
 
 This operation is intentionally separate and destructive with respect to the existing Dock arrangement.
 
+## Incoming SSH keys
+
+Run `bash scripts/import-ssh-keys.sh --provider github --username USERNAME --dry-run` to preview, then omit `--dry-run` to confirm an import. `gitlab` is also supported. The helper uses `~/.ssh/authorized_keys`, preserves existing lines, and makes a backup before replacement. It does not configure or start sshd. Removing a key from the provider does not revoke it here; remove its line manually.
+
 ## Local configuration
 
 ### Private aliases

@@ -907,6 +907,13 @@ if (-not $Minimal -and -not $Sync) {
     Write-Info "Minimal or sync mode: skipping package manager bootstrap."
 }
 
+if (-not $Minimal -and -not $Sync -and -not $Force -and -not $DryRun -and -not $CleanBackups -and -not $RestoreGitDefaults -and -not [Console]::IsInputRedirected) {
+    $importSshKeys = Read-Host 'Import public SSH keys to allow incoming connections to this machine? [y/N]'
+    if ($importSshKeys -match '^[Yy]$') {
+        & (Join-Path $PSScriptRoot 'scripts\import-ssh-keys.ps1')
+    }
+}
+
 Write-WindowsAliasSummary
 
 Write-Section "Complete"

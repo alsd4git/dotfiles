@@ -220,6 +220,12 @@ There should not be a standalone `Program Files\nodejs\node.exe` shadowing NVM. 
 
 This repo does not require a root `.nvmrc`; individual Node projects can maintain their own. The shared `npmupg` function continues to operate on whichever Node version is active.
 
+## Incoming SSH keys
+
+Run `.\scripts\import-ssh-keys.ps1 -Provider github -Username USERNAME -DryRun` to preview; omit `-DryRun` to confirm an import. `gitlab` is also supported. The helper requires `ssh-keygen`, checks fingerprints and ACLs, and refuses reparse points. It does not modify sshd configuration, start the service, or open the firewall.
+
+When the effective `AuthorizedKeysFile` cannot be determined, inspect `sshd_config` and explicitly select `-Destination User` or `-Destination Administrators`. The latter is a shared file for administrator accounts, requires an elevated shell for writes, and only permits SYSTEM and Administrators ACL entries. An unusual custom path is not written automatically. Existing keys are preserved and a backup is made on replacement. Removing a key from the provider does not revoke access here; remove its line manually.
+
 ## Local configuration
 
 ### PowerShell overlays

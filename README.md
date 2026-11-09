@@ -201,6 +201,24 @@ For local-only package entries, edit the scaffold created at:
 
 The public template is [`windows/packages.private.example.psd1`](windows/packages.private.example.psd1).
 
+### Incoming SSH access
+
+Interactive installers can optionally import public keys from a GitHub or GitLab.com username. The helper shows the destination and fingerprints and asks again before writing. It does not install or start an SSH server. `--all --yes`, `-Force`, minimal, sync, and dry-run modes do not import keys automatically.
+
+To preview or run the helper independently:
+
+```bash
+bash scripts/import-ssh-keys.sh --provider github --username USERNAME --dry-run
+bash scripts/import-ssh-keys.sh --provider github --username USERNAME
+```
+
+```powershell
+.\scripts\import-ssh-keys.ps1 -Provider github -Username USERNAME -DryRun
+.\scripts\import-ssh-keys.ps1 -Provider github -Username USERNAME
+```
+
+These are keys authorized for incoming connections, not keys used by `gh auth login`. Removing a key from the provider does not revoke it here; remove its line from the selected `authorized_keys` file manually. See the [Windows guide](docs/windows.md#incoming-ssh-keys) for the shared administrator file and ACL requirements.
+
 ## Safety and recovery
 
 - Run the appropriate dry-run before the first installation and after material configuration changes. Review package manifests separately because the Unix dry-run skips the package/tool phase.

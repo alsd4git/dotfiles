@@ -43,7 +43,9 @@ jobs:
             lib/tool-manifest.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
+            scripts/import-ssh-keys.sh \
             tests/test-installer-functions.sh \
+            tests/test-ssh-key-import.sh \
             tests/test-shell-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
@@ -70,7 +72,9 @@ jobs:
             lib/tool-manifest.sh \
             scripts/health-check.sh \
             scripts/tool-health-check.sh \
+            scripts/import-ssh-keys.sh \
             tests/test-installer-functions.sh \
+            tests/test-ssh-key-import.sh \
             tests/test-shell-functions.sh \
             tests/docker-ubuntu-smoke.sh \
             macos/defaults.sh \
@@ -119,6 +123,9 @@ jobs:
 
       - name: Test interactive installer functions with stubs
         run: ./tests/test-installer-functions.sh
+
+      - name: Test SSH key import in a temporary home
+        run: ./tests/test-ssh-key-import.sh
 
   ubuntu-container-smoke:
     runs-on: ubuntu-latest
@@ -239,6 +246,8 @@ jobs:
 
   windows-smoke:
     runs-on: windows-latest
+    env:
+      DOTFILES_DISPOSABLE_WINDOWS: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
