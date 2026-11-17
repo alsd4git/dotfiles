@@ -263,4 +263,6 @@ grep -Fq 'Optional failures: 0' "$test_root/yes-mode.out"
 if [ -e "$yes_home/.nvm" ]; then exit 1; fi
 HOME="$yes_home" SHELL=/bin/bash GIT_CONFIG_GLOBAL="$yes_home/gitconfig" "$repo_root/install.sh" --uninstall --force >/dev/null
 
+"$repo_root/tests/test-prompt-theme.sh"
+
 printf 'installer interactive function tests passed\n'

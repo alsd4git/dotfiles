@@ -13,6 +13,8 @@ docker run --rm \
         apt-get update >/dev/null
         apt-get install -y --no-install-recommends ca-certificates git zsh >/dev/null
 
+        /workspace/tests/test-prompt-theme.sh
+
         for shell_bin in /bin/bash /usr/bin/zsh; do
             timeout 30 "$shell_bin" /workspace/tests/test-shell-functions.sh
             test_home=$(mktemp -d /tmp/dotfiles-home.XXXXXX)

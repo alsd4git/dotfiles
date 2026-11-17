@@ -14,11 +14,16 @@ else
     CURRENT_SHELL=$(ps -p $$ -ocomm= | awk -F/ '{print $NF}' | sed 's/^-*//')
 fi
 
-# Determine theme location across platforms
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    THEME_PATH="$(brew --prefix oh-my-posh 2>/dev/null)/themes/tokyo.omp.json"
-else
-    THEME_PATH="$HOME/.cache/oh-my-posh/themes/tokyo.omp.json"
+# The installer manages this theme independently of the prompt binary and cache.
+THEME_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh/themes/tokyo.omp.json"
+
+# Keep existing prompts working until the updated installer has been applied.
+if [[ ! -f "$THEME_PATH" ]]; then
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
+        THEME_PATH="$(brew --prefix oh-my-posh 2>/dev/null)/themes/tokyo.omp.json"
+    elif [[ -f "$HOME/.cache/oh-my-posh/themes/tokyo.omp.json" ]]; then
+        THEME_PATH="$HOME/.cache/oh-my-posh/themes/tokyo.omp.json"
+    fi
 fi
 
 # Load oh-my-posh if available (interactive shells only). Fallback to no config if theme not found.

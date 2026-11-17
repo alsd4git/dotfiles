@@ -356,10 +356,13 @@ command -v swiftly
 
 ### The prompt is missing
 
+The installer links the versioned Tokyo theme to `${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh/themes/tokyo.omp.json`, including in `--minimal`, `--skip-tools`, and `--sync` modes. This works when Oh My Posh is already installed and survives cache cleanup. The theme source and license are recorded in `general/themes/README.md`.
+
 Oh My Posh initialization runs only in interactive shells. Verify from a new terminal rather than a non-interactive CI shell:
 
 ```bash
 command -v oh-my-posh
+test -r "${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh/themes/tokyo.omp.json"
 ```
 
 ### Unsupported Linux distributions

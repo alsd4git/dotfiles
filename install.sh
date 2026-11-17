@@ -115,6 +115,7 @@ SYMLINK_KEYS=(
     "$HOME/.shell_functions"
     "$HOME/.history_settings"
     "$HOME/.omp_init"
+    "${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh/themes/tokyo.omp.json"
     "$HOME/.nanorc"
     "$HOME/.git_aliases"
     "$HOME/.git_functions"
@@ -125,6 +126,7 @@ SYMLINK_VALUES=(
     "$DOTFILES_HOME/general/.functions"
     "$DOTFILES_HOME/general/.history_settings"
     "$DOTFILES_HOME/general/.omp_init"
+    "$DOTFILES_HOME/general/themes/tokyo.omp.json"
     "$DOTFILES_HOME/nano/.nanorc"
     "$DOTFILES_HOME/git/.git_aliases"
     "$DOTFILES_HOME/git/.git_functions"
@@ -255,7 +257,10 @@ for i in "${!SYMLINK_KEYS[@]}"; do
         action=$([[ $COPY_MODE == true ]] && echo "copy" || echo "link")
         echo "🧪 Would $action $dest → $src"
         report_skipped "$action $dest (dry-run)"
-    elif $COPY_MODE; then
+        continue
+    fi
+    mkdir -p "$(dirname "$dest")"
+    if $COPY_MODE; then
         if [ -e "$dest" ] || [ -L "$dest" ]; then
             backup_path=$(backup_existing_path "$dest")
             echo "📦 Backed up $dest -> $backup_path"
