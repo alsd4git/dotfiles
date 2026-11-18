@@ -23,8 +23,12 @@ alias gd="git diff" #diff between work directory and HEAD
 alias gds="git diff --stat" #diff stats between work directory and HEAD
 # Fetch from remotes
 alias gf="git fetch"
+# Fetch and force-update all remote tags explicitly
+alias gft="git fetch origin '+refs/tags/*:refs/tags/*'"
 # Pull current branch from its configured upstream with rebase, autostash, and whitespace-ignoring merge strategy
 alias gl="git pull --rebase --autostash -Xignore-all-space"
+# Fetch and force-update tags, then pull the current branch
+alias glt="git fetch origin '+refs/tags/*:refs/tags/*' && git pull --rebase --autostash -Xignore-all-space"
 # Last commit with file change stats
 alias gla="git log -1 --stat" #see details of last commit
 # Last commit full diff + stats, with color
