@@ -33,7 +33,7 @@ check_managed_file() {
     if [ -L "$path" ]; then
         local actual_target
         actual_target=$(readlink "$path")
-        if [ "$actual_target" = "$expected_target" ]; then
+        if [ "$path" -ef "$expected_target" ]; then
             printf 'ok: %s -> %s\n' "$path" "$expected_target"
         else
             printf 'warning: %s points to %s, expected %s\n' "$path" "$actual_target" "$expected_target" >&2
