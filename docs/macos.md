@@ -10,6 +10,7 @@ The macOS path manages Bash/Zsh dotfiles, Git defaults, a Homebrew Bundle manife
 - [Fresh installation](#fresh-installation)
 - [Installer modes](#installer-modes)
 - [Homebrew management](#homebrew-management)
+- [Optional development toolchains](#optional-development-toolchains)
 - [macOS defaults](#macos-defaults)
 - [Saved Dock layout](#saved-dock-layout)
 - [Local configuration](#local-configuration)
@@ -147,6 +148,26 @@ Homebrew Bundle supports environment variables for skipping selected entries wit
 Keep personal applications, beta builds, machine-specific SDKs, and software with a reliable built-in updater outside the public baseline unless they have a clear cross-machine role.
 
 Do not add an automatic `brew bundle cleanup` step to the installer. Cleanup removes packages that are absent from the Brewfile, including intentionally unmanaged software.
+
+## Optional development toolchains
+
+Run existing Gradle projects with their checked-in `./gradlew`. Install Gradle
+separately if you need `gradle init` or work on a project without a wrapper.
+
+Use Xcode for the Apple Swift toolchain. If you need a specific Swift.org
+release or snapshot, follow the [Swiftly macOS setup guide](https://www.swift.org/install/macos/swiftly/)
+or install it through Homebrew:
+
+```bash
+brew install swiftly
+swiftly init --skip-install
+```
+
+Follow the shell instructions printed by `swiftly init`. In a project with
+`.swift-version`, run `swiftly install` to install the selected toolchain.
+
+For `adb` and `fastboot`, use the Platform Tools in your Android SDK. See
+[Android SDK tools](../README.md#android-sdk-tools) for the Android CLI setup.
 
 ## macOS defaults
 
@@ -375,7 +396,7 @@ If you approved the Homebrew and optional tool phase, verify those commands
 separately:
 
 ```bash
-command -v git nano fzf zoxide uv swiftly gh
+command -v git nano fzf zoxide uv gh
 ```
 
 Preview the standalone macOS scripts:

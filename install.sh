@@ -405,14 +405,6 @@ install_platform_tools_phase() {
                         fi
                     fi
 
-                    # Optional: install latest stable Swift toolchain via swiftly
-                    if command -v swiftly >/dev/null 2>&1; then
-                        if $INSTALL_ALL || $YES_MODE; then sw_install_tc="y"; else read -r -p $'🦅 Install latest stable Swift toolchain via swiftly? [y/N]: ' sw_install_tc; fi
-                        if [[ "$sw_install_tc" =~ ^[Yy]$ ]]; then
-                            swiftly install stable || true
-                        fi
-                    fi
-
                     phase_banner "Post-install hints"
                     report_macos_stats_quarantine_hint
                     ;;

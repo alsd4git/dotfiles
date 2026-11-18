@@ -188,6 +188,11 @@ The shell startup file loads this environment when present:
 
 A stable Swift toolchain is a separate optional choice.
 
+To set up Swift independently of the optional tools phase, follow the
+[Swiftly setup guide](https://docs.swift.org/latest/documentation/swiftlydocs/getting-started/).
+
+For `adb` and `fastboot`, see [Android SDK tools](../README.md#android-sdk-tools).
+
 ### Node.js with NVM
 
 The installer resolves the latest NVM release from the official Git tags. Set an explicit semantic version only when you need to hold or test a specific release:

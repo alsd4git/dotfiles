@@ -248,6 +248,26 @@ The shared command names use shell-native implementations so they remain familia
 
 `npmupg` requires `npm`. On Unix it now reports a clear error when Node.js is unavailable instead of executing two failing commands.
 
+### Android SDK tools
+
+If your Android SDK already includes `android`, use that copy. You can add
+its `cmdline-tools/latest/bin` directory to your `PATH` if needed. Otherwise,
+[download Android CLI from Google](https://developer.android.com/tools/agents/android-cli/download)
+for your platform. Set `ANDROID_HOME` to your existing SDK path. The example
+uses the usual macOS location. On Linux, a common location is `$HOME/Android/Sdk`.
+
+```bash
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+android --sdk="$ANDROID_HOME" sdk install platform-tools
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+adb version
+fastboot --version
+```
+
+If Android Studio already installed Platform Tools in that SDK, use the same
+`platform-tools` directory on your `PATH`. Persist the exports in your shell
+startup file if they are missing there.
+
 ## Verification and tests
 
 After a Unix installation, verify the managed configuration:
@@ -262,7 +282,7 @@ git config --global --get core.excludesfile
 When the optional tool phase was approved, also verify its commands:
 
 ```bash
-command -v git nano fzf zoxide uv swiftly gh
+command -v git nano fzf zoxide uv gh
 ```
 
 After a Windows installation, open a new PowerShell session and run:
