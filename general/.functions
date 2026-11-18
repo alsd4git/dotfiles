@@ -83,7 +83,14 @@ function nbk() {
 }
 
 # ===== Network Monitoring =====
-function netuse() {
+function netuse() (
+    # Hide job notifications for the monitored command in interactive shells.
+    if [[ -n "${ZSH_VERSION:-}" ]]; then
+        unsetopt monitor notify
+    else
+        set +m
+        set +b
+    fi
     # Linux-only network monitor.  Commands are kept as an argument array so
     # spaces and shell metacharacters retain their normal meaning.
     # Usage: netuse <command...>                  (default route interface)
@@ -221,7 +228,7 @@ function netuse() {
         echo -e "  Media: $(_hu_speed $((total_rx / total_time)))"
     fi
     return "$cmd_status"
-}
+)
 
 # ===== Notes and Future Enhancements =====
 # A useful cheatsheet online: https://devhints.io/bash
